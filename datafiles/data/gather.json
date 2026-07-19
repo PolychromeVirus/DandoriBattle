@@ -1,0 +1,454 @@
+{
+  "gather": [
+    {
+      "id": "rawmaterial",
+      "name": "Raw Material",
+      "sprite": "",
+      "copies": 8,
+      "effect": "Select an empty space.\\n\\nIf you have a second \"Raw Material\" card, discard both and build a wall or a bridge there.",
+      "setsCopies": {
+        "1": 8,
+        "2": 8,
+        "3": 10,
+        "4": 10,
+        "5": 10,
+        "6": 10,
+        "7": 10,
+        "8": 8,
+        "9": 8,
+        "10": 12,
+        "11": 8,
+        "12": 10,
+        "13": 16,
+        "14": 12,
+        "15": 12,
+        "16": 12
+      },
+      "set": 1
+    },
+    {
+      "id": "ivoryandviolet",
+      "name": "Ivory and Violet",
+      "sprite": "",
+      "copies": 5,
+      "effect": "Discard as many Pikmin on one space as you'd like.\\n\\nGet 1 Purple for every 5 Pikmin discarded this way, or 1 White for every 2.",
+      "setsCopies": {
+        "1": 5,
+        "4": 2,
+        "5": 2,
+        "6": 3,
+        "7": 2,
+        "8": 3,
+        "13": 3,
+        "14": 3,
+        "15": 2,
+        "16": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "phosbatpod",
+      "name": "Phosbat Pod",
+      "sprite": "",
+      "copies": 5,
+      "effect": "Select an empty enemy space.\\n\\nSpawn an enemy there.",
+      "setsCopies": {
+        "1": 5,
+        "2": 4,
+        "3": 6,
+        "4": 4,
+        "5": 2,
+        "6": 3,
+        "8": 5,
+        "10": 5,
+        "12": 6,
+        "13": 5,
+        "15": 5,
+        "16": 10
+      },
+      "set": 1
+    },
+    {
+      "id": "bombrock",
+      "name": "Bomb Rock",
+      "sprite": "",
+      "copies": 4,
+      "effect": "Discard all Pikmin on one space (excluding HOME).\\n\\nIf that space has health, do 10 damage to it.",
+      "setsCopies": {
+        "1": 4,
+        "2": 3,
+        "6": 2,
+        "9": 3,
+        "10": 3,
+        "12": 3,
+        "14": 3,
+        "16": 5
+      },
+      "set": 1
+    },
+    {
+      "id": "captainclone",
+      "name": "Captain Clone",
+      "sprite": "",
+      "copies": 4,
+      "effect": "This card has the same effect as the card currently on top of the gather discard pile.",
+      "setsCopies": {
+        "1": 4,
+        "2": 3,
+        "3": 3,
+        "4": 3,
+        "5": 3,
+        "6": 3,
+        "7": 4,
+        "8": 3,
+        "9": 2,
+        "10": 3,
+        "11": 4,
+        "12": 2,
+        "13": 3,
+        "14": 3,
+        "15": 3,
+        "16": 3
+      },
+      "set": 1
+    },
+    {
+      "id": "colorchangingposy",
+      "name": "Color Changing Posy",
+      "sprite": "",
+      "copies": 4,
+      "effect": "Play as a pellet.\\n\\nExchange for 5 of one of the starting Pikmin colors.",
+      "setsCopies": {
+        "1": 4,
+        "2": 3,
+        "3": 4,
+        "4": 3,
+        "5": 3,
+        "6": 4,
+        "7": 4,
+        "8": 4,
+        "9": 6,
+        "10": 4,
+        "11": 4,
+        "12": 4,
+        "13": 3,
+        "14": 5,
+        "15": 4,
+        "16": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "spicyspray",
+      "name": "Ultra-Spicy Spray",
+      "sprite": "",
+      "copies": 4,
+      "effect": "Apply to a Space.\\n\\nAll friendly Pikmin on this space act twice this turn.",
+      "setsCopies": {
+        "1": 4,
+        "2": 3,
+        "4": 3,
+        "5": 3,
+        "6": 4,
+        "7": 3,
+        "9": 4,
+        "10": 3,
+        "11": 3,
+        "13": 3,
+        "14": 3,
+        "15": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "warp",
+      "name": "Warp",
+      "sprite": "",
+      "copies": 4,
+      "effect": "Swap the position of two bosses on the map, or move an enemy to any empty enemy space",
+      "setsCopies": {
+        "1": 4,
+        "2": 2,
+        "3": 2,
+        "4": 2,
+        "5": 2,
+        "8": 3,
+        "9": 4,
+        "10": 3,
+        "12": 3,
+        "13": 4,
+        "15": 4,
+        "16": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "candypopbud",
+      "name": "Candypop Bud",
+      "sprite": "",
+      "copies": 3,
+      "effect": "Choose a space and a color (Red, Blue, or Yellow).\\n\\nAll friendly Pikmin on that space become that color.",
+      "setsCopies": {
+        "1": 3,
+        "6": 3,
+        "9": 3,
+        "11": 2,
+        "16": 3
+      },
+      "set": 1
+    },
+    {
+      "id": "oatchirush",
+      "name": "Oatchi Rush",
+      "sprite": "",
+      "copies": 3,
+      "effect": "Pick a lane.\\n\\nIf that lane is clear, and the treasure is not on your side, move it towards you two spaces.",
+      "setsCopies": {
+        "1": 3,
+        "2": 3,
+        "3": 2,
+        "4": 2,
+        "5": 2,
+        "6": 2,
+        "7": 3,
+        "9": 4,
+        "10": 2,
+        "11": 2,
+        "15": 1,
+        "16": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "rockstorm",
+      "name": "Rock Storm",
+      "sprite": "",
+      "copies": 3,
+      "effect": "Select an empty space that doesn't have a hazard.\\n\\nCreate an available hazard there.",
+      "setsCopies": {
+        "1": 3,
+        "2": 3,
+        "3": 4,
+        "4": 3,
+        "6": 3,
+        "7": 3,
+        "9": 2,
+        "11": 2,
+        "12": 3,
+        "13": 3,
+        "16": 6
+      },
+      "set": 1
+    },
+    {
+      "id": "surveydrone",
+      "name": "Survey Drone",
+      "sprite": "",
+      "copies": 2,
+      "effect": "Shuffle one treasure pile.",
+      "setsCopies": {
+        "1": 2,
+        "2": 2,
+        "4": 2,
+        "6": 2,
+        "7": 3,
+        "9": 2,
+        "11": 2,
+        "13": 2,
+        "14": 3,
+        "16": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "pikminextinction",
+      "name": "Pikmin Extinction",
+      "sprite": "",
+      "copies": 1,
+      "effect": "All Pikmin on all spaces (Including HOME) are discarded.\\n\\nEach player gets 1 of each starting Pikmin color at their HOME.",
+      "setsCopies": {
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "9": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "candypopbud2",
+      "name": "Candypop Bud",
+      "sprite": "",
+      "copies": 7,
+      "effect": "Choose a space and a color (Rock, Winged, or Ice).\\n\\nAll friendly Pikmin on that space become that color.",
+      "setsCopies": {
+        "2": 7,
+        "4": 2,
+        "7": 3,
+        "8": 3,
+        "10": 3,
+        "11": 3,
+        "12": 3,
+        "16": 3
+      },
+      "set": 2
+    },
+    {
+      "id": "boulder",
+      "name": "Boulder",
+      "sprite": "",
+      "copies": 4,
+      "effect": "Discard all Pikmin on one space (excluding HOME).\\n\\nIf that space has health, do 5 damage to it.",
+      "setsCopies": {
+        "2": 4,
+        "3": 4,
+        "4": 4,
+        "5": 4,
+        "6": 4,
+        "8": 5,
+        "11": 6,
+        "13": 4,
+        "14": 6,
+        "15": 4,
+        "16": 5
+      },
+      "set": 2
+    },
+    {
+      "id": "bitterspray",
+      "name": "Ultra-Bitter Spray",
+      "sprite": "",
+      "copies": 3,
+      "effect": "Apply to a space.\\n\\nEnemies on this space skip their next action.",
+      "setsCopies": {
+        "2": 3,
+        "3": 3,
+        "5": 3,
+        "6": 4,
+        "7": 3,
+        "8": 3,
+        "10": 3,
+        "11": 3,
+        "12": 4,
+        "14": 3
+      },
+      "set": 2
+    },
+    {
+      "id": "shipsignal",
+      "name": "Ship Signal",
+      "sprite": "",
+      "copies": 1,
+      "effect": "Select one treasure pile.\\n\\nRearrange the contents of that pile in any way you want.",
+      "setsCopies": {
+        "2": 1,
+        "3": 2,
+        "5": 2,
+        "8": 2,
+        "9": 1,
+        "10": 3,
+        "12": 3,
+        "15": 2,
+        "16": 2
+      },
+      "set": 2
+    },
+    {
+      "id": "queencandypopbud",
+      "name": "Queen Candypop Bud",
+      "sprite": "",
+      "copies": 4,
+      "effect": "Choose a space and one of the three starting Pikmin colors.\\n\\nAll friendly Pikmin on that space become that color.",
+      "setsCopies": {
+        "3": 4,
+        "5": 3,
+        "10": 2,
+        "13": 3,
+        "14": 4,
+        "15": 3
+      },
+      "set": 3
+    },
+    {
+      "id": "pikpikbundle",
+      "name": "Pikpik Carrot Bundle",
+      "sprite": "",
+      "copies": 3,
+      "effect": "Place on an enemy space.\\n\\nThis takes damage before your pikmin do. It has 5 health.",
+      "setsCopies": {
+        "3": 3,
+        "4": 5,
+        "5": 5,
+        "7": 5,
+        "8": 5,
+        "9": 5,
+        "11": 4,
+        "12": 6,
+        "14": 4
+      },
+      "set": 3
+    },
+    {
+      "id": "mine",
+      "name": "Mine",
+      "sprite": "",
+      "copies": 2,
+      "effect": "Once this space takes 10 damage, it will discard all Pikmin that end on it.\\n\\nIt takes one damage every time a Pikmin passes it.",
+      "setsCopies": {
+        "3": 2,
+        "4": 2,
+        "5": 2,
+        "7": 2,
+        "8": 3,
+        "9": 3,
+        "10": 3,
+        "11": 2,
+        "16": 3
+      },
+      "set": 3
+    },
+    {
+      "id": "icebomb",
+      "name": "Ice Bomb",
+      "sprite": "",
+      "copies": 2,
+      "effect": "Apply to a space.\\n\\nAll Pikmin and enemies on this space do not act on their next turn.",
+      "setsCopies": {
+        "4": 2,
+        "5": 3,
+        "7": 4,
+        "11": 4,
+        "15": 3,
+        "16": 4
+      },
+      "set": 4
+    },
+    {
+      "id": "storm",
+      "name": "Lightning Storm",
+      "sprite": "",
+      "copies": 2,
+      "effect": "Apply to a 2 by 2 area of 4 spaces.\\n\\nAll Pikmin and enemies on these spaces do not act on their next turn.",
+      "setsCopies": {
+        "6": 2,
+        "8": 2,
+        "9": 2,
+        "12": 2,
+        "15": 2,
+        "16": 2
+      },
+      "set": 6
+    }
+  ]
+}

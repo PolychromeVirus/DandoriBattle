@@ -1,0 +1,134 @@
+{
+  "hazards": [
+    {
+      "id": "poisonemitter",
+      "name": "Poison Emitter",
+      "sprite": "",
+      "copies": 0,
+      "type": "hazard",
+      "hp": 5,
+      "element": "poison",
+      "text": "This space kills one of each Pikmin type that passes it that isn't immune to poison.\\nDisappears when it loses 5 health. It loses one health every turn."
+    },
+    {
+      "id": "electricitygenerator",
+      "name": "Electricity Generator",
+      "sprite": "",
+      "copies": 0,
+      "type": "hazard",
+      "hp": 5,
+      "element": "electric",
+      "text": "This space can only be passed by Pikmin immune to electricity.\\n\\nIt is discarded when it takes 5 damage."
+    },
+    {
+      "id": "firegeyser",
+      "name": "Fire Geyser",
+      "sprite": "",
+      "copies": 0,
+      "type": "hazard",
+      "hp": 5,
+      "element": "fire",
+      "text": "This space can only be passed by Pikmin immune to fire.\\n\\nIt is discarded when it takes 5 damage."
+    },
+    {
+      "id": "waterspout",
+      "name": "Water Spout",
+      "sprite": "",
+      "copies": 0,
+      "type": "hazard",
+      "hp": 5,
+      "element": "water",
+      "text": "This space can only be passed by Pikmin immune to water.\\n\\nIt is discarded when it takes 5 damage."
+    },
+    {
+      "id": "icevent",
+      "name": "Ice Vent",
+      "sprite": "",
+      "copies": 0,
+      "type": "hazard",
+      "hp": 5,
+      "element": "ice",
+      "text": "This space can only be passed by Pikmin immune to ice.\\n\\nIt is discarded when it takes 5 damage."
+    },
+    {
+      "id": "wall",
+      "name": "Wall",
+      "sprite": "",
+      "copies": 0,
+      "type": "wall",
+      "hp": 10,
+      "element": "",
+      "text": "This space is blocked.\\n\\nPikmin cannot pass until this card takes 10 damage."
+    },
+    {
+      "id": "arachnodeweb",
+      "name": "Webbed Wall",
+      "sprite": "",
+      "copies": 0,
+      "type": "wall",
+      "hp": 10,
+      "element": "",
+      "text": "Winged Pikmin cannot pass or destroy this hazard. Pikmin cannot carry treasure through this hazard.\\n\\nIt is discarded when it takes 10 damage."
+    },
+    {
+      "id": "crystalwall",
+      "name": "Crystal Wall",
+      "sprite": "",
+      "copies": 0,
+      "type": "wall",
+      "hp": 5,
+      "element": "",
+      "text": "This space is blocked and can only be destroyed by Rock Pikmin.\\n\\nPikmin cannot pass until this card takes 5 damage."
+    },
+    {
+      "id": "electricwall",
+      "name": "Electric Wall",
+      "sprite": "",
+      "copies": 0,
+      "type": "wall",
+      "hp": 5,
+      "element": "electric",
+      "text": "This space is blocked and can only be destroyed by Yellow Pikmin.\\n\\nPikmin cannot pass until this card takes 5 damage."
+    },
+    {
+      "id": "icewall",
+      "name": "Ice Wall",
+      "sprite": "",
+      "copies": 0,
+      "type": "wall",
+      "hp": 5,
+      "element": "ice",
+      "text": "This space is blocked and can only be destroyed by Ice Pikmin.\\n\\nPikmin cannot pass until this card takes 5 damage."
+    },
+    {
+      "id": "bridge",
+      "name": "Bridge",
+      "sprite": "",
+      "copies": 5,
+      "type": "bridge",
+      "hp": 20,
+      "element": "",
+      "text": "Until this space takes 20 damage, it has no hazard.\\n\\nThis is destroyed when a Treasure Pile is carried over it."
+    },
+    {
+      "id": "climbingstick",
+      "name": "Climbing Stick",
+      "sprite": "",
+      "copies": 0,
+      "type": "bridge",
+      "hp": 5,
+      "element": "",
+      "text": "This can only be placed on height spaces.\\n\\nThis space has no hazard."
+    },
+    {
+      "id": "tunnel",
+      "name": "Tunnel",
+      "sprite": "",
+      "copies": 5,
+      "type": "bridge",
+      "hp": 5,
+      "element": "",
+      "text": "This can only be placed on chasm spaces.\\n\\nThis space has no hazard for pikmin.\\nTreasures cannot pass this."
+    }
+  ]
+}

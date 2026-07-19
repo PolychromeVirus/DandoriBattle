@@ -1,0 +1,212 @@
+{
+  "diceVariants": [
+    [
+      {
+        "color": "red",
+        "value": 1
+      },
+      {
+        "color": "red",
+        "value": 5
+      },
+      {
+        "color": "yellow",
+        "value": 1
+      },
+      {
+        "color": "yellow",
+        "value": 5
+      },
+      {
+        "color": "blue",
+        "value": 1
+      },
+      {
+        "color": "blue",
+        "value": 5
+      }
+    ],
+    [
+      {
+        "color": "purple",
+        "value": 1
+      },
+      {
+        "color": "purple",
+        "value": 5
+      },
+      {
+        "color": "white",
+        "value": 1
+      },
+      {
+        "color": "white",
+        "value": 5
+      },
+      {
+        "color": "rock",
+        "value": 1
+      },
+      {
+        "color": "rock",
+        "value": 5
+      }
+    ],
+    [
+      {
+        "color": "rock",
+        "value": 1
+      },
+      {
+        "color": "rock",
+        "value": 5
+      },
+      {
+        "color": "winged",
+        "value": 1
+      },
+      {
+        "color": "winged",
+        "value": 5
+      },
+      {
+        "color": "ice",
+        "value": 1
+      },
+      {
+        "color": "ice",
+        "value": 5
+      }
+    ],
+    [
+      {
+        "color": "blue",
+        "value": 1
+      },
+      {
+        "color": "blue",
+        "value": 5
+      },
+      {
+        "color": "winged",
+        "value": 1
+      },
+      {
+        "color": "winged",
+        "value": 5
+      },
+      {
+        "color": "ice",
+        "value": 1
+      },
+      {
+        "color": "ice",
+        "value": 5
+      }
+    ],
+    [
+      {
+        "color": "red",
+        "value": 1
+      },
+      {
+        "color": "red",
+        "value": 5
+      },
+      {
+        "color": "yellow",
+        "value": 1
+      },
+      {
+        "color": "yellow",
+        "value": 5
+      },
+      {
+        "color": "rock",
+        "value": 1
+      },
+      {
+        "color": "rock",
+        "value": 5
+      }
+    ],
+    [
+      {
+        "color": "red",
+        "value": 1
+      },
+      {
+        "color": "red",
+        "value": 5
+      },
+      {
+        "color": "white",
+        "value": 1
+      },
+      {
+        "color": "white",
+        "value": 5
+      },
+      {
+        "color": "rock",
+        "value": 1
+      },
+      {
+        "color": "rock",
+        "value": 5
+      }
+    ],
+    [
+      {
+        "color": "red",
+        "value": 1
+      },
+      {
+        "color": "red",
+        "value": 5
+      },
+      {
+        "color": "blue",
+        "value": 1
+      },
+      {
+        "color": "blue",
+        "value": 5
+      },
+      {
+        "color": "winged",
+        "value": 1
+      },
+      {
+        "color": "winged",
+        "value": 5
+      }
+    ],
+    [
+      {
+        "color": "red",
+        "value": 1
+      },
+      {
+        "color": "yellow",
+        "value": 1
+      },
+      {
+        "color": "blue",
+        "value": 1
+      },
+      {
+        "color": "rock",
+        "value": 1
+      },
+      {
+        "color": "winged",
+        "value": 1
+      },
+      {
+        "color": "ice",
+        "value": 1
+      }
+    ]
+  ]
+}

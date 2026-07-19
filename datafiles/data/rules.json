@@ -1,0 +1,15 @@
+{
+  "days": 3,
+  "dayTrackLength": 5,
+  "pikminBoardCap": 25,
+  "handLimit": 10,
+  "gatherActionsFirstTurn": 3,
+  "gatherActionsNormal": 2,
+  "treasurePileMinValue": 500,
+  "setThreshold": 3,
+  "startingPikminPerColor": 1,
+  "pelletExchange": {
+    "1": { "matching": 2, "other": 1 },
+    "5": { "matching": 5, "other": 2 }
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "pellets": [
+    {
+      "id": "red1",
+      "name": "Red \"1\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "red",
+      "sameTypeAmount": 2,
+      "offTypeAmount": 1
+    },
+    {
+      "id": "red5",
+      "name": "Red \"5\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "red",
+      "sameTypeAmount": 5,
+      "offTypeAmount": 2
+    },
+    {
+      "id": "blue1",
+      "name": "Blue \"1\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "blue",
+      "sameTypeAmount": 2,
+      "offTypeAmount": 1
+    },
+    {
+      "id": "blue5",
+      "name": "Blue \"5\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "blue",
+      "sameTypeAmount": 5,
+      "offTypeAmount": 2
+    },
+    {
+      "id": "yellow1",
+      "name": "Yellow \"1\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "yellow",
+      "sameTypeAmount": 2,
+      "offTypeAmount": 1
+    },
+    {
+      "id": "yellow5",
+      "name": "Yellow \"5\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "yellow",
+      "sameTypeAmount": 5,
+      "offTypeAmount": 2
+    },
+    {
+      "id": "purple1",
+      "name": "Purple \"1\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "purple",
+      "sameTypeAmount": 2,
+      "offTypeAmount": 1
+    },
+    {
+      "id": "purple5",
+      "name": "Purple \"5\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "purple",
+      "sameTypeAmount": 5,
+      "offTypeAmount": 2
+    },
+    {
+      "id": "white1",
+      "name": "White \"1\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "white",
+      "sameTypeAmount": 2,
+      "offTypeAmount": 1
+    },
+    {
+      "id": "white5",
+      "name": "White \"5\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "white",
+      "sameTypeAmount": 5,
+      "offTypeAmount": 2
+    },
+    {
+      "id": "rock1",
+      "name": "Black \"1\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "rock",
+      "sameTypeAmount": 2,
+      "offTypeAmount": 1
+    },
+    {
+      "id": "rock5",
+      "name": "Black \"5\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "rock",
+      "sameTypeAmount": 5,
+      "offTypeAmount": 2
+    },
+    {
+      "id": "winged1",
+      "name": "Pink \"1\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "winged",
+      "sameTypeAmount": 2,
+      "offTypeAmount": 1
+    },
+    {
+      "id": "winged5",
+      "name": "Pink \"5\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "winged",
+      "sameTypeAmount": 5,
+      "offTypeAmount": 2
+    },
+    {
+      "id": "ice1",
+      "name": "Cyan \"1\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "ice",
+      "sameTypeAmount": 2,
+      "offTypeAmount": 1
+    },
+    {
+      "id": "ice5",
+      "name": "Cyan \"5\" Pellet",
+      "sprite": "",
+      "copies": 5,
+      "color": "ice",
+      "sameTypeAmount": 5,
+      "offTypeAmount": 2
+    }
+  ]
+}

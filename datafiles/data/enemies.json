@@ -1,0 +1,3876 @@
+{
+  "enemies": [
+    {
+      "id": "armoredcannonbeetle",
+      "name": "Armored Cannon Beetle",
+      "sprite": "ArmoredCannonBeetle",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 25,
+      "damage": 10,
+      "reward": {
+        "pellets": 3,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "This migrant lithopod has developed a stronger carapace than its relatives.\n- Olimar's Notes",
+      "setsCopies": {
+        "1": 1,
+        "2": 1,
+        "6": 1,
+        "8": 1,
+        "10": 1,
+        "11": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "baldylonglegs",
+      "name": "Baldy Long Legs",
+      "sprite": "BaldyLongLegs",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 5,
+      "reward": {
+        "pellets": 3,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "Not as tasty as it looks. Completely inedible.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "2": 1,
+        "5": 1,
+        "8": 2,
+        "10": 1,
+        "11": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "beadylonglegs",
+      "name": "Beady Long Legs",
+      "sprite": "BeadyLongLegs",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 5,
+      "reward": {
+        "pellets": 3,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "Poisonous. Consumption results in prolonged writhing and uncontrollable mirth.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "3": 1,
+        "6": 1,
+        "8": 2,
+        "10": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "bloomcapbloyster",
+      "name": "Bloomcap Bloyster",
+      "sprite": "BloomcapBloyster",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 15,
+      "damage": 9,
+      "reward": {
+        "pellets": 2,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "The fatty muscle that controls those undulating motions must be eaten fresh. All that quick movement means the meat toughens quickly.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "4": 1,
+        "5": 1,
+        "7": 1,
+        "12": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "bug-eyedcrawmad",
+      "name": "Bug-Eyed Crawmad",
+      "sprite": "Bug_EyedCrawmad",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 10,
+      "reward": {
+        "pellets": 4,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "When grilled, serves as an excellent filling for an offbeat po'boy. If you have any left over, add it to a liver paste to deepen the flavor.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "2": 1,
+        "4": 1,
+        "5": 1,
+        "8": 1,
+        "11": 1,
+        "12": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "burrowingsnagret",
+      "name": "Burrowing Snagret",
+      "sprite": "BurrowingSnagret",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 3,
+      "reward": {
+        "pellets": 2,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "Slice the serpentine torso into thin medallions, skewer on a metal rod with Hocotate onions, and barbecue over an open flame.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "2": 1,
+        "6": 1,
+        "12": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "empressbulblax",
+      "name": "Empress Bulblax",
+      "sprite": "EmpressBulblax",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 35,
+      "damage": 20,
+      "reward": {
+        "pellets": 0,
+        "gather": 6
+      },
+      "ability": "",
+      "flavor": "For a sophisticated delicacy, make a p\u00e2t\u00e9 de foie gras from this massively obese creature's liver and spread it over a sesame cracker.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "2": 1,
+        "6": 1,
+        "9": 1,
+        "14": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "goolix",
+      "name": "Goolix",
+      "sprite": "Goolix",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "water",
+      "defenseElement": "water",
+      "hp": 30,
+      "damage": 15,
+      "reward": {
+        "pellets": 4,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "A watery gelatinous membrane protects this creature's nervous system.\n- Olimar's Notes",
+      "setsCopies": {
+        "1": 1,
+        "5": 1,
+        "7": 1,
+        "11": 1,
+        "13": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "jumbobulborb",
+      "name": "Jumbo Bulborb",
+      "sprite": "JumboBulborb",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 15,
+      "reward": {
+        "pellets": 3,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "It's a large creature, but the meat is tender and flavorful. It's impossible to eat in one sitting, so store some portions for later. Coat the fattier meat in cooking oil and freeze. Leaner cuts should be smoked.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "2": 1,
+        "6": 1,
+        "7": 1,
+        "9": 3,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "man-at-legs",
+      "name": "Man-at-Legs",
+      "sprite": "Man_at_Legs",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "explosive",
+      "defenseElement": "",
+      "hp": 25,
+      "damage": 10,
+      "reward": {
+        "pellets": 0,
+        "gather": 5
+      },
+      "ability": "",
+      "flavor": "Although the meat is a bit on the metallic side, the oil makes a mouthwatering gravy or lubricative vinaigrette.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "3": 1,
+        "7": 1,
+        "8": 2,
+        "10": 3,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "masterhop",
+      "name": "Masterhop",
+      "sprite": "Masterhop",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 15,
+      "reward": {
+        "pellets": 2,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "Meat can be consumed if first dehydrated with a lot of salt. But the eyeballs and the legs are the best parts.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "4": 1,
+        "5": 1,
+        "10": 1,
+        "11": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "pileatedsnagret",
+      "name": "Pileated Snagret",
+      "sprite": "PileatedSnagret",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 30,
+      "damage": 15,
+      "reward": {
+        "pellets": 0,
+        "gather": 5
+      },
+      "ability": "",
+      "flavor": "You haven't lived until you've tasted a mint-braised snagret shank! Or if you're feeling especially saucy, stuff a bird with a can of your favorite savory nectar, throw it on the barbeque, and let the juices mingle to make a mean beverage-canister snagret!\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "6": 1,
+        "12": 1,
+        "13": 1,
+        "15": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "smokyprogg",
+      "name": "Smoky Progg",
+      "sprite": "SmokyProgg",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "poison",
+      "defenseElement": "poison",
+      "hp": 25,
+      "damage": 20,
+      "reward": {
+        "pellets": 5,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "Egg tastes best when smoked. The flavor of the belly and the head is pleasantly warming.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "4": 1,
+        "5": 1,
+        "7": 1,
+        "11": 1,
+        "13": 1,
+        "14": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "titanblowhog",
+      "name": "Titan Blowhog",
+      "sprite": "TitanBlowhog",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "fire",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 15,
+      "reward": {
+        "pellets": 2,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "Creature too large to easily carve. Bigger is not better in this case.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "2": 1,
+        "6": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "waterwraith",
+      "name": "Waterwraith",
+      "sprite": "Waterwraith",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 30,
+      "damage": 25,
+      "reward": {
+        "pellets": 0,
+        "gather": 6
+      },
+      "ability": "Must be attacked by at least 1 purple",
+      "flavor": "Inedible. Known to cause mass hysteria, followed by leg spasms and internal thunderings.\n- Louie's Notes",
+      "setsCopies": {
+        "1": 1,
+        "3": 1,
+        "5": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "albinodwarfbulborb",
+      "name": "Albino Dwarf Bulborb",
+      "sprite": "AlbinoDwarfBulborb",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 1,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 3,
+        "3": 2,
+        "7": 3,
+        "9": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "femalesheargrub",
+      "name": "Female Sheargrub",
+      "sprite": "FemaleSheargrub",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 1,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 3,
+        "3": 3,
+        "6": 2,
+        "8": 3,
+        "10": 3
+      },
+      "set": 1
+    },
+    {
+      "id": "malesheargrub",
+      "name": "Male Sheargrub",
+      "sprite": "MaleSheargrub",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 1,
+      "damage": 1,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 3,
+        "3": 3,
+        "6": 2,
+        "7": 3,
+        "8": 3,
+        "12": 3
+      },
+      "set": 1
+    },
+    {
+      "id": "phosbat",
+      "name": "Phosbat",
+      "sprite": "Phosbat",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 2,
+      "reward": {
+        "pellets": 0,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 3,
+        "3": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "shearflea",
+      "name": "Shearflea",
+      "sprite": "Shearflea",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 1,
+      "damage": 1,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 3,
+        "6": 2,
+        "7": 3,
+        "8": 3,
+        "11": 4,
+        "12": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "wolpole",
+      "name": "Wolpole",
+      "sprite": "Wolpole",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "water",
+      "hp": 3,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 3,
+        "5": 4,
+        "11": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "anodedweevil",
+      "name": "Anode Dweevil",
+      "sprite": "AnodeDweevil",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "electric",
+      "defenseElement": "",
+      "hp": 4,
+      "damage": 4,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "Creates an Electricity Generator when it dies",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 2,
+        "3": 2,
+        "6": 2,
+        "7": 3,
+        "8": 4,
+        "11": 2,
+        "14": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "breadbug",
+      "name": "Breadbug",
+      "sprite": "Breadbug",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 8,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 1,
+        "3": 1,
+        "9": 3,
+        "12": 2,
+        "13": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "bulbmin",
+      "name": "Bulbmin",
+      "sprite": "Bulbmin",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 5,
+      "damage": 3,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "Get 5 Bulbmin tokens when it dies",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 2,
+        "3": 10,
+        "9": 9,
+        "12": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "bulborblarva",
+      "name": "Bulborb Larva",
+      "sprite": "BulborbLarva",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 1,
+      "damage": 1,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "6": 3,
+        "9": 6
+      },
+      "set": 1
+    },
+    {
+      "id": "downysnagret",
+      "name": "Downy Snagret",
+      "sprite": "DownySnagret",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 4,
+      "damage": 2,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 3,
+        "6": 3,
+        "12": 3
+      },
+      "set": 1
+    },
+    {
+      "id": "dwarfbulbear",
+      "name": "Dwarf Bulbear",
+      "sprite": "DwarfBulbear",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 2,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 3,
+        "3": 2,
+        "4": 3,
+        "6": 3,
+        "9": 4,
+        "12": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "dwarfbulborb",
+      "name": "Dwarf Bulborb",
+      "sprite": "DwarfBulborb",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 1,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 3,
+        "6": 3,
+        "9": 4,
+        "12": 3
+      },
+      "set": 1
+    },
+    {
+      "id": "dwarffrostybulborb",
+      "name": "Dwarf Frosty Bulborb",
+      "sprite": "DwarfFrostyBulborb",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 1,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "4": 3,
+        "7": 3,
+        "9": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "dwarforangebulborb",
+      "name": "Dwarf Orange Bulborb",
+      "sprite": "DwarfOrangeBulborb",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 1,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "3": 2,
+        "9": 4,
+        "11": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "fieryblowhog",
+      "name": "Fiery Blowhog",
+      "sprite": "FieryBlowhog",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "fire",
+      "defenseElement": "",
+      "hp": 7,
+      "damage": 5,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 3,
+        "6": 2,
+        "13": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "fierybulblax",
+      "name": "Fiery Bulblax",
+      "sprite": "FieryBulblax",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "fire",
+      "hp": 12,
+      "damage": 9,
+      "reward": {
+        "pellets": 3,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "3": 1,
+        "6": 2,
+        "9": 5,
+        "11": 1,
+        "14": 2,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "fierydweevil",
+      "name": "Fiery Dweevil",
+      "sprite": "FieryDweevil",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "fire",
+      "defenseElement": "",
+      "hp": 4,
+      "damage": 4,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "Creates a Fire Geyser when it dies",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "3": 2,
+        "6": 2,
+        "8": 4,
+        "11": 2,
+        "14": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "honeywisp",
+      "name": "Honeywisp",
+      "sprite": "Honeywisp",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "height",
+      "hp": 3,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 2,
+        "4": 3,
+        "5": 2,
+        "6": 2,
+        "12": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "hydrodweevil",
+      "name": "Hydro Dweevil",
+      "sprite": "HydroDweevil",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "water",
+      "defenseElement": "",
+      "hp": 4,
+      "damage": 4,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "Creates a Water Spout when it dies",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "3": 2,
+        "5": 3,
+        "7": 3,
+        "8": 4,
+        "11": 2,
+        "14": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "lesserspottedjellyfloat",
+      "name": "Lesser Spotted Jellyfloat",
+      "sprite": "LesserSpottedJellyfloat",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "water",
+      "defenseElement": "",
+      "hp": 8,
+      "damage": 4,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "3": 2,
+        "5": 2,
+        "7": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "redspectralids",
+      "name": "Red Spectralid",
+      "sprite": "RedSpectralids",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "height",
+      "hp": 1,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 3,
+        "6": 2,
+        "12": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "shearwig",
+      "name": "Shearwig",
+      "sprite": "Shearwig",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 1,
+      "damage": 1,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "3": 2,
+        "6": 2,
+        "8": 3
+      },
+      "set": 1
+    },
+    {
+      "id": "skitterleaf",
+      "name": "Skitter Leaf",
+      "sprite": "SkitterLeaf",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "5": 2,
+        "6": 2,
+        "12": 3
+      },
+      "set": 1
+    },
+    {
+      "id": "spottybulbear",
+      "name": "Spotty Bulbear",
+      "sprite": "SpottyBulbear",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 12,
+      "damage": 9,
+      "reward": {
+        "pellets": 3,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 2,
+        "3": 1,
+        "6": 1,
+        "9": 5,
+        "12": 1,
+        "14": 3
+      },
+      "set": 1
+    },
+    {
+      "id": "whitespectralid",
+      "name": "White Spectralid",
+      "sprite": "WhiteSpectralid",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "height",
+      "hp": 1,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 3,
+        "7": 3,
+        "12": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "yellowspectralid",
+      "name": "Yellow Spectralid",
+      "sprite": "YellowSpectralid",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "height",
+      "hp": 1,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 2,
+        "2": 3,
+        "12": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "bulborb",
+      "name": "Bulborb",
+      "sprite": "Bulborb",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 9,
+      "damage": 7,
+      "reward": {
+        "pellets": 3,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "2": 3,
+        "6": 1,
+        "9": 5,
+        "12": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "creepingchrysanthemumclassic",
+      "name": "Creeping Chrysanthemum",
+      "sprite": "CreepingChrysanthemumClassic",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 15,
+      "damage": 10,
+      "reward": {
+        "pellets": 3,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "4": 2,
+        "5": 1,
+        "6": 1,
+        "12": 3,
+        "13": 4,
+        "14": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "creepingchrysanthemumuglyfucker",
+      "name": "Creeping Chrysanthemum",
+      "sprite": "CreepingChrysanthemumUglyFucker",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 15,
+      "damage": 10,
+      "reward": {
+        "pellets": 3,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "5": 1,
+        "6": 1,
+        "11": 3,
+        "14": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "desiccatedskitterleaf",
+      "name": "Desiccated Skitter Leaf",
+      "sprite": "DesiccatedSkitterLeaf",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 5,
+      "damage": 3,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "4": 2,
+        "5": 2,
+        "6": 1,
+        "7": 2,
+        "11": 3
+      },
+      "set": 1
+    },
+    {
+      "id": "gatlinggroink",
+      "name": "Gatling Groink",
+      "sprite": "GatlingGroink",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "explosive",
+      "defenseElement": "",
+      "hp": 12,
+      "damage": 7,
+      "reward": {
+        "pellets": 0,
+        "gather": 4
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "2": 2,
+        "3": 2,
+        "4": 2,
+        "6": 2,
+        "10": 10,
+        "11": 2,
+        "13": 2,
+        "14": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "grubchucker",
+      "name": "Grubchucker",
+      "sprite": "Grubchucker",
+      "copies": 1,
+      "boss": false,
+      "tall": true,
+      "attackElement": "",
+      "defenseElement": "height",
+      "hp": 12,
+      "damage": 8,
+      "reward": {
+        "pellets": 2,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "2": 1,
+        "4": 2,
+        "5": 2,
+        "7": 1,
+        "8": 2,
+        "11": 2,
+        "12": 1,
+        "14": 3,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "hairybulborb",
+      "name": "Hairy Bulborb",
+      "sprite": "HairyBulborb",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 9,
+      "damage": 7,
+      "reward": {
+        "pellets": 3,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "4": 2,
+        "7": 2,
+        "9": 5
+      },
+      "set": 1
+    },
+    {
+      "id": "mamasheargrub",
+      "name": "Mama Sheargrub",
+      "sprite": "MamaSheargrub",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 10,
+      "damage": 5,
+      "reward": {
+        "pellets": 3,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "6": 1,
+        "8": 2,
+        "10": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "mitite",
+      "name": "Mitite",
+      "sprite": "Mitite",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 2,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "3": 2,
+        "6": 3,
+        "8": 4,
+        "12": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "mungedweevil",
+      "name": "Munge Dweevil",
+      "sprite": "MungeDweevil",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "poison",
+      "defenseElement": "",
+      "hp": 4,
+      "damage": 4,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "Creates a Poison Emitter when it dies",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "3": 1,
+        "4": 1,
+        "8": 2,
+        "11": 2,
+        "14": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "orangebulborb",
+      "name": "Orange Bulborb",
+      "sprite": "OrangeBulborb",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 9,
+      "damage": 7,
+      "reward": {
+        "pellets": 3,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "3": 1,
+        "9": 5,
+        "11": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "pearlyclamclamp",
+      "name": "Pearly Clamclamp",
+      "sprite": "PearlyClamclamp",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "water",
+      "hp": 10,
+      "damage": 8,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "5": 3,
+        "11": 1,
+        "13": 2,
+        "14": 3,
+        "16": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "snowbulborb",
+      "name": "Snow Bulborb",
+      "sprite": "SnowBulborb",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 1,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "7": 3,
+        "9": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "sunsquish",
+      "name": "Sunsquish",
+      "sprite": "Sunsquish",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 2,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "2": 2,
+        "3": 2,
+        "7": 2,
+        "11": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "swarmingsheargrubs",
+      "name": "Swarming Sheargrub",
+      "sprite": "SwarmingSheargrubs",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 7,
+      "damage": 3,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "6": 1,
+        "8": 2,
+        "11": 1,
+        "12": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "swoopingsnitchbug",
+      "name": "Swooping Snitchbug",
+      "sprite": "SwoopingSnitchbug",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "height",
+      "hp": 5,
+      "damage": 2,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "Any Pikmin attacked this turn can't move next turn",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "2": 1,
+        "4": 3,
+        "5": 1,
+        "6": 2,
+        "12": 2,
+        "13": 3,
+        "15": 5
+      },
+      "set": 1
+    },
+    {
+      "id": "toadybloyster",
+      "name": "Toady Bloyster",
+      "sprite": "ToadyBloyster",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 7,
+      "damage": 6,
+      "reward": {
+        "pellets": 2,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "3": 2,
+        "4": 3,
+        "5": 2,
+        "7": 2,
+        "11": 1,
+        "12": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "ujadani",
+      "name": "Ujadani",
+      "sprite": "Ujadani",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "poison",
+      "hp": 1,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "4": 2,
+        "7": 1,
+        "10": 4,
+        "13": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "unmarkedspectralids",
+      "name": "Unmarked Spectralids",
+      "sprite": "UnmarkedSpectralids",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "height",
+      "hp": 1,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "2": 2,
+        "6": 1,
+        "12": 1
+      },
+      "set": 1
+    },
+    {
+      "id": "venomdweevil",
+      "name": "Venom Dweevil",
+      "sprite": "VenomDweevil",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "poison",
+      "defenseElement": "",
+      "hp": 4,
+      "damage": 4,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "Creates a Poison Emitter when it dies",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "3": 1,
+        "4": 1,
+        "8": 2,
+        "14": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "volatiledweevil",
+      "name": "Volatile Dweevil",
+      "sprite": "VolatileDweevil",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "explosive",
+      "defenseElement": "",
+      "hp": 4,
+      "damage": 10,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "When it attacks it dies and drops nothing",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "2": 2,
+        "3": 2,
+        "4": 3,
+        "5": 2,
+        "7": 2,
+        "8": 4,
+        "10": 8,
+        "14": 8
+      },
+      "set": 1
+    },
+    {
+      "id": "wateryblowhog",
+      "name": "Watery Blowhog",
+      "sprite": "WateryBlowhog",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "water",
+      "defenseElement": "",
+      "hp": 7,
+      "damage": 5,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "2": 3,
+        "7": 2,
+        "13": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "whiptonguebulborb",
+      "name": "Whiptongue Bulborb",
+      "sprite": "WhiptongueBulborb",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 9,
+      "damage": 9,
+      "reward": {
+        "pellets": 3,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "2": 2,
+        "4": 2,
+        "6": 1,
+        "7": 2,
+        "9": 5
+      },
+      "set": 1
+    },
+    {
+      "id": "wollyhop",
+      "name": "Wollyhop",
+      "sprite": "Wollyhop",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 7,
+      "damage": 5,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "2": 2,
+        "3": 2,
+        "4": 2,
+        "10": 4,
+        "11": 2
+      },
+      "set": 1
+    },
+    {
+      "id": "yellowwollyhop",
+      "name": "Yellow Wollyhop",
+      "sprite": "YellowWollyhop",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 7,
+      "damage": 5,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "1": 1,
+        "2": 2,
+        "4": 2,
+        "5": 2,
+        "10": 4
+      },
+      "set": 1
+    },
+    {
+      "id": "crustedrumpup",
+      "name": "Crusted Rumpup",
+      "sprite": "CrustedRumpup",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 15,
+      "damage": 10,
+      "reward": {
+        "pellets": 2,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "The tip of the tail tastes almost fruity, with notes of sweet and sour. Pairs well with soft-ripened cheeses.\n- Louie's Notes",
+      "setsCopies": {
+        "2": 1,
+        "7": 1,
+        "9": 2,
+        "12": 1,
+        "16": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "emperorbulblax",
+      "name": "Emperor Bulblax",
+      "sprite": "EmperorBulblax",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 30,
+      "damage": 20,
+      "reward": {
+        "pellets": 3,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "To prep the tongue for cooking, marinate in olive oil and chop into cubes. Stir in a pot with carrots, potatoes, and chives, cover, and simmer over low heat for several hours. Accompany this mouthwatering, rustic stew with a hearty roll.\n- Louie's Notes",
+      "setsCopies": {
+        "2": 1,
+        "6": 1,
+        "9": 2,
+        "16": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "foolix",
+      "name": "Foolix",
+      "sprite": "Foolix",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 15,
+      "reward": {
+        "pellets": 3,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "Gently remove the jellied parts. Add fruit and a sweetener of your choice, then serve as a gelatin dessert.",
+      "setsCopies": {
+        "2": 1,
+        "3": 1,
+        "7": 1,
+        "16": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "giantbreadbug",
+      "name": "Giant Breadbug",
+      "sprite": "GiantBreadbug",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 30,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 5
+      },
+      "ability": "Move Boss and Treasure back 1 space",
+      "flavor": "Although cooking this colossal beast yields a mountain of meat, every ounce of it is flavorless. Only suitable for intergalactic all-you-can-eat buffets.\n- Louie's Notes",
+      "setsCopies": {
+        "2": 1,
+        "9": 2,
+        "13": 1,
+        "16": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "gildemander",
+      "name": "Gildemander",
+      "sprite": "Gildemander",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 25,
+      "damage": 12,
+      "reward": {
+        "pellets": 0,
+        "gather": 5
+      },
+      "ability": "",
+      "flavor": "The meat gives off a faint aroma similar to a hot pepper. The flavor itself is subtle and elegant. Chargrill the lantern until blackened, and you've got a nutritional superfood.\n- Louie's Notes",
+      "setsCopies": {
+        "2": 1,
+        "3": 1,
+        "6": 1,
+        "13": 1,
+        "16": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "hornedcannonbeetle",
+      "name": "Horned Cannon Beetle",
+      "sprite": "HornedCannonBeetle",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 25,
+      "damage": 10,
+      "reward": {
+        "pellets": 3,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "Drop into boiling water, and let it cook until the shell turns red. Remove from the pot and peel. Sprinkle the drained meat with rock salt.\n- Louie's Notes",
+      "setsCopies": {
+        "2": 1,
+        "6": 1,
+        "8": 1,
+        "10": 1,
+        "16": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "mammothsnootwhacker",
+      "name": "Mammoth Snootwhacker",
+      "sprite": "MammothSnootwhacker",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 25,
+      "damage": 15,
+      "reward": {
+        "pellets": 4,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "The bitter flavor fades as they grow, replaced by a sweet mellow aroma. Stew the base of the trunk, grill the middle, or smoke the tip. The possibilities are endless!\n- Louie's Notes",
+      "setsCopies": {
+        "2": 1,
+        "6": 1,
+        "7": 1,
+        "10": 1,
+        "13": 1,
+        "16": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "mamuta",
+      "name": "Mamuta",
+      "sprite": "Mamuta",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 15,
+      "damage": 0,
+      "reward": {
+        "pellets": 2,
+        "gather": 2
+      },
+      "ability": "Any Pikmin attacked this turn can't move next turn",
+      "flavor": "Inedible. Tastes like chicken.\n- Louie's Notes",
+      "setsCopies": {
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "7": 1,
+        "13": 1,
+        "15": 1,
+        "16": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "anodebeetle",
+      "name": "Anode Beetle",
+      "sprite": "AnodeBeetle",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "electric",
+      "defenseElement": "",
+      "hp": 7,
+      "damage": 3,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 3,
+        "3": 2,
+        "6": 2,
+        "8": 2
+      },
+      "set": 2
+    },
+    {
+      "id": "antennabeetle",
+      "name": "Antenna Beetle",
+      "sprite": "AntennaBeetle",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "control",
+      "defenseElement": "",
+      "hp": 6,
+      "damage": 2,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "Any Pikmin attacked this turn are thrown one lane to the right",
+      "flavor": "",
+      "setsCopies": {
+        "2": 3,
+        "3": 2,
+        "5": 3,
+        "8": 3,
+        "10": 5,
+        "15": 15
+      },
+      "set": 2
+    },
+    {
+      "id": "aristocraboffspring",
+      "name": "Aristocrab Offspring",
+      "sprite": "AristocrabOffspring",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "water",
+      "defenseElement": "",
+      "hp": 7,
+      "damage": 5,
+      "reward": {
+        "pellets": 1,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 3,
+        "5": 3
+      },
+      "set": 2
+    },
+    {
+      "id": "waddlequaff",
+      "name": "Waddlequaff",
+      "sprite": "Waddlequaff",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 5,
+      "damage": 3,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 3,
+        "4": 2,
+        "10": 3,
+        "13": 3
+      },
+      "set": 2
+    },
+    {
+      "id": "cloakingburrow-nit",
+      "name": "Cloaking Burrow-nit",
+      "sprite": "CloakingBurrow_nit",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "stab",
+      "defenseElement": "",
+      "hp": 9,
+      "damage": 6,
+      "reward": {
+        "pellets": 1,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 2,
+        "4": 2,
+        "5": 2,
+        "8": 2,
+        "12": 5
+      },
+      "set": 2
+    },
+    {
+      "id": "joustmite",
+      "name": "Joustmite",
+      "sprite": "Joustmite",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "stab",
+      "defenseElement": "",
+      "hp": 9,
+      "damage": 6,
+      "reward": {
+        "pellets": 1,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 2,
+        "4": 2,
+        "5": 2,
+        "8": 2,
+        "10": 3,
+        "11": 2,
+        "12": 5
+      },
+      "set": 2
+    },
+    {
+      "id": "nectarousdandelfly",
+      "name": "Nectarous Dandelfly",
+      "sprite": "NectarousDandelfly",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "height",
+      "hp": 6,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 2,
+        "4": 2,
+        "5": 1,
+        "6": 1,
+        "11": 2,
+        "12": 1,
+        "13": 2
+      },
+      "set": 2
+    },
+    {
+      "id": "armoredcannonbeetlelarva",
+      "name": "Armored Cannon Beetle Larva",
+      "sprite": "ArmoredCannonBeetleLarva",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 8,
+      "damage": 6,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "3": 1,
+        "6": 2,
+        "10": 3,
+        "11": 1,
+        "13": 3,
+        "14": 2
+      },
+      "set": 2
+    },
+    {
+      "id": "beardedamprat",
+      "name": "Bearded Amprat",
+      "sprite": "BeardedAmprat",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "electric",
+      "defenseElement": "electric",
+      "hp": 7,
+      "damage": 4,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "6": 2,
+        "7": 2
+      },
+      "set": 2
+    },
+    {
+      "id": "bumblingsnitchbug",
+      "name": "Bumbling Snitchbug",
+      "sprite": "BumblingSnitchbug",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "height",
+      "hp": 7,
+      "damage": 2,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "Any Pikmin attacked this turn can't move next turn",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "4": 3,
+        "5": 1,
+        "6": 2,
+        "7": 2,
+        "11": 2,
+        "12": 2,
+        "13": 3,
+        "15": 5
+      },
+      "set": 2
+    },
+    {
+      "id": "calcifiedcrushblat",
+      "name": "Calcified Crushblat",
+      "sprite": "CalcifiedCrushblat",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 12,
+      "damage": 8,
+      "reward": {
+        "pellets": 2,
+        "gather": 2
+      },
+      "ability": "Must be attacked by at least 1 rock",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "3": 2,
+        "4": 2,
+        "6": 2,
+        "10": 2,
+        "12": 1,
+        "14": 2,
+        "15": 10,
+        "16": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "careeningdirigibug",
+      "name": "Careening Dirigibug",
+      "sprite": "CareeningDirigibug",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "explosive",
+      "defenseElement": "height",
+      "hp": 7,
+      "damage": 5,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "6": 2,
+        "7": 3,
+        "8": 3,
+        "10": 8,
+        "13": 4,
+        "14": 4
+      },
+      "set": 2
+    },
+    {
+      "id": "decoratedcannonbeetle",
+      "name": "Decorated Cannon Beetle",
+      "sprite": "DecoratedCannonBeetle",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 8,
+      "damage": 6,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "10": 3,
+        "11": 1,
+        "13": 3,
+        "14": 2
+      },
+      "set": 2
+    },
+    {
+      "id": "iridescentflintbeetleclassic",
+      "name": "Iridescent Flint Beetle",
+      "sprite": "IridescentFlintBeetleClassic",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 10,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "5": 1,
+        "7": 2,
+        "8": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "iridescentflintbeetlefrench",
+      "name": "Iridescent Flint Beetle",
+      "sprite": "IridescentFlintBeetleFrench",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 10,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "4": 2,
+        "5": 1,
+        "8": 1,
+        "11": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "iridescentglintbeetle",
+      "name": "Iridescent Glint Beetle",
+      "sprite": "IridescentGlintBeetle",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 10,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "3": 2,
+        "5": 1,
+        "8": 1,
+        "12": 2
+      },
+      "set": 2
+    },
+    {
+      "id": "miniaturesnootwhacker",
+      "name": "Miniature Snootwhacker",
+      "sprite": "MiniatureSnootwhacker",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 5,
+      "damage": 2,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "Any Pikmin attacked this turn return HOME",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "6": 2,
+        "7": 2,
+        "10": 4,
+        "13": 3,
+        "15": 7
+      },
+      "set": 2
+    },
+    {
+      "id": "peckisharistocrab",
+      "name": "Peckish Aristocrab",
+      "sprite": "PeckishAristocrab",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 15,
+      "damage": 12,
+      "reward": {
+        "pellets": 2,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "5": 1,
+        "8": 2,
+        "11": 1,
+        "14": 3,
+        "15": 8,
+        "16": 1
+      },
+      "set": 2
+    },
+    {
+      "id": "puffyblowhog",
+      "name": "Puffy Blowhog",
+      "sprite": "PuffyBlowhog",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 12,
+      "damage": 8,
+      "reward": {
+        "pellets": 1,
+        "gather": 3
+      },
+      "ability": "Any Pikmin attacked this turn return HOME",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "10": 2,
+        "11": 1,
+        "13": 6,
+        "15": 6
+      },
+      "set": 2
+    },
+    {
+      "id": "skutterchuck",
+      "name": "Skutterchuck",
+      "sprite": "Skutterchuck",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 5,
+      "damage": 3,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "Must be attacked by at least 1 rock",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "3": 2,
+        "4": 2,
+        "6": 2,
+        "10": 3,
+        "11": 3
+      },
+      "set": 2
+    },
+    {
+      "id": "tuskedblowhog",
+      "name": "Tusked Blowhog",
+      "sprite": "TuskedBlowhog",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 9,
+      "damage": 10,
+      "reward": {
+        "pellets": 2,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "4": 1,
+        "7": 1,
+        "11": 2,
+        "13": 3
+      },
+      "set": 2
+    },
+    {
+      "id": "witheringblowhog",
+      "name": "Withering Blowhog",
+      "sprite": "WitheringBlowhog",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 9,
+      "damage": 5,
+      "reward": {
+        "pellets": 1,
+        "gather": 2
+      },
+      "ability": "Any Pikmin attacked this turn return HOME",
+      "flavor": "",
+      "setsCopies": {
+        "2": 1,
+        "3": 1,
+        "4": 2,
+        "5": 1,
+        "6": 2,
+        "10": 2,
+        "13": 3,
+        "15": 6
+      },
+      "set": 2
+    },
+    {
+      "id": "armoredmawdad",
+      "name": "Armored Mawdad",
+      "sprite": "ArmoredMawdad",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 30,
+      "damage": 10,
+      "reward": {
+        "pellets": 3,
+        "gather": 3
+      },
+      "ability": "Must be attacked by at least 1 rock",
+      "flavor": "Best enjoyed fresh. If the legs aren't twitching when you put it on the grill, don't bother.\n- Louie's Notes",
+      "setsCopies": {
+        "3": 1,
+        "6": 1,
+        "10": 1,
+        "12": 1,
+        "14": 1,
+        "16": 1
+      },
+      "set": 3
+    },
+    {
+      "id": "groovylonglegs",
+      "name": "Groovy Long Legs",
+      "sprite": "GroovyLongLegs",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "control",
+      "defenseElement": "height",
+      "hp": 40,
+      "damage": 20,
+      "reward": {
+        "pellets": 0,
+        "gather": 6
+      },
+      "ability": "Any Pikmin attacked this turn are thrown one lane to the left",
+      "flavor": "This creature is mostly tendon, so it often gets stuck in your teeth. Smells like burnt plastic or possibly metal.\n- Louie's Notes",
+      "setsCopies": {
+        "3": 1,
+        "8": 1,
+        "10": 1,
+        "13": 1,
+        "14": 1,
+        "15": 4,
+        "16": 1
+      },
+      "set": 3
+    },
+    {
+      "id": "porquillion",
+      "name": "Porquillion",
+      "sprite": "Porquillion",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "stab",
+      "defenseElement": "",
+      "hp": 15,
+      "damage": 10,
+      "reward": {
+        "pellets": 2,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "Cut the meat into four even slices. Dip slices into a beaten egg, then dredge in bread crumbs. Fry over low heat.\n- Louie's Notes",
+      "setsCopies": {
+        "3": 1,
+        "4": 1,
+        "7": 1,
+        "12": 4,
+        "16": 1
+      },
+      "set": 3
+    },
+    {
+      "id": "raginglonglegs",
+      "name": "Raging Long Legs",
+      "sprite": "RagingLongLegs",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 40,
+      "damage": 20,
+      "reward": {
+        "pellets": 0,
+        "gather": 6
+      },
+      "ability": "",
+      "flavor": "Neither boiling nor baking can diminish this creature's overpowering musky scent. Only suitable for serving to unpleasant in-laws.\n- Louie's Notes",
+      "setsCopies": {
+        "3": 1,
+        "5": 1,
+        "6": 1,
+        "8": 1,
+        "11": 1,
+        "14": 1,
+        "16": 1
+      },
+      "set": 3
+    },
+    {
+      "id": "rangingbloyster",
+      "name": "Ranging Bloyster",
+      "sprite": "RangingBloyster",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 25,
+      "damage": 12,
+      "reward": {
+        "pellets": 0,
+        "gather": 4
+      },
+      "ability": "",
+      "flavor": "The gills are best prepared deep-fried in an herb and bread-crumb batter. Also tasty poached and drenched with fine soy sauce.\n- Louie's Notes",
+      "setsCopies": {
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "7": 1,
+        "11": 1,
+        "12": 1,
+        "16": 1
+      },
+      "set": 3
+    },
+    {
+      "id": "segmentedcrawbster",
+      "name": "Segmented Crawbster",
+      "sprite": "SegmentedCrawbster",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 35,
+      "damage": 20,
+      "reward": {
+        "pellets": 0,
+        "gather": 6
+      },
+      "ability": "",
+      "flavor": "Dessert meats are all the rage on Hocotate. When the planet's finest chefs hear about the kind of sorbets, pies, and parfaits you can make with the claw meat on this sweet beast, they'll clamor for every morsel we bring home!\n- Louie's Notes",
+      "setsCopies": {
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1
+      },
+      "set": 3
+    },
+    {
+      "id": "snowfakefluttertail",
+      "name": "Snowfake Fluttertail",
+      "sprite": "SnowfakeFluttertail",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "ice",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 10,
+      "reward": {
+        "pellets": 2,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "Dice finely or puree to make a meaty sorbet. Add a tiny drizzle of fruit sauce for some punch! Pluck the wings and antennae beforehand to use as a garnish if you want to get fancy.\n- Louie's Notes",
+      "setsCopies": {
+        "3": 1,
+        "4": 1,
+        "7": 1,
+        "8": 1,
+        "16": 1
+      },
+      "set": 3
+    },
+    {
+      "id": "titandweevil",
+      "name": "Titan Dweevil",
+      "sprite": "TitanDweevil",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 50,
+      "damage": 20,
+      "reward": {
+        "pellets": 0,
+        "gather": 7
+      },
+      "ability": "Each player places 1 free hazards when it dies",
+      "flavor": "Eaten raw, this predator's luxurious legs are bold and full flavored. What a satisfying crunch!\n- Louie's Notes",
+      "setsCopies": {
+        "3": 1,
+        "5": 1,
+        "8": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "16": 1
+      },
+      "set": 3
+    },
+    {
+      "id": "vehemothphosbat",
+      "name": "Vehemoth Phosbat",
+      "sprite": "VehemothPhosbat",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 25,
+      "damage": 12,
+      "reward": {
+        "pellets": 3,
+        "gather": 3
+      },
+      "ability": "Must be attacked by at least 3 yellows",
+      "flavor": "Lightly bread and fry whole. Slather a brioche bun with r\u00e9moulade, then top with fried beast and a handful of arugula. Serve with a lemon wedge.\n- Louie's Notes",
+      "setsCopies": {
+        "3": 1,
+        "9": 1,
+        "14": 1,
+        "16": 1
+      },
+      "set": 3
+    },
+    {
+      "id": "arachnode",
+      "name": "Arachnode",
+      "sprite": "Arachnode",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 5,
+      "damage": 3,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 2,
+        "4": 2,
+        "5": 2,
+        "7": 2,
+        "8": 3
+      },
+      "set": 3
+    },
+    {
+      "id": "doodlebug",
+      "name": "Doodlebug",
+      "sprite": "Doodlebug",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "poison",
+      "hp": 10,
+      "damage": 0,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 2,
+        "4": 2,
+        "5": 2,
+        "7": 1,
+        "8": 1,
+        "13": 4,
+        "15": 4
+      },
+      "set": 3
+    },
+    {
+      "id": "gildemandwee",
+      "name": "Gildemandwee",
+      "sprite": "Gildemandwee",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 8,
+      "damage": 5,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 2,
+        "6": 2,
+        "13": 2
+      },
+      "set": 3
+    },
+    {
+      "id": "iceblowndweevil",
+      "name": "Iceblown Dweevil",
+      "sprite": "IceblownDweevil",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "ice",
+      "defenseElement": "",
+      "hp": 4,
+      "damage": 4,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "Creates an Ice Vent when it dies",
+      "flavor": "",
+      "setsCopies": {
+        "3": 2,
+        "4": 2,
+        "5": 3,
+        "7": 3,
+        "8": 4,
+        "11": 2,
+        "14": 4
+      },
+      "set": 3
+    },
+    {
+      "id": "moldydwarfbulborb",
+      "name": "Moldy Dwarf Bulborb",
+      "sprite": "MoldyDwarfBulborb",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "poison",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 1,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 2,
+        "4": 3,
+        "9": 4,
+        "11": 3
+      },
+      "set": 3
+    },
+    {
+      "id": "waterdumple",
+      "name": "Water Dumple",
+      "sprite": "WaterDumple",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "water",
+      "hp": 5,
+      "damage": 3,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 2,
+        "5": 2,
+        "7": 2,
+        "9": 4,
+        "11": 2
+      },
+      "set": 3
+    },
+    {
+      "id": "arcticcannonlarva",
+      "name": "Arctic Cannon Larva",
+      "sprite": "ArcticCannonLarva",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 8,
+      "damage": 5,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "Any Pikmin attacked this turn return HOME",
+      "flavor": "",
+      "setsCopies": {
+        "3": 1,
+        "4": 2,
+        "7": 2,
+        "13": 3,
+        "15": 6
+      },
+      "set": 3
+    },
+    {
+      "id": "bogswallow",
+      "name": "Bogswallow",
+      "sprite": "Bogswallow",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 8,
+      "damage": 6,
+      "reward": {
+        "pellets": 1,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 1,
+        "4": 2,
+        "5": 1,
+        "6": 1,
+        "10": 4,
+        "11": 2,
+        "13": 2
+      },
+      "set": 3
+    },
+    {
+      "id": "freezecake",
+      "name": "Freezecake",
+      "sprite": "Freezecake",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "ice",
+      "hp": 10,
+      "damage": 6,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 1,
+        "4": 1,
+        "7": 1,
+        "14": 4
+      },
+      "set": 3
+    },
+    {
+      "id": "greaterspottedjellyfloat",
+      "name": "Greater Spotted Jellyfloat",
+      "sprite": "GreaterSpottedJellyfloat",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "water",
+      "defenseElement": "",
+      "hp": 15,
+      "damage": 10,
+      "reward": {
+        "pellets": 0,
+        "gather": 5
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 1,
+        "5": 2,
+        "7": 1,
+        "14": 2,
+        "16": 1
+      },
+      "set": 3
+    },
+    {
+      "id": "moldyslooch",
+      "name": "Moldy Slooch",
+      "sprite": "MoldySlooch",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "poison",
+      "defenseElement": "poison",
+      "hp": 6,
+      "damage": 4,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 1,
+        "4": 2
+      },
+      "set": 3
+    },
+    {
+      "id": "pyroclasmicslooch",
+      "name": "Pyroclasmic Slooch",
+      "sprite": "PyroclasmicSlooch",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "fire",
+      "defenseElement": "fire",
+      "hp": 6,
+      "damage": 4,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 1,
+        "6": 2,
+        "13": 2
+      },
+      "set": 3
+    },
+    {
+      "id": "scorchcake",
+      "name": "Scorchcake",
+      "sprite": "Scorchcake",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "fire",
+      "hp": 10,
+      "damage": 6,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 1,
+        "6": 2,
+        "10": 2,
+        "14": 4
+      },
+      "set": 3
+    },
+    {
+      "id": "shockcake",
+      "name": "Shockcake",
+      "sprite": "Shockcake",
+      "copies": 1,
+      "boss": false,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "electric",
+      "hp": 10,
+      "damage": 6,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "3": 1,
+        "6": 2,
+        "14": 4
+      },
+      "set": 3
+    },
+    {
+      "id": "arcticcannonbeetle",
+      "name": "Arctic Cannon Beetle",
+      "sprite": "ArcticCannonBeetle",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "ice",
+      "defenseElement": "",
+      "hp": 25,
+      "damage": 10,
+      "reward": {
+        "pellets": 3,
+        "gather": 3
+      },
+      "ability": "Any Pikmin attacked this turn return HOME",
+      "flavor": "Boil the meaty legs until fully cooked, then drizzle with a generous amount of lemon juice. Once the juice has seeped its way into the muscle fibers, suck the meat out of the shell with one big slurp.\n- Louie's Notes",
+      "setsCopies": {
+        "4": 1,
+        "7": 1,
+        "8": 1,
+        "13": 1,
+        "16": 1
+      },
+      "set": 4
+    },
+    {
+      "id": "blizzardingblowhog",
+      "name": "Blizzarding Blowhog",
+      "sprite": "BlizzardingBlowhog",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "ice",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 15,
+      "reward": {
+        "pellets": 2,
+        "gather": 3
+      },
+      "ability": "Any Pikmin attacked this turn can't move next turn",
+      "flavor": "Scrape the interior of its elongated nose with a spoon for a quick dessert of meaty shaved ice. Add a drizzle of sashimi-grade soy sauce to take it up a notch!\n- Louie's Notes",
+      "setsCopies": {
+        "4": 1,
+        "5": 1,
+        "7": 1,
+        "16": 1
+      },
+      "set": 4
+    },
+    {
+      "id": "puffstool",
+      "name": "Puffstool",
+      "sprite": "Puffstool",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "control",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 12,
+      "reward": {
+        "pellets": 3,
+        "gather": 2
+      },
+      "ability": "Any Pikmin attacked this turn are thrown one lane to the right",
+      "flavor": "Flip upside down, and cook cap over a charcoal grill, low and slow. Once it starts to sweat, it's ready to eat.\n- Louie's Notes",
+      "setsCopies": {
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "15": 3,
+        "16": 1
+      },
+      "set": 4
+    },
+    {
+      "id": "quaggledmireclops",
+      "name": "Quaggled Mireclops",
+      "sprite": "QuaggledMireclops",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 40,
+      "damage": 15,
+      "reward": {
+        "pellets": 3,
+        "gather": 3
+      },
+      "ability": "Must be attacked by at least 1 rock",
+      "flavor": "A fruit so sweet, it could be a dessert unto itself. Remove and discard peel and core. Slice fruit into small pieces and enjoy!",
+      "setsCopies": {
+        "4": 1,
+        "10": 1,
+        "11": 1,
+        "14": 1,
+        "16": 1
+      },
+      "set": 4
+    },
+    {
+      "id": "sovereignbulblax",
+      "name": "Sovereign Bulblax",
+      "sprite": "SovereignBulblax",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 50,
+      "damage": 20,
+      "reward": {
+        "pellets": 4,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "For a light appetizer, pluck the ferns off its back and lightly cook to remove any astringent flavor. The tongue, eyes, lips, meat, and fat are very tasty and can be prepared in a variety of ways. Mature specimens have a more highly developed umami flavor.\n- Louie's Notes",
+      "setsCopies": {
+        "4": 1,
+        "7": 1,
+        "9": 1,
+        "14": 1,
+        "16": 1
+      },
+      "set": 4
+    },
+    {
+      "id": "toxstool",
+      "name": "Toxstool",
+      "sprite": "Toxstool",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "poison",
+      "defenseElement": "",
+      "hp": 20,
+      "damage": 12,
+      "reward": {
+        "pellets": 3,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "Bury underground for about 40 days so the poison can leech out. Its smell will make you gag, but the flavor has notes of chocolate!\n- Louie's Notes",
+      "setsCopies": {
+        "4": 1,
+        "5": 1,
+        "11": 1,
+        "16": 1
+      },
+      "set": 4
+    },
+    {
+      "id": "chillyhop",
+      "name": "Chillyhop",
+      "sprite": "Chillyhop",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "crush",
+      "defenseElement": "",
+      "hp": 7,
+      "damage": 5,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "4": 2,
+        "5": 2,
+        "7": 2
+      },
+      "set": 4
+    },
+    {
+      "id": "flightyjoustmite",
+      "name": "Flighty Joustmite",
+      "sprite": "FlightyJoustmite",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "stab",
+      "defenseElement": "height",
+      "hp": 9,
+      "damage": 6,
+      "reward": {
+        "pellets": 1,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "4": 2,
+        "5": 2,
+        "8": 2,
+        "11": 2,
+        "12": 5,
+        "13": 2,
+        "14": 3
+      },
+      "set": 4
+    },
+    {
+      "id": "frostybulborb",
+      "name": "Frosty Bulborb",
+      "sprite": "FrostyBulborb",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "ice",
+      "hp": 9,
+      "damage": 7,
+      "reward": {
+        "pellets": 3,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "4": 2,
+        "7": 2,
+        "9": 5,
+        "14": 3
+      },
+      "set": 4
+    },
+    {
+      "id": "icyblowhog",
+      "name": "Icy Blowhog",
+      "sprite": "IcyBlowhog",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "ice",
+      "defenseElement": "",
+      "hp": 12,
+      "damage": 8,
+      "reward": {
+        "pellets": 1,
+        "gather": 3
+      },
+      "ability": "Any Pikmin attacked this turn can't move next turn",
+      "flavor": "",
+      "setsCopies": {
+        "4": 2,
+        "5": 1,
+        "7": 1,
+        "13": 6,
+        "15": 6
+      },
+      "set": 4
+    },
+    {
+      "id": "ravenouswhiskerpillar",
+      "name": "Ravenous Whiskerpillar",
+      "sprite": "RavenousWhiskerpillar",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "",
+      "hp": 3,
+      "damage": 1,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "4": 2,
+        "6": 2,
+        "8": 4,
+        "11": 3,
+        "12": 3
+      },
+      "set": 4
+    },
+    {
+      "id": "plasmwraith",
+      "name": "Plasm Wraith",
+      "sprite": "PlasmWraith",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 50,
+      "damage": 20,
+      "reward": {
+        "pellets": 0,
+        "gather": 7
+      },
+      "ability": "Each player places 2 free hazards when it dies",
+      "flavor": "Despite its refreshing citrus scent, the flavour of this beast is decidedly... dangerous.\n- Louie's Notes",
+      "setsCopies": {
+        "5": 1,
+        "11": 1,
+        "13": 1,
+        "14": 1,
+        "15": 1,
+        "16": 1
+      },
+      "set": 5
+    },
+    {
+      "id": "muckerskate",
+      "name": "Muckerskate",
+      "sprite": "Muckerskate",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "water",
+      "defenseElement": "water",
+      "hp": 3,
+      "damage": 2,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "5": 3,
+        "8": 3,
+        "11": 2
+      },
+      "set": 5
+    },
+    {
+      "id": "puckeringblinnow",
+      "name": "Puckering Blinnow",
+      "sprite": "PuckeringBlinnow",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "swift",
+      "defenseElement": "water",
+      "hp": 5,
+      "damage": 1,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "5": 3,
+        "7": 3
+      },
+      "set": 5
+    },
+    {
+      "id": "sputtlefish",
+      "name": "Sputtlefish",
+      "sprite": "Sputtlefish",
+      "copies": 3,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "water",
+      "hp": 8,
+      "damage": 3,
+      "reward": {
+        "pellets": 0,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "5": 3,
+        "7": 2,
+        "11": 2
+      },
+      "set": 5
+    },
+    {
+      "id": "hermitcrawmad",
+      "name": "Hermit Crawmad",
+      "sprite": "HermitCrawmad",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 7,
+      "damage": 3,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "5": 2,
+        "8": 2,
+        "11": 2,
+        "12": 2
+      },
+      "set": 5
+    },
+    {
+      "id": "medusalslurker",
+      "name": "Medusal Slurker",
+      "sprite": "MedusalSlurker",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "water",
+      "defenseElement": "",
+      "hp": 8,
+      "damage": 4,
+      "reward": {
+        "pellets": 0,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "5": 2,
+        "11": 2
+      },
+      "set": 5
+    },
+    {
+      "id": "pricklepuff",
+      "name": "Pricklepuff",
+      "sprite": "Pricklepuff",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "stab",
+      "defenseElement": "water",
+      "hp": 8,
+      "damage": 6,
+      "reward": {
+        "pellets": 0,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "5": 2,
+        "11": 2,
+        "12": 4,
+        "14": 2
+      },
+      "set": 5
+    },
+    {
+      "id": "skeeterskate",
+      "name": "Skeeterskate",
+      "sprite": "Skeeterskate",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "water",
+      "defenseElement": "water",
+      "hp": 3,
+      "damage": 2,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "5": 2,
+        "7": 2,
+        "8": 3,
+        "12": 2,
+        "13": 2
+      },
+      "set": 5
+    },
+    {
+      "id": "startlespore",
+      "name": "Startle Spore",
+      "sprite": "StartleSpore",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "poison",
+      "defenseElement": "",
+      "hp": 15,
+      "damage": 10,
+      "reward": {
+        "pellets": 3,
+        "gather": 2
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "5": 2,
+        "7": 2,
+        "11": 3,
+        "13": 4,
+        "14": 3,
+        "16": 1
+      },
+      "set": 5
+    },
+    {
+      "id": "waddlepus",
+      "name": "Waddlepus",
+      "sprite": "Waddlepus",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "water",
+      "defenseElement": "water",
+      "hp": 7,
+      "damage": 6,
+      "reward": {
+        "pellets": 1,
+        "gather": 1
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "5": 2,
+        "7": 2,
+        "11": 2,
+        "13": 2
+      },
+      "set": 5
+    },
+    {
+      "id": "scornetmaestro",
+      "name": "Scornet Maestro",
+      "sprite": "ScornetMaestro",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "control",
+      "defenseElement": "height",
+      "hp": 25,
+      "damage": 10,
+      "reward": {
+        "pellets": 0,
+        "gather": 5
+      },
+      "ability": "Any Pikmin attacked this turn are thrown one lane to the left",
+      "flavor": "Slice thin, fry until golden brown, and serve when cool. Sprinkle the crumbs on top of a creamy clam chowder to give it a little kick!\n- Louie's Notes",
+      "setsCopies": {
+        "6": 1,
+        "8": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "14": 1,
+        "15": 2,
+        "16": 1
+      },
+      "set": 6
+    },
+    {
+      "id": "scornet",
+      "name": "Scornet",
+      "sprite": "Scornet",
+      "copies": 4,
+      "boss": false,
+      "tall": false,
+      "attackElement": "stab",
+      "defenseElement": "",
+      "hp": 1,
+      "damage": 1,
+      "reward": {
+        "pellets": 1,
+        "gather": 0
+      },
+      "ability": "",
+      "flavor": "",
+      "setsCopies": {
+        "6": 4,
+        "8": 4,
+        "10": 6,
+        "11": 4,
+        "12": 8,
+        "13": 3
+      },
+      "set": 6
+    },
+    {
+      "id": "snowyblowhog",
+      "name": "Snowy Blowhog",
+      "sprite": "SnowyBlowhog",
+      "copies": 2,
+      "boss": false,
+      "tall": false,
+      "attackElement": "ice",
+      "defenseElement": "",
+      "hp": 7,
+      "damage": 5,
+      "reward": {
+        "pellets": 2,
+        "gather": 0
+      },
+      "ability": "Any Pikmin attacked this turn can't move next turn",
+      "flavor": "",
+      "setsCopies": {
+        "7": 2,
+        "13": 2,
+        "15": 7
+      },
+      "set": 7
+    },
+    {
+      "id": "moss",
+      "name": "Moss",
+      "sprite": "Moss",
+      "copies": 2,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 15,
+      "damage": 15,
+      "reward": {
+        "pellets": 0,
+        "gather": 5
+      },
+      "ability": "",
+      "flavor": "Convenient for procuring ingredients. Compact, with a tight turning radius.\n- Louie's Notes",
+      "setsCopies": {
+        "9": 2,
+        "13": 1,
+        "15": 1,
+        "16": 1
+      },
+      "set": 9
+    },
+    {
+      "id": "ancientsirehound",
+      "name": "Ancient Sirehound",
+      "sprite": "AncientSirehound",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 50,
+      "damage": 20,
+      "reward": {
+        "pellets": 0,
+        "gather": 7
+      },
+      "ability": "Each player places 3 free hazards when it dies",
+      "flavor": "The ultimate ride, plush and comfortable. I wish I could bring it home with me.\n- Louie's Notes",
+      "setsCopies": {
+        "9": 1,
+        "12": 0,
+        "14": 1,
+        "16": 1
+      },
+      "set": 9
+    },
+    {
+      "id": "sandbelchingmeerslug",
+      "name": "Sandbelching Meerslug",
+      "sprite": "SandbelchingMeerslug",
+      "copies": 1,
+      "boss": true,
+      "tall": false,
+      "attackElement": "",
+      "defenseElement": "",
+      "hp": 35,
+      "damage": 15,
+      "reward": {
+        "pellets": 3,
+        "gather": 3
+      },
+      "ability": "",
+      "flavor": "These are crowd-pleasers! Soak overnight to remove remaining sand. Slice cleaned meat into thick pieces and place on grill. Then apply a generous coating of barbecue sauce and cook until sticky and crispy.\n- Louie's Notes",
+      "setsCopies": {
+        "10": 1,
+        "11": 1,
+        "16": 1
+      },
+      "set": 10
+    }
+  ]
+}

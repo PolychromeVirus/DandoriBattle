@@ -1,0 +1,3192 @@
+{
+  "_comment": "Extracted from the Board Layouts tab. Each lane has 7 spaces: index 0-2 = player A side (sheet bottom rows), 3 = shared treasure space, 4-6 = player B side. Space kinds: plain | enemy | treasure | hazard (fire/water/height/ice/poison/chasm). pelletDie matched from dice.json by basic-colour set.",
+  "boards": [
+    {
+      "id": "familiargrotto",
+      "name": "Familiar Grotto",
+      "setNumber": 1,
+      "difficulty": "Beginner/Easy",
+      "treasureSet": 1,
+      "basicColors": [
+        "red",
+        "yellow",
+        "blue"
+      ],
+      "killedIfThrownOut": false,
+      "pelletDie": [
+        {
+          "color": "red",
+          "value": 1
+        },
+        {
+          "color": "red",
+          "value": 5
+        },
+        {
+          "color": "yellow",
+          "value": 1
+        },
+        {
+          "color": "yellow",
+          "value": 5
+        },
+        {
+          "color": "blue",
+          "value": 1
+        },
+        {
+          "color": "blue",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge"
+        ],
+        "walls": [
+          "wall"
+        ],
+        "emitters": [
+          "poisonemitter",
+          "electricitygenerator",
+          "firegeyser",
+          "waterspout"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stonesweptvalley",
+      "name": "Stone Swept Valley",
+      "setNumber": 2,
+      "difficulty": "Medium",
+      "treasureSet": 2,
+      "basicColors": [
+        "red",
+        "yellow",
+        "blue"
+      ],
+      "killedIfThrownOut": false,
+      "pelletDie": [
+        {
+          "color": "red",
+          "value": 1
+        },
+        {
+          "color": "red",
+          "value": 5
+        },
+        {
+          "color": "yellow",
+          "value": 1
+        },
+        {
+          "color": "yellow",
+          "value": 5
+        },
+        {
+          "color": "blue",
+          "value": 1
+        },
+        {
+          "color": "blue",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge"
+        ],
+        "walls": [
+          "wall"
+        ],
+        "emitters": [
+          "electricitygenerator",
+          "firegeyser",
+          "waterspout",
+          "icevent"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "undergroundplateau",
+      "name": "Underground Plateau",
+      "setNumber": 3,
+      "difficulty": "Medium",
+      "treasureSet": 3,
+      "basicColors": [
+        "purple",
+        "white",
+        "rock"
+      ],
+      "killedIfThrownOut": true,
+      "pelletDie": [
+        {
+          "color": "purple",
+          "value": 1
+        },
+        {
+          "color": "purple",
+          "value": 5
+        },
+        {
+          "color": "white",
+          "value": 1
+        },
+        {
+          "color": "white",
+          "value": 5
+        },
+        {
+          "color": "rock",
+          "value": 1
+        },
+        {
+          "color": "rock",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge"
+        ],
+        "walls": [
+          "wall",
+          "crystalwall"
+        ],
+        "emitters": [
+          "poisonemitter",
+          "electricitygenerator",
+          "firegeyser",
+          "waterspout",
+          "icevent"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "frozenriverbank",
+      "name": "Frozen Riverbank",
+      "setNumber": 4,
+      "difficulty": "Medium",
+      "treasureSet": 4,
+      "basicColors": [
+        "rock",
+        "winged",
+        "ice"
+      ],
+      "killedIfThrownOut": false,
+      "pelletDie": [
+        {
+          "color": "rock",
+          "value": 1
+        },
+        {
+          "color": "rock",
+          "value": 5
+        },
+        {
+          "color": "winged",
+          "value": 1
+        },
+        {
+          "color": "winged",
+          "value": 5
+        },
+        {
+          "color": "ice",
+          "value": 1
+        },
+        {
+          "color": "ice",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge"
+        ],
+        "walls": [
+          "wall",
+          "arachnodeweb",
+          "crystalwall"
+        ],
+        "emitters": [
+          "poisonemitter",
+          "icevent"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "floodedgarden",
+      "name": "Flooded Garden",
+      "setNumber": 5,
+      "difficulty": "Hard",
+      "treasureSet": 5,
+      "basicColors": [
+        "blue",
+        "winged",
+        "ice"
+      ],
+      "killedIfThrownOut": true,
+      "pelletDie": [
+        {
+          "color": "blue",
+          "value": 1
+        },
+        {
+          "color": "blue",
+          "value": 5
+        },
+        {
+          "color": "winged",
+          "value": 1
+        },
+        {
+          "color": "winged",
+          "value": 5
+        },
+        {
+          "color": "ice",
+          "value": 1
+        },
+        {
+          "color": "ice",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge",
+          "tunnel"
+        ],
+        "walls": [
+          "wall",
+          "arachnodeweb",
+          "crystalwall",
+          "icewall"
+        ],
+        "emitters": [
+          "waterspout",
+          "icevent"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scorchedplayground",
+      "name": "Scorched Playground",
+      "setNumber": 6,
+      "difficulty": "Hard",
+      "treasureSet": 6,
+      "basicColors": [
+        "red",
+        "yellow",
+        "rock"
+      ],
+      "killedIfThrownOut": true,
+      "pelletDie": [
+        {
+          "color": "red",
+          "value": 1
+        },
+        {
+          "color": "red",
+          "value": 5
+        },
+        {
+          "color": "yellow",
+          "value": 1
+        },
+        {
+          "color": "yellow",
+          "value": 5
+        },
+        {
+          "color": "rock",
+          "value": 1
+        },
+        {
+          "color": "rock",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge",
+          "climbingstick"
+        ],
+        "walls": [
+          "wall",
+          "crystalwall",
+          "electricwall"
+        ],
+        "emitters": [
+          "electricitygenerator",
+          "firegeyser"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "frigidwasteland",
+      "name": "Frigid Wasteland",
+      "setNumber": 7,
+      "difficulty": "Hard",
+      "treasureSet": 7,
+      "basicColors": [
+        "blue",
+        "winged",
+        "ice"
+      ],
+      "killedIfThrownOut": false,
+      "pelletDie": [
+        {
+          "color": "blue",
+          "value": 1
+        },
+        {
+          "color": "blue",
+          "value": 5
+        },
+        {
+          "color": "winged",
+          "value": 1
+        },
+        {
+          "color": "winged",
+          "value": 5
+        },
+        {
+          "color": "ice",
+          "value": 1
+        },
+        {
+          "color": "ice",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge"
+        ],
+        "walls": [
+          "wall",
+          "arachnodeweb",
+          "icewall"
+        ],
+        "emitters": [
+          "electricitygenerator",
+          "waterspout",
+          "icevent"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "theburrow",
+      "name": "The Burrow",
+      "setNumber": 8,
+      "difficulty": "Themed",
+      "treasureSet": 1,
+      "basicColors": [
+        "red",
+        "yellow",
+        "blue"
+      ],
+      "killedIfThrownOut": false,
+      "pelletDie": [
+        {
+          "color": "red",
+          "value": 1
+        },
+        {
+          "color": "red",
+          "value": 5
+        },
+        {
+          "color": "yellow",
+          "value": 1
+        },
+        {
+          "color": "yellow",
+          "value": 5
+        },
+        {
+          "color": "blue",
+          "value": 1
+        },
+        {
+          "color": "blue",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge",
+          "climbingstick",
+          "tunnel"
+        ],
+        "walls": [
+          "wall",
+          "electricwall"
+        ],
+        "emitters": [
+          "poisonemitter",
+          "electricitygenerator",
+          "firegeyser",
+          "waterspout",
+          "icevent"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "thedoghouse",
+      "name": "The Doghouse",
+      "setNumber": 9,
+      "difficulty": "Themed",
+      "treasureSet": 3,
+      "basicColors": [
+        "red",
+        "yellow",
+        "blue"
+      ],
+      "killedIfThrownOut": false,
+      "pelletDie": [
+        {
+          "color": "red",
+          "value": 1
+        },
+        {
+          "color": "red",
+          "value": 5
+        },
+        {
+          "color": "yellow",
+          "value": 1
+        },
+        {
+          "color": "yellow",
+          "value": 5
+        },
+        {
+          "color": "blue",
+          "value": 1
+        },
+        {
+          "color": "blue",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge"
+        ],
+        "walls": [
+          "wall",
+          "crystalwall",
+          "electricwall",
+          "icewall"
+        ],
+        "emitters": [
+          "poisonemitter",
+          "electricitygenerator",
+          "firegeyser",
+          "waterspout",
+          "icevent"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "theminefield",
+      "name": "The Minefield",
+      "setNumber": 10,
+      "difficulty": "Themed",
+      "treasureSet": 4,
+      "basicColors": [
+        "red",
+        "white",
+        "rock"
+      ],
+      "killedIfThrownOut": true,
+      "pelletDie": [
+        {
+          "color": "red",
+          "value": 1
+        },
+        {
+          "color": "red",
+          "value": 5
+        },
+        {
+          "color": "white",
+          "value": 1
+        },
+        {
+          "color": "white",
+          "value": 5
+        },
+        {
+          "color": "rock",
+          "value": 1
+        },
+        {
+          "color": "rock",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge",
+          "tunnel"
+        ],
+        "walls": [],
+        "emitters": []
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hauntingswampland",
+      "name": "Haunting Swampland",
+      "setNumber": 11,
+      "difficulty": "Extreme",
+      "treasureSet": 2,
+      "basicColors": [
+        "red",
+        "blue",
+        "yellow"
+      ],
+      "killedIfThrownOut": true,
+      "pelletDie": [
+        {
+          "color": "red",
+          "value": 1
+        },
+        {
+          "color": "red",
+          "value": 5
+        },
+        {
+          "color": "yellow",
+          "value": 1
+        },
+        {
+          "color": "yellow",
+          "value": 5
+        },
+        {
+          "color": "blue",
+          "value": 1
+        },
+        {
+          "color": "blue",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge",
+          "climbingstick",
+          "tunnel"
+        ],
+        "walls": [
+          "wall",
+          "arachnodeweb",
+          "crystalwall",
+          "electricwall",
+          "icewall"
+        ],
+        "emitters": [
+          "poisonemitter",
+          "electricitygenerator",
+          "firegeyser",
+          "waterspout",
+          "icevent"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "ice"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pricklypasture",
+      "name": "Prickly Pasture",
+      "setNumber": 12,
+      "difficulty": "Extreme",
+      "treasureSet": 1,
+      "basicColors": [
+        "rock",
+        "winged",
+        "ice"
+      ],
+      "killedIfThrownOut": true,
+      "pelletDie": [
+        {
+          "color": "rock",
+          "value": 1
+        },
+        {
+          "color": "rock",
+          "value": 5
+        },
+        {
+          "color": "winged",
+          "value": 1
+        },
+        {
+          "color": "winged",
+          "value": 5
+        },
+        {
+          "color": "ice",
+          "value": 1
+        },
+        {
+          "color": "ice",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge",
+          "climbingstick"
+        ],
+        "walls": [
+          "wall",
+          "arachnodeweb",
+          "crystalwall",
+          "icewall"
+        ],
+        "emitters": [
+          "icevent"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trickystaircase",
+      "name": "Tricky Staircase",
+      "setNumber": 13,
+      "difficulty": "Extreme",
+      "treasureSet": 4,
+      "basicColors": [
+        "red",
+        "blue",
+        "winged"
+      ],
+      "killedIfThrownOut": true,
+      "pelletDie": [
+        {
+          "color": "red",
+          "value": 1
+        },
+        {
+          "color": "red",
+          "value": 5
+        },
+        {
+          "color": "blue",
+          "value": 1
+        },
+        {
+          "color": "blue",
+          "value": 5
+        },
+        {
+          "color": "winged",
+          "value": 1
+        },
+        {
+          "color": "winged",
+          "value": 5
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "climbingstick"
+        ],
+        "walls": [
+          "wall",
+          "arachnodeweb"
+        ],
+        "emitters": [
+          "poisonemitter",
+          "firegeyser",
+          "waterspout"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "thehillswitheyesandteeth",
+      "name": "The Hills with Eyes and Teeth",
+      "setNumber": 14,
+      "difficulty": "Ridiculous",
+      "treasureSet": 3,
+      "basicColors": [
+        "red",
+        "yellow",
+        "blue",
+        "rock",
+        "winged",
+        "ice"
+      ],
+      "killedIfThrownOut": true,
+      "pelletDie": [
+        {
+          "color": "red",
+          "value": 1
+        },
+        {
+          "color": "yellow",
+          "value": 1
+        },
+        {
+          "color": "blue",
+          "value": 1
+        },
+        {
+          "color": "rock",
+          "value": 1
+        },
+        {
+          "color": "winged",
+          "value": 1
+        },
+        {
+          "color": "ice",
+          "value": 1
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "climbingstick",
+          "tunnel"
+        ],
+        "walls": [
+          "wall"
+        ],
+        "emitters": [
+          "poisonemitter",
+          "electricitygenerator",
+          "firegeyser",
+          "waterspout",
+          "icevent"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "chasm"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "height"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "discodancefloor",
+      "name": "Disco Dancefloor",
+      "setNumber": 15,
+      "difficulty": "Ridiculous",
+      "treasureSet": 1,
+      "basicColors": [
+        "red",
+        "yellow",
+        "blue",
+        "rock",
+        "winged",
+        "ice"
+      ],
+      "killedIfThrownOut": true,
+      "pelletDie": [
+        {
+          "color": "red",
+          "value": 1
+        },
+        {
+          "color": "yellow",
+          "value": 1
+        },
+        {
+          "color": "blue",
+          "value": 1
+        },
+        {
+          "color": "rock",
+          "value": 1
+        },
+        {
+          "color": "winged",
+          "value": 1
+        },
+        {
+          "color": "ice",
+          "value": 1
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge"
+        ],
+        "walls": [
+          "crystalwall",
+          "electricwall",
+          "icewall"
+        ],
+        "emitters": []
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "fire"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "poison"
+            },
+            {
+              "kind": "hazard",
+              "hazard": "water"
+            },
+            {
+              "kind": "enemy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "meadowofmelancholy",
+      "name": "Meadow of Melancholy",
+      "setNumber": 16,
+      "difficulty": "Ridiculous",
+      "treasureSet": "all",
+      "basicColors": [
+        "red",
+        "yellow",
+        "blue",
+        "rock",
+        "winged",
+        "ice"
+      ],
+      "killedIfThrownOut": false,
+      "pelletDie": [
+        {
+          "color": "red",
+          "value": 1
+        },
+        {
+          "color": "yellow",
+          "value": 1
+        },
+        {
+          "color": "blue",
+          "value": 1
+        },
+        {
+          "color": "rock",
+          "value": 1
+        },
+        {
+          "color": "winged",
+          "value": 1
+        },
+        {
+          "color": "ice",
+          "value": 1
+        }
+      ],
+      "structures": {
+        "bridges": [
+          "bridge",
+          "climbingstick",
+          "tunnel"
+        ],
+        "walls": [
+          "wall",
+          "arachnodeweb",
+          "crystalwall",
+          "electricwall",
+          "icewall"
+        ],
+        "emitters": [
+          "poisonemitter",
+          "electricitygenerator",
+          "firegeyser",
+          "waterspout",
+          "icevent"
+        ]
+      },
+      "lanes": [
+        {
+          "name": "Lane 1",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 2",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 3",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "enemy"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 4",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        },
+        {
+          "name": "Lane 5",
+          "spaces": [
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "treasure"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            },
+            {
+              "kind": "plain"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

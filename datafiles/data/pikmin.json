@@ -1,0 +1,120 @@
+{
+  "types": [
+    {
+      "id": "red",
+      "name": "Red",
+      "class": "basic",
+      "carry": 1,
+      "immunities": [
+        "fire"
+      ],
+      "traits": [],
+      "sprite": "red"
+    },
+    {
+      "id": "blue",
+      "name": "Blue",
+      "class": "basic",
+      "carry": 1,
+      "immunities": [
+        "water"
+      ],
+      "traits": [],
+      "sprite": "blue"
+    },
+    {
+      "id": "yellow",
+      "name": "Yellow",
+      "class": "basic",
+      "carry": 1,
+      "immunities": [
+        "electric"
+      ],
+      "traits": [
+        "climbs_height"
+      ],
+      "sprite": "yellow"
+    },
+    {
+      "id": "purple",
+      "name": "Purple",
+      "class": "advanced",
+      "carry": 5,
+      "immunities": [],
+      "traits": [],
+      "sprite": "purple"
+    },
+    {
+      "id": "white",
+      "name": "White",
+      "class": "advanced",
+      "carry": 1,
+      "immunities": [
+        "poison"
+      ],
+      "traits": [
+        "revenge_damage_1",
+        "solo_carry_moves_2"
+      ],
+      "sprite": "white"
+    },
+    {
+      "id": "bulbmin",
+      "name": "Bulbmin",
+      "class": "special",
+      "carry": 1,
+      "immunities": [
+        "fire",
+        "water",
+        "electric",
+        "ice",
+        "poison",
+        "control"
+      ],
+      "traits": [
+        "only_from_bulbmin_enemy"
+      ],
+      "sprite": "Bulbmin"
+    },
+    {
+      "id": "rock",
+      "name": "Rock",
+      "class": "basic",
+      "carry": 1,
+      "immunities": [
+        "crush",
+        "stab"
+      ],
+      "traits": [
+        "map_specific"
+      ],
+      "sprite": "rock"
+    },
+    {
+      "id": "ice",
+      "name": "Ice",
+      "class": "basic",
+      "carry": 1,
+      "immunities": [
+        "ice"
+      ],
+      "traits": [
+        "map_specific"
+      ],
+      "sprite": "ice"
+    },
+    {
+      "id": "winged",
+      "name": "Winged",
+      "class": "special",
+      "carry": 1,
+      "immunities": [],
+      "traits": [
+        "flies_over_hazards",
+        "blocked_by_walls",
+        "climbs_height"
+      ],
+      "sprite": "winged"
+    }
+  ]
+}
