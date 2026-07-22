@@ -30,7 +30,7 @@ function data_load_all() {
     //  enemyHeal = survivors heal to full each sunset (harder); off = they stay hurt
     //  anims = beat pacing/settles/cinematics; OFF = instant resolution (fast games)
     //  (AI brains are picked per-seat on the menu, not here)
-    global.expRules = { red: false, blue: false, yellow: false, rush: false, enemyHeal: false, anims: true };
+    global.expRules = { red: true, blue: true, yellow: true, rush: true, enemyHeal: false, anims: true };
 }
 
 /// Sprite index for a data record's "sprite" field, or _fallback when missing/unmatched.

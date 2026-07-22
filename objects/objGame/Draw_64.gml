@@ -61,14 +61,14 @@ if (mode == "menu") {
     }
 
     // experimental rule toggles (off by default; playtest rules)
-    var _exW = 130, _exGap = 8, _exY = 138;
+    var _exW = 200, _exGap = 8, _exY = 138;
     var _exX0 = _guiW * 0.5 - (_exW * 6 + _exGap * 5) * 0.5;
-    if (ui_button(_exX0, _exY, _exW, 26, "Red 2nd Strike: " + (global.expRules.red ? "ON" : "off"))) global.expRules.red = !global.expRules.red;
-    if (ui_button(_exX0 + (_exW + _exGap), _exY, _exW, 26, "Blue Lifeguard: " + (global.expRules.blue ? "ON" : "off"))) global.expRules.blue = !global.expRules.blue;
-    if (ui_button(_exX0 + (_exW + _exGap) * 2, _exY, _exW, 26, "Yellow Chasm: " + (global.expRules.yellow ? "ON" : "off"))) global.expRules.yellow = !global.expRules.yellow;
-    if (ui_button(_exX0 + (_exW + _exGap) * 3, _exY, _exW, 26, "2x Rush Carry: " + (global.expRules.rush ? "ON" : "off"))) global.expRules.rush = !global.expRules.rush;
-    if (ui_button(_exX0 + (_exW + _exGap) * 4, _exY, _exW, 26, "Enemies Heal: " + (global.expRules.enemyHeal ? "ON" : "off"))) global.expRules.enemyHeal = !global.expRules.enemyHeal;
-    if (ui_button(_exX0 + (_exW + _exGap) * 5, _exY, _exW, 26, "Anims: " + (global.expRules.anims ? "ON" : "off"))) global.expRules.anims = !global.expRules.anims;
+    if (ui_button(_exX0, _exY, _exW, 26, "Reds Strike Twice: " + (global.expRules.red ? "ON" : "off"))) global.expRules.red = !global.expRules.red;
+    if (ui_button(_exX0 + (_exW + _exGap), _exY, _exW, 26, "Blues Lifeguard: " + (global.expRules.blue ? "ON" : "off"))) global.expRules.blue = !global.expRules.blue;
+    if (ui_button(_exX0 + (_exW + _exGap) * 2, _exY, _exW, 26, "Yellows Cross Chasms: " + (global.expRules.yellow ? "ON" : "off"))) global.expRules.yellow = !global.expRules.yellow;
+    if (ui_button(_exX0 + (_exW + _exGap) * 3, _exY, _exW, 26, "2x Weight Rushes: " + (global.expRules.rush ? "ON" : "off"))) global.expRules.rush = !global.expRules.rush;
+    if (ui_button(_exX0 + (_exW + _exGap) * 4, _exY, _exW, 26, "Enemies Heal At sunset: " + (global.expRules.enemyHeal ? "ON" : "off"))) global.expRules.enemyHeal = !global.expRules.enemyHeal;
+    if (ui_button(_exX0 + (_exW + _exGap) * 5, _exY, _exW, 26, "Animations: " + (global.expRules.anims ? "ON" : "off"))) global.expRules.anims = !global.expRules.anims;
 
     // board grid
     var _boards = global.boardData.boards;
@@ -218,8 +218,8 @@ if (hoverKind == "space" && game.phase != "gameover") {
 if (hoverKind == "onion" && game.phase == "orders" && !_aiTurn && !_locked) {
     draw_set_font(-1);
     var _otTxt = (selSrc != undefined)
-        ? "Onion: click to DISMISS the selected pikmin"
-        : "Onion: select pikmin, then click here to dismiss";
+        ? "Onion: Click to DISCARD the selected pikmin"
+        : "Onion: Send Pikmin here to DISCARD them";
     var _otW = string_width(_otTxt);
     var _otH = string_height(_otTxt);
     var _otX = _mgx + 14;
@@ -305,7 +305,7 @@ ui_block_rect(0, 0, _guiW, _barH);
 
 // controls hint
 draw_set_color(make_color_rgb(200, 205, 215));
-draw_text(8, _guiH - 20, "Left: pick   Middle: send all   Right-drag: orbit   WASD: pan   Wheel: zoom (scroll over log)   Alt: inspect   V: treasure   F2: menu");
+draw_text(8, _guiH - 20, "Left: Select   Middle: Send All   Right-drag: Orbit Camera   WASD: Pan   Wheel: Zoom/Scroll   Alt: Inspect   V: Treasure   F2: Return to Menu");
 draw_set_color(c_white);
 
 // ---------- log panel (right) ----------
@@ -351,7 +351,7 @@ ui_block_rect(_logX, 40, _guiW - 8 - _logX, _logH);
 var _cy = 44;
 if (_cine) {
     draw_set_color(make_color_rgb(255, 224, 120));
-    draw_text(12, _cy, "Sunset - a new day dawns...");
+    draw_text(12, _cy, "Sunset - Time to return home!");
     draw_set_color(c_white);
 } else if (_locked) {
     draw_set_color(make_color_rgb(200, 210, 220));
@@ -380,7 +380,7 @@ if (_cine) {
     draw_text(12, _cy, selSrc == undefined ? "Left-click pikmin to pick some; middle-click a space to send all there." : "Click a destination (or middle-click to send all).");
     _cy += 24;
     draw_set_color(make_color_rgb(170, 180, 190));
-    draw_text(12, _cy, "The Onion circle (your left) dismisses selected pikmin.");
+    draw_text(12, _cy, "Send Pikmin to Onion to DISCARD");
     draw_set_color(c_white);
     _cy += 24;
 } else if (game.phase == "move") {
@@ -393,49 +393,49 @@ if (_cine) {
         switch (pendingCard.stage) {
             case "space":
                 switch (pendingCard.effectId) {
-                    case "rawmaterial":    _prompt = "Raw Material: click an empty space to build on."; break;
-                    case "ivoryandviolet": _prompt = "Ivory and Violet: click a space with your pikmin."; break;
-                    case "phosbatpod":     _prompt = "Phosbat Pod: click an empty enemy space."; break;
-                    case "bombrock":       _prompt = "Bomb Rock: click a space to blow up."; break;
-                    case "spicyspray":     _prompt = "Ultra-Spicy Spray: click a space to spray."; break;
-                    case "candypopbud":    _prompt = "Candypop Bud: click a space with your pikmin."; break;
-                    case "oatchirush":     _prompt = "Oatchi Rush: click any space in the target lane."; break;
-                    case "rockstorm":      _prompt = "Rock Storm: click an empty, hazard-free space."; break;
-                    case "surveydrone":    _prompt = "Survey Drone: click a treasure pile."; break;
-                    case "bitterspray":    _prompt = "Ultra-Bitter Spray: click an enemy to petrify."; break;
-                    case "icebomb":        _prompt = "Ice Bomb: click a space to freeze everything on it."; break;
-                    case "storm":          _prompt = "Lightning Storm: click the corner of a 2x2 area."; break;
-                    case "shipsignal":     _prompt = "Ship Signal: click a treasure pile to rearrange."; break;
-                    case "pikpikbundle":   _prompt = "Pikpik Carrots: click an enemy card (lane enemy or boss) to place the decoy."; break;
-                    case "mine":           _prompt = "Mine: click a space to bury it under."; break;
-                    default:               _prompt = "Click a target space."; break;
+                    case "rawmaterial":    _prompt = "Raw Material: Select an empty space."; break;
+                    case "ivoryandviolet": _prompt = "Ivory and Violet: Select a space with your Pikmin."; break;
+                    case "phosbatpod":     _prompt = "Phosbat Pod: Select an empty Enemy space (red)."; break;
+                    case "bombrock":       _prompt = "Bomb Rock: Select a space to blow up."; break;
+                    case "spicyspray":     _prompt = "Ultra-Spicy Spray: Select a space to spray."; break;
+                    case "candypopbud":    _prompt = "Candypop Bud: Select a space with your pikmin."; break;
+                    case "oatchirush":     _prompt = "Oatchi Rush: Select a lane to rush."; break;
+                    case "rockstorm":      _prompt = "Rock Storm: Select an empty, hazard-free space."; break;
+                    case "surveydrone":    _prompt = "Survey Drone: Select a treasure pile to randomize."; break;
+                    case "bitterspray":    _prompt = "Ultra-Bitter Spray: Select a space to spray."; break;
+                    case "icebomb":        _prompt = "Ice Bomb: Select a space to freeze everything on it."; break;
+                    case "storm":          _prompt = "Lightning Storm: Select a 2x2 area to stun."; break;
+                    case "shipsignal":     _prompt = "Ship Signal: Select a treasure pile to rearrange."; break;
+                    case "pikpikbundle":   _prompt = "Pikpik Carrots: Select an enemy space or treasure space to place a decoy."; break;
+                    case "mine":           _prompt = "Mine: Select a space to bury a mine."; break;
+                    default:               _prompt = "Select a target space."; break;
                 }
                 break;
-            case "warpA":    _prompt = "Warp: click a BOSS (to swap) or a lane enemy (to move)."; break;
-            case "warpBoss": _prompt = "Warp: click the second boss to swap with."; break;
-            case "warpDest": _prompt = "Warp: click an empty enemy space to move it to."; break;
-            case "color":    _prompt = "Choose a colour below."; break;
-            case "build":    _prompt = "Choose what to build below."; break;
-            case "trade":    _prompt = "Set your trade below."; break;
+            case "warpA":    _prompt = "Warp: Select a BOSS or ENEMY."; break;
+            case "warpBoss": _prompt = "Warp: Select another BOSS to swap."; break;
+            case "warpDest": _prompt = "Warp: Select an empty ENEMY space."; break;
+            case "color":    _prompt = "Select a colour"; break;
+            case "build":    _prompt = "Build what?"; break;
+            case "trade":    _prompt = "Trade which Pikmin?"; break;
         }
         draw_text(12, _cy, _prompt);
         _cy += 26;
-        if (ui_button(12, _cy, 150, 30, "Cancel Card")) pendingCard = undefined;
+        if (ui_button(12, _cy, 150, 30, "Cancel")) pendingCard = undefined;
     }
 } else if (game.phase == "gameover" && gameoverSettled) {
     draw_set_halign(fa_center);
     draw_set_color(c_yellow);
-    var _msg = (game.winner == -1) ? "IT'S A TIE!" : ("PLAYER " + string(game.winner + 1) + " WINS!");
+    var _msg = (game.winner == -1) ? "DRAW!" : ("PLAYER " + string(game.winner + 1) + " WINS!");
     draw_text_transformed(_guiW * 0.5, _guiH * 0.35, _msg, 3 * UI_TS, 3 * UI_TS, 0);
     draw_set_color(c_white);
     draw_text_transformed(_guiW * 0.5, _guiH * 0.35 + 50, "P1 " + string(game_realized_score(game, 0)) + "p  vs  P2 " + string(game_realized_score(game, 1)) + "p", 1.5 * UI_TS, 1.5 * UI_TS, 0);
     draw_set_halign(fa_left);
-    if (ui_button(_guiW * 0.5 - 200, _guiH * 0.35 + 90, 190, 40, "Rematch (same board)")) {
+    if (ui_button(_guiW * 0.5 - 200, _guiH * 0.35 + 90, 190, 40, "Rematch (same board/players)")) {
         showCollection = false; // the auto-opened sidebars don't follow into the next game
         start_game(boardDef.id, ctl);
         exit;
     }
-    if (ui_button(_guiW * 0.5 + 10, _guiH * 0.35 + 90, 190, 40, "Board Select")) {
+    if (ui_button(_guiW * 0.5 + 10, _guiH * 0.35 + 90, 190, 40, "Main Menu")) {
         showCollection = false;
         return_to_menu();
         exit;
@@ -476,7 +476,7 @@ if (game.phase == "orders" && selSrc != undefined) {
         }
         if (ui_button(152, _rowY, 66, 26, "Cancel")) selSrc = undefined;
         _rowY += 30;
-        if (ui_button(16, _rowY, 202, 24, "New picks start: " + (defaultSelectAll ? "ALL" : "NONE"))) defaultSelectAll = !defaultSelectAll;
+        if (ui_button(16, _rowY, 202, 24, "Default Selection: " + (defaultSelectAll ? "ALL" : "NONE"))) defaultSelectAll = !defaultSelectAll;
     }
 }
 
@@ -515,7 +515,7 @@ if (_numCards > 0 && game.phase != "gameover" && !_aiTurn && !_freePending && !_
         // Captain Clone: show what it would actually copy
         if (_handEntries[_hovered].cardId == "captainclone") {
             var _dn = array_length(game.decks.gatherDiscard);
-            var _copyTxt = (_dn > 0) ? "Copies: " + gather_def_get(game.decks.gatherDiscard[_dn - 1]).name : "Copies: nothing (discard is empty)";
+            var _copyTxt = (_dn > 0) ? "Will copy: " + gather_def_get(game.decks.gatherDiscard[_dn - 1]).name : "Nothing to copy.";
             if (_dn > 0) {
                 var _copyX = (_bigX + _bigW * 2 + 16 <= _guiW) ? _bigX + _bigW + 8 : _bigX - _bigW - 8;
                 card_draw(game.decks.gatherDiscard[_dn - 1], _copyX, _guiH - _bigH - 6, _bigH);
@@ -552,7 +552,7 @@ if (_numCards > 0 && game.phase != "gameover" && !_aiTurn && !_freePending && !_
                         pendingCard = { handIdx: _hovered, cardId: _gid, effectId: _eff, stage: "space", lane: -1, idx: -1, atHome: false, purples: 0, whites: 0 };
                     }
                 } else {
-                    game_log(game, "Gather cards are played in the Move phase (before resolving).");
+                    game_log(game, "Gather cards cannot be played now. (Wrong phase)");
                 }
             }
         }
@@ -639,7 +639,7 @@ if (_freeHuman) {
     draw_set_color(c_white);
     ui_block_rect(_menuX, _menuY, _menuW, _menuH);
     draw_set_halign(fa_center);
-    draw_text(_menuX + _menuW * 0.5, _menuY + 8, "Free hazard - click a space");
+    draw_text(_menuX + _menuW * 0.5, _menuY + 8, "Free hazard - Select a space");
     draw_set_halign(fa_left);
     var _by = _menuY + 30;
     for (var _e = 0; _e < array_length(_fEmits); _e++) {
@@ -647,7 +647,7 @@ if (_freeHuman) {
         if (ui_button(_menuX + 12, _by, _menuW - 24, 30, _sel + hazard_def_get(_fEmits[_e]).name)) freeBuild = _fEmits[_e];
         _by += 38;
     }
-    if (ui_button(_menuX + 12, _by, _menuW - 24, 26, "Pass (forfeit this placement)")) game_skip_free_hazard(game);
+    if (ui_button(_menuX + 12, _by, _menuW - 24, 26, "Pass")) game_skip_free_hazard(game);
 }
 
 // ---------- gather card targeting menus ----------
@@ -855,10 +855,10 @@ if (showDebug) {
             var _space = _lane.spaces[_spaceIdx];
             if (_space.enemy != undefined) {
                 _lineText += "[" + enemy_def_get(_space.enemy.enemyDefId).name + " " + string(_space.enemy.curHp) + "] ";
-            } else if (_space.kind == "treasure")  _lineText += "[$] ";
-            else if (_space.kind == "enemy")       _lineText += "[--] ";
-            else if (_space.kind == "hazard")      _lineText += "[!" + string_char_at(_space.hazard, 1) + "] ";
-            else                                   _lineText += "[.] ";
+            } else if (_space.kind == "treasure")  _lineText += "[T] ";
+            else if (_space.kind == "enemy")       _lineText += "[e] ";
+            else if (_space.kind == "hazard")      _lineText += "[h" + string_char_at(_space.hazard, 1) + "] ";
+            else                                   _lineText += "[] ";
         }
         draw_text(16, _dbgY + _laneIdx * 20, _lineText);
     }
@@ -886,7 +886,7 @@ if (keyboard_check(vk_alt)) {
     var _zoomPile = undefined; // treasure-pile card array: fan them all out
     if (_zoomAlias == "captainclone") {
         var _dn = array_length(game.decks.gatherDiscard);
-        _zoomCaption = (_dn > 0) ? "Copies: " + gather_def_get(game.decks.gatherDiscard[_dn - 1]).name : "Copies: nothing (discard is empty)";
+        _zoomCaption = (_dn > 0) ? "Will copy: " + gather_def_get(game.decks.gatherDiscard[_dn - 1]).name : "Nothing to copy.";
     }
     if (_zoomAlias == "" && hoverKind == "space") {
         var _hSpace = board.lanes[hoverLane].spaces[hoverIdx];
@@ -1026,7 +1026,7 @@ if (keyboard_check(vk_alt)) {
         draw_set_color(make_color_rgb(180, 190, 200));
         draw_rectangle(_dlX, _dlY, _dlX + _dlW, _dlY + _dlH, true);
         draw_set_color(c_yellow);
-        draw_text(_dlX + 10, _dlY + 8, "DISCARD (" + string(_discNn) + ") - newest first");
+        draw_text(_dlX + 10, _dlY + 8, "DISCARD (" + string(_discNn) + ") - Newest first");
         draw_set_color(c_white);
         for (var _dli = 0; _dli < _dlShow; _dli++) {
             draw_text(_dlX + 10, _dlY + 30 + _dli * 18, gather_def_get(_discList[_discNn - 1 - _dli]).name);
@@ -1121,7 +1121,7 @@ if (mouse_check_button_pressed(mb_left) && !global.uiMouseConsumed && !_locked &
             game_order_discard(game, selSrc, selCounts);
             selSrc = undefined;
         } else {
-            game_log(game, "Select pikmin first, then click the Onion to dismiss them.");
+            game_log(game, "Select Pikmin, then click the Onion to discard them.");
         }
     } else {
         selSrc = undefined;
