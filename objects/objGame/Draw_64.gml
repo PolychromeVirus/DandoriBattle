@@ -46,10 +46,24 @@ if (mode == "menu") {
     draw_set_halign(fa_left);
     draw_set_font(-1);
 
-    // per-seat controllers (cycle Human -> AI v1 -> AI v2) + the batch runner
+    // per-seat controllers (cycle Human -> v1 -> v2 -> v3 -> v3b -> v4) + the batch runner
     var _togW = 170, _togY = 104;
-    var _ctlName = function(_c) { return (_c == "human") ? "Human" : ((_c == "v1") ? "AI v1" : "AI v2"); };
-    var _cycle = function(_c) { return (_c == "human") ? "v1" : ((_c == "v1") ? "v2" : "human"); };
+    var _ctlName = function(_c) {
+        if (_c == "human") return "Human";
+        if (_c == "v1") return "AI v1";
+        if (_c == "v2") return "AI v2";
+        if (_c == "v3") return "AI v3";
+        if (_c == "v3b") return "AI v3b";
+        return "AI v4";
+    };
+    var _cycle = function(_c) {
+        if (_c == "human") return "v1";
+        if (_c == "v1") return "v2";
+        if (_c == "v2") return "v3";
+        if (_c == "v3") return "v3b";
+        if (_c == "v3b") return "v4";
+        return "human";
+    };
     if (ui_button(_guiW * 0.5 - _togW - 90, _togY, _togW, 28, "P1: " + _ctlName(menuCtl[0]))) menuCtl[0] = _cycle(menuCtl[0]);
     if (ui_button(_guiW * 0.5 - 85, _togY, _togW, 28, "P2: " + _ctlName(menuCtl[1]))) menuCtl[1] = _cycle(menuCtl[1]);
     // batch: arm it, then click a board - runs N fast AI games back to back
@@ -482,12 +496,16 @@ if (game.phase == "orders" && selSrc != undefined) {
 
 var _altZoomAlias = "";
 
-// ---------- hand (active player's gather + pellet cards) ----------
+// ---------- hand: ALWAYS show the human viewer's cards (the old "hide when it's not
+// ---------- your turn" was a hotseat holdover); interactive only on the viewer's turn ----------
+var _viewer = (ctl[0] == "human") ? 0 : ((ctl[1] == "human") ? 1 : -1); // the human seat (-1 = spectating, both AI)
+var _vpl = (_viewer >= 0) ? game.players[_viewer] : _pl;
 var _handEntries = [];
-for (var _i = 0; _i < array_length(_pl.hand); _i++) array_push(_handEntries, { kind: "gather", cardId: _pl.hand[_i], pelletIdx: -1 });
-for (var _i = 0; _i < array_length(_pl.pellets); _i++) array_push(_handEntries, { kind: "pellet", cardId: _pl.pellets[_i], pelletIdx: _i });
+for (var _i = 0; _i < array_length(_vpl.hand); _i++) array_push(_handEntries, { kind: "gather", cardId: _vpl.hand[_i], pelletIdx: -1 });
+for (var _i = 0; _i < array_length(_vpl.pellets); _i++) array_push(_handEntries, { kind: "pellet", cardId: _vpl.pellets[_i], pelletIdx: _i });
 var _numCards = array_length(_handEntries);
-if (_numCards > 0 && game.phase != "gameover" && !_aiTurn && !_freePending && !_locked) {
+var _handInteractive = (_viewer == _p && !_aiTurn && !_freePending && !_locked); // your own turn only
+if (_numCards > 0 && game.phase != "gameover" && _viewer >= 0) {
     var _cardH = 170;
     var _cardW = _cardH * 0.714;
     var _step = (_numCards * (_cardW + 10) <= _guiW - 560) ? (_cardW + 10) : max(34, (_guiW - 560 - _cardW) / max(1, _numCards - 1));
@@ -526,7 +544,7 @@ if (_numCards > 0 && game.phase != "gameover" && !_aiTurn && !_freePending && !_
             draw_set_color(c_white);
             draw_set_halign(fa_left);
         }
-        if (mouse_check_button_pressed(mb_left)) {
+        if (_handInteractive && mouse_check_button_pressed(mb_left)) {
             if (game.phase == "orders" && _handEntries[_hovered].kind == "pellet") {
                 pelletMenuIdx = _handEntries[_hovered].pelletIdx;
                 posyMenuIdx = -1;
@@ -862,6 +880,26 @@ if (showDebug) {
         }
         draw_text(16, _dbgY + _laneIdx * 20, _lineText);
     }
+    // F-key / shortcut reference (only while the Tab debug overlay is up)
+    var _keys = [
+        "F1  cycle P2 brain (human / v1 / v2 / v3)",
+        "F2  return to menu",
+        "F3  sim diagnostics - this board",
+        "F4  policy tournament - this board",
+        "F5  probe: RANDOM seed - this board",
+        "F6  lane audit - this board",
+        "F7  probe: FIXED seed - this board",
+        "F8  tournament batch (5 boards)",
+        "F9  scenario tests (fast logic checks)",
+        "F12 tournament: ALL 16 boards (long AFK run)",
+        "F11 fullscreen    Tab debug    V collection    Space orbit"
+    ];
+    var _kx = 8, _ky = _barH + 10;
+    draw_set_alpha(0.5); draw_set_color(c_black);
+    draw_rectangle(_kx - 4, _ky - 4, _kx + 372, _ky + array_length(_keys) * 18 + 4, false);
+    draw_set_alpha(1); draw_set_color(make_color_rgb(200, 220, 240));
+    for (var _ki = 0; _ki < array_length(_keys); _ki++) draw_text(_kx, _ky + _ki * 18, _keys[_ki]);
+    draw_set_color(c_white);
 }
 
 // ---------- collected-treasure side panels (V toggles) ----------

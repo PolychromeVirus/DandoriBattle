@@ -1457,6 +1457,7 @@
     {"id":{"name":"scrAI","path":"scripts/scrAI/scrAI.yy",},},
     {"id":{"name":"scrAI2","path":"scripts/scrAI2/scrAI2.yy",},},
     {"id":{"name":"scrAI3","path":"scripts/scrAI3/scrAI3.yy",},},
+    {"id":{"name":"scrAI4","path":"scripts/scrAI4/scrAI4.yy",},},
     {"id":{"name":"scrBoard","path":"scripts/scrBoard/scrBoard.yy",},},
     {"id":{"name":"scrCards","path":"scripts/scrCards/scrCards.yy",},},
     {"id":{"name":"scrGame","path":"scripts/scrGame/scrGame.yy",},},

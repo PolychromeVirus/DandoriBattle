@@ -14,7 +14,7 @@ if (keyboard_check_pressed(vk_f11)) window_set_fullscreen(!window_get_fullscreen
 if (keyboard_check_pressed(vk_tab))   showDebug = !showDebug;
 if (keyboard_check_pressed(ord("V")))  showCollection = !showCollection;
 if (keyboard_check_pressed(vk_f1)) { // cycle P2's controller mid-game
-    ctl[1] = (ctl[1] == "human") ? "v1" : ((ctl[1] == "v1") ? "v2" : ((ctl[1] == "v2") ? "v3" : "human"));
+    ctl[1] = (ctl[1] == "human") ? "v1" : ((ctl[1] == "v1") ? "v2" : ((ctl[1] == "v2") ? "v3" : ((ctl[1] == "v3") ? "v3b" : ((ctl[1] == "v3b") ? "v4" : "human"))));
     game_log(game, "P2 controller: " + ctl[1]);
 }
 if (keyboard_check_pressed(vk_escape)) { selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined; }
@@ -36,18 +36,25 @@ if (keyboard_check_pressed(vk_f4)) { sim_tournament_begin(boardDef.id, 100); }
 if (keyboard_check_pressed(vk_f8)) {
     sim_tournament_run_boards(["frozenriverbank", "familiargrotto", "theminefield", "hauntingswampland", "undergroundplateau"], 100);
 }
+// F12: BATCH - EVERY board back-to-back, unattended (~1.5-2 hr). For long AFK runs.
+// Same matrix-per-board output to sim_bench.txt + CSV; Esc stops the whole batch.
+if (keyboard_check_pressed(vk_f12)) {
+    sim_tournament_run_boards(["familiargrotto", "stonesweptvalley", "undergroundplateau", "frozenriverbank",
+        "floodedgarden", "scorchedplayground", "frigidwasteland", "theburrow", "thedoghouse", "theminefield",
+        "hauntingswampland", "pricklypasture", "trickystaircase", "thehillswitheyesandteeth", "discodancefloor",
+        "meadowofmelancholy"], 100);
+}
 // F9: run the fast scenario tests (decision-node logic checks) -> sim_bench.txt +
 // console. Instant. This is the build-one-piece-at-a-time verification loop.
 if (keyboard_check_pressed(vk_f9)) { sim_run_scenarios(); }
 // F7: probe - ONE seeded planner-vs-base game with the full decision log kept
 // (ai_debug.txt). ~2-3 seconds. The autopsy tool for tournament losers.
-// F7: autopsy the two catastrophic-board BLOWOUT losses (works from any board -
-// sim_probe builds its own game). Both verbose logs -> ai_debug.txt.
-if (keyboard_check_pressed(vk_f7)) {
-    // Plateau is now THE outlier catastrophe (-293): cascade under-harvests a rich
-    // board (banks ~85 vs base 3685). Autopsy the worst seed - orders-level.
-    sim_probe("undergroundplateau", "cascade", "base", 20260738); // cascade 85 : 3685 base
-}
+// Headless probe of the CURRENTLY-LOADED board, verbose log -> ai_debug.txt (+ result to
+// sim_bench.txt). No HUD clutter. Currently pointed at the v3b ACHIEVEMENT brain:
+//   F7 = cascade2(v3b,P1) vs base(v2,P2), FIXED seed (does v3b work vs the control)
+//   F5 = cascade2(v3b,P1) vs cascade(v3,P2), RANDOM seed (the real question: v3b vs cascade)
+if (keyboard_check_pressed(vk_f7)) sim_probe(boardDef.id, "v4", "base", 20260717);
+if (keyboard_check_pressed(vk_f5)) sim_probe(boardDef.id, "v4", "cascade", 20260717 + irandom(99));
 // tournament pump: while a run is active, tick one game and hold the live game
 // (AI, cinematics, input) - the sim uses its own game structs throughout
 if (variable_global_exists("simTourney") && global.simTourney != undefined) {
@@ -169,7 +176,8 @@ if (game.phase != "gameover" && game.pendingDiscard != undefined) {
         aiTickTimer += 1;
         if (aiTickTimer >= (global.expRules.anims ? 20 : 1)) {
             aiTickTimer = 0;
-            ai_resolve_discard(game);
+            if (ctl[game.pendingDiscard.playerIdx] == "v4") ai4_resolve_discard(game);
+            else ai_resolve_discard(game);
         }
     } else {
         aiTickTimer = 0;
@@ -180,7 +188,7 @@ if (game.phase != "gameover" && array_length(game.pendingFree) > 0 && ctl[game.p
     if (aiTickTimer >= (global.expRules.anims ? 20 : 1)) {
         aiTickTimer = 0;
         var _fhb = ctl[game.pendingFree[0].playerIdx];
-        if (_fhb == "v3") ai3_place_free_hazard(game); else if (_fhb == "v2") ai2_place_free_hazard(game); else ai_place_free_hazard(game);
+        if (_fhb == "v3" || _fhb == "v3b" || _fhb == "v4") ai3_place_free_hazard(game); else if (_fhb == "v2") ai2_place_free_hazard(game); else ai_place_free_hazard(game);
     }
 } else
 // --- AI turn: perform one chunk every ~third of a second so it's watchable ---
@@ -198,10 +206,10 @@ if (game.phase != "gameover" && ctl[game.activePlayer] != "human" && array_lengt
         var _brain = ctl[game.activePlayer];
         if (game.phase == "move" && global.expRules.anims) {
             if (presMoving) settleHold = 0; else settleHold += 1;
-            if (settleHold >= 25) { settleHold = 0; aiTickTimer = 0; if (_brain == "v3") ai3_step(game); else if (_brain == "v2") ai2_step(game); else ai_step(game); }
+            if (settleHold >= 25) { settleHold = 0; aiTickTimer = 0; if (_brain == "v3") ai3_step(game); else if (_brain == "v3b") ai3b_step(game); else if (_brain == "v4") ai4_step(game); else if (_brain == "v2") ai2_step(game); else ai_step(game); }
         } else {
             aiTickTimer = 0;
-            if (_brain == "v3") ai3_step(game); else if (_brain == "v2") ai2_step(game); else ai_step(game);
+            if (_brain == "v3") ai3_step(game); else if (_brain == "v3b") ai3b_step(game); else if (_brain == "v4") ai4_step(game); else if (_brain == "v2") ai2_step(game); else ai_step(game);
         }
     }
 } else {

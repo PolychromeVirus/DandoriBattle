@@ -412,8 +412,8 @@ function ai3_hazard_answer(_g, _hazard) {
         if (_hasCP1 && (_c == "red" || _c == "blue" || _c == "yellow")) return "card";
         if (_hasCP2 && (_c == "rock" || _c == "winged" || _c == "ice")) return "card";
     }
-    // geometric gates also yield to a structure (bridge/climbing stick)
-    if ((_hazard == "chasm" || _hazard == "height" || _hazard == "water") && ai3_board_has_gather(_g, "rawmaterial")) return "card";
+    // ANY hazard yields to a bridge structure (stick/tunnel are the element-locked ones)
+    if (ai3_hazard_bridgeable(_g, _hazard)) return "card";
     return "none";
 }
 
@@ -593,6 +593,22 @@ function ai3_deadweight_strength(_g, _p, _killedSet = [], _builtBridges = []) {
 
 #macro ACCESS_INF 999   // road can't be opened by this player (dead lane for them)
 
+/// Can a bridge/stick/tunnel open THIS terrain hazard on THIS board? Engine truth
+/// (game_play_gather rawmaterial, scrGame:992): a "bridge" structure goes on ANY
+/// hazard space - ice/fire/electric included - and only the climbing stick (height)
+/// and tunnel (chasm) are element-locked. Requires rawmaterial in the board's pool
+/// (else the card is unobtainable, so it isn't really bridgeable). SINGLE SOURCE OF
+/// TRUTH for bridgeability - road_turns / hazard_answer / obstacle_answers all defer
+/// here so the old "chasm/water/height only" bug can't come back.
+function ai3_hazard_bridgeable(_g, _hazard) {
+    if (!ai3_board_has_gather(_g, "rawmaterial")) return false;
+    var _br = _g.boardDef.structures.bridges;
+    if (arr_has(_br, "bridge")) return true;                        // any hazard
+    if (_hazard == "height" && arr_has(_br, "climbingstick")) return true;
+    if (_hazard == "chasm"  && arr_has(_br, "tunnel")) return true;
+    return false;
+}
+
 /// Turns for _p to OPEN the road home->(lane,idx) so a carry can run it: +1 per
 /// blocker _p must clear, ACCESS_INF if any blocker _p simply can't answer. A raw
 /// hazard _p's colours already cross adds 0; a chasm/water/height _p can't cross
@@ -626,7 +642,7 @@ function ai3_road_turns(_g, _p, _lane, _idx) {
             for (var _c = 0; _c < array_length(_cols) && !_cross; _c++)
                 if (game_type_can_enter(pikmin_type_get(_cols[_c]), _sp, true, false)) _cross = true;
             if (!_cross) {
-                if ((_sp.hazard == "chasm" || _sp.hazard == "water" || _sp.hazard == "height") && ai3_board_has_gather(_g, "rawmaterial")) _turns += 1; // bridge / climbing stick
+                if (ai3_hazard_bridgeable(_g, _sp.hazard)) _turns += 1; // a bridge opens ANY hazard (stick=height, tunnel=chasm)
                 else return ACCESS_INF;
             }
         }
@@ -647,6 +663,212 @@ function ai3_access_cost(_g, _p, _lane, _idx, _hasSpicy = false) {
     var _t = game_treasure_at(_g, _lane, _idx);
     var _w = (_t != undefined && array_length(_t.cards) > 0) ? treasure_def_get(_t.cards[array_length(_t.cards) - 1]).weight : 1;
     return _road + ai2_turns_to_bank(_g, _p, _idx, _w, _hasSpicy);
+}
+
+// ============================================================================
+// ACCESS ENUMERATION (node 1 of the demand-driven orders rework, 2026-07-22).
+// Unlike ai3_road_turns (a scalar cost from the CURRENT roster), these enumerate
+// how a pile COULD be accessed, roster-independent, so the funder can decide what
+// colour is worth growing. Access has TWO directions with asymmetric rules:
+//   REACH  - outbound (home -> pile, toward centre); enough to contest / DENY.
+//   CARRY  - return  (pile -> home, away from centre); required to actually BANK.
+// (height gates reach only; exp-yellow crosses a chasm toward centre but can't
+// carry back; bridges/immunities/flying are symmetric.)
+// ============================================================================
+
+/// The ordered obstacles on the road from _p's home edge to (lane,idx) - the raw
+/// material for the answers/methods layers. A faithful, DIRECTION-AGNOSTIC transcript
+/// (direction-dependent crossing is applied later, per method). Each entry:
+///   { idx, kind, soft, ... }
+///     kind "enemy"   -> { enemyDefId, curHp }        clear by hurting it
+///     kind "wall"    -> { structId, hp }             clear by damaging it
+///     kind "emitter" -> { structId, element, hp }    cross if immune, else destroy
+///     kind "hazard"  -> { hazard }                   terrain gate (chasm/water/height/element)
+///     kind "pile"    -> { }                           another treasure in the lane
+/// `soft: true` marks a non-blocking, damage-only obstacle (poison terrain / poison
+/// emitter) - anyone crosses, non-immune (non-white) take damage; it's a colour
+/// PREFERENCE, not a gate. Bridge structures are not obstacles. [] = clear road.
+function ai3_road_obstacles(_g, _p, _lane, _idx) {
+    var _dir = (_p == 0) ? 1 : -1;
+    var _s   = (_p == 0) ? 0 : 6;
+    var _out = [];
+    while (_s != _idx) {
+        var _sp = _g.board.lanes[_lane].spaces[_s];
+        if (_sp.enemy != undefined) {
+            array_push(_out, { idx: _s, kind: "enemy", soft: false, enemyDefId: _sp.enemy.enemyDefId, curHp: _sp.enemy.curHp });
+        } else if (_sp.structure != undefined) {
+            var _sd = hazard_def_get(_sp.structure.structId);
+            if (_sd.type == "wall") {
+                array_push(_out, { idx: _s, kind: "wall", soft: false, structId: _sp.structure.structId, hp: _sp.structure.curHp });
+            } else if (_sd.type != "bridge") { // emitter (bridge never blocks)
+                array_push(_out, { idx: _s, kind: "emitter", soft: (_sd.element == "poison"),
+                    structId: _sp.structure.structId, element: _sd.element, hp: _sp.structure.curHp });
+            }
+        } else if (_sp.kind == "hazard" && _sp.hazard != "") {
+            array_push(_out, { idx: _s, kind: "hazard", soft: (_sp.hazard == "poison"), hazard: _sp.hazard });
+        }
+        if (game_treasure_at(_g, _lane, _s) != undefined) array_push(_out, { idx: _s, kind: "pile", soft: false });
+        _s += _dir;
+    }
+    return _out;
+}
+
+/// The ways past ONE obstacle in ONE direction (_towardCenter true = the outbound REACH
+/// step; false = the CARRY-home step - the crossing rules are asymmetric, so the caller
+/// asks twice). Returns:
+///   { kind, soft,
+///     nativeColors: [ids],   // pikmin types that cross with NO card, this direction
+///                            //   (single source of truth = game_type_can_enter)
+///     open: [ {via, ...} ] }  // non-native ways to make it passable this direction
+/// open vias:
+///   "bridge"        - ANY terrain hazard (ice/fire/electric/water/chasm/height); cost 2
+///                     rawmaterial, DURABLE for reach but consumedByCarry (a treasure
+///                     carried over it destroys it - one bank per bridge).
+///   "climbingstick" - height only; "tunnel" - chasm only; cost 2, not carry-consumed.
+///   "lifeguard"     - water only, exp rule; a blue-escorted group crosses, but REACH
+///                     ONLY (lifeguard doesn't carry) - cost 0 bodies (needs a blue along).
+///   "kill"          - an enemy blocks both ways; clear it (PREPARE prices the kill).
+///   "destroy"       - a wall / element emitter: cross by immunity (nativeColors) or break it.
+///   "clearpile"     - an intervening treasure pile; its own target, not simply passable.
+/// Soft obstacles (poison) never block: nativeColors = everyone, open = [] (the count
+/// cost of the poison chip is the funder's problem, not an access gate).
+function ai3_obstacle_answers(_g, _lane, _obs, _towardCenter) {
+    var _types = ["red", "yellow", "blue", "purple", "white", "rock", "ice", "winged", "bulbmin"];
+    var _native = [];
+    var _open = [];
+
+    if (_obs.kind == "enemy") {
+        array_push(_open, { via: "kill" });                    // no colour passes a live enemy
+    } else if (_obs.kind == "wall") {
+        array_push(_open, { via: "destroy" });
+    } else if (_obs.kind == "pile") {
+        array_push(_open, { via: "clearpile" });
+    } else {
+        // hazard terrain OR emitter structure: native passers via the engine's own rule
+        var _sp = _g.board.lanes[_lane].spaces[_obs.idx];
+        for (var _i = 0; _i < array_length(_types); _i++)
+            if (game_type_can_enter(pikmin_type_get(_types[_i]), _sp, _towardCenter, false, false))
+                array_push(_native, _types[_i]);
+
+        if (!_obs.soft) {
+            if (_obs.kind == "hazard") {
+                if (ai3_hazard_bridgeable(_g, _obs.hazard)) {
+                    // enumerate every applicable structure - the funder picks (bridge = any
+                    // hazard but carry-consumed; stick/tunnel element-locked, not consumed).
+                    var _br = _g.boardDef.structures.bridges;
+                    if (arr_has(_br, "bridge")) array_push(_open, { via: "bridge", cost: 2, consumedByCarry: true });
+                    if (_obs.hazard == "height" && arr_has(_br, "climbingstick")) array_push(_open, { via: "climbingstick", cost: 2, consumedByCarry: false });
+                    if (_obs.hazard == "chasm"  && arr_has(_br, "tunnel"))        array_push(_open, { via: "tunnel", cost: 2, consumedByCarry: false });
+                }
+                if (_obs.hazard == "water" && global.expRules.blue) array_push(_open, { via: "lifeguard", cost: 0, reachOnly: true });
+            } else if (_obs.kind == "emitter") {
+                array_push(_open, { via: "destroy" });         // emitters aren't bridgeable (space occupied)
+            }
+        }
+    }
+    return { kind: _obs.kind, soft: _obs.soft, nativeColors: _native, open: _open };
+}
+
+/// NODE 1c - ACCESS METHODS: the roster-independent MENU of recipes to put weight on
+/// a pile, one per carrier colour (user's framing: a method = one PROCESS to get N
+/// bodies onto a Wt pile - "what combination of bodies + items"). For each colour, walk
+/// the road's obstacles (answers cached both directions) and accumulate the opens it
+/// needs. Bridges nullify a hazard BOTH ways (one build); a clear (kill/destroy) opens
+/// an enemy/wall/emitter both ways; lifeguard opens water for REACH only. Each method:
+///   { color, canReach, canCarry, bodies, builds:[{idx,via,cost}], clears:[idx],
+///     cardCost, turns }
+///   canCarry=false, canReach=true  -> a DENY-only recipe (reach it, can't bank it):
+///     yellow-over-chasm, lifeguard-escort. ADVANCE must never count these toward a bank.
+///   bodies = ceil(weight / carry) + poison attrition (1 body lost per poison space it
+///     isn't immune to - user's "send 4 rocks over poison to land 3").
+///   turns  = builds + clears (~1 turn each) + carry turns -> feeds value/turns scoring.
+/// Colours that can't even REACH are omitted. V1 gap: when a colour CAN bank (via
+/// bridges) it does NOT also surface the cheaper lifeguard reach-only variant - add
+/// that when the DENY funder wants "wall it for 0 cards".
+function ai3_access_methods(_g, _p, _lane, _idx) {
+    var _obs = ai3_road_obstacles(_g, _p, _lane, _idx);
+    var _t = game_treasure_at(_g, _lane, _idx);
+    var _w = (_t != undefined && array_length(_t.cards) > 0) ? treasure_def_get(_t.cards[array_length(_t.cards) - 1]).weight : 1;
+
+    var _ansR = [], _ansC = [];                                 // cache answers per obstacle, both directions
+    for (var _o = 0; _o < array_length(_obs); _o++) {
+        _ansR[_o] = ai3_obstacle_answers(_g, _lane, _obs[_o], true);
+        _ansC[_o] = ai3_obstacle_answers(_g, _lane, _obs[_o], false);
+    }
+
+    var _types = ["red", "yellow", "blue", "purple", "white", "rock", "ice", "winged", "bulbmin"];
+    var _methods = [];
+    for (var _ci = 0; _ci < array_length(_types); _ci++) {
+        var _C = _types[_ci];
+        var _reachOk = true, _carryOk = true;
+        var _builds = [], _clears = [], _cardCost = 0, _poison = 0;
+        for (var _o = 0; _o < array_length(_obs); _o++) {
+            var _O = _obs[_o];
+            if (_O.soft) {                                       // poison: passable; attrition unless immune
+                if (!arr_has(pikmin_type_get(_C).immunities, "poison")) _poison += 1;
+                continue;
+            }
+            var _rNative = arr_has(_ansR[_o].nativeColors, _C);
+            var _cNative = arr_has(_ansC[_o].nativeColors, _C);
+            if (_rNative && _cNative) continue;                  // crosses freely both ways
+
+            if (_O.kind != "hazard") {                           // enemy / wall / emitter / pile: must be cleared
+                var _cleared = false;
+                for (var _k = 0; _k < array_length(_ansR[_o].open); _k++) {
+                    var _v = _ansR[_o].open[_k].via;
+                    if (_v == "kill" || _v == "destroy") { array_push(_clears, _O.idx); _cleared = true; break; }
+                }
+                if (!_cleared) { _reachOk = false; break; }      // e.g. an intervening pile - no simple clear
+            } else {                                             // terrain hazard: prefer a structure (serves both ways)
+                var _built = false;
+                for (var _k = 0; _k < array_length(_ansR[_o].open); _k++) {
+                    var _op = _ansR[_o].open[_k];
+                    if (_op.via == "bridge" || _op.via == "climbingstick" || _op.via == "tunnel") {
+                        array_push(_builds, { idx: _O.idx, via: _op.via, cost: _op.cost });
+                        _cardCost += _op.cost; _built = true; break;
+                    }
+                }
+                if (!_built) {                                   // no structure available: native / lifeguard for reach only
+                    var _lg = false;
+                    for (var _k = 0; _k < array_length(_ansR[_o].open); _k++) if (_ansR[_o].open[_k].via == "lifeguard") _lg = true;
+                    if (_rNative || _lg) { if (!_cNative) _carryOk = false; }  // reach ok; carry may fail (reach-only)
+                    else { _reachOk = false; break; }            // can't even reach this hazard
+                }
+            }
+        }
+        if (!_reachOk) continue;
+        var _carry = pikmin_type_get(_C).carry;
+        var _bodies = ceil(_w / max(1, _carry)) + _poison;
+        var _turns = array_length(_builds) + array_length(_clears) + ai2_turns_to_bank(_g, _p, _idx, _w, false);
+        array_push(_methods, { color: _C, canReach: true, canCarry: _carryOk, bodies: _bodies,
+            builds: _builds, clears: _clears, cardCost: _cardCost, turns: _turns });
+    }
+    return _methods;
+}
+
+/// DEMAND-DRIVEN REDEMPTION target (2026-07-22): the basic colour worth GROWING for
+/// the turn plan - over live piles, the carrier colour of the cheapest CAN-CARRY access
+/// method that is a board basic (pellet redemption only mints basics), scored by pile
+/// value / (1 + cardCost + turns) so a cheaply-bankable colour wins. Feeds the preamble:
+/// redeem a pellet into this colour ONLY when its own colour is deadweight (reaches no
+/// live pile) - "grow the colour the plan needs, inefficiently, only when the efficient
+/// colour is useless". Returns "" if no basic can bank anything. See cascade-orders-spec.
+function ai3_growth_demand(_g, _p) {
+    var _best = "", _bestScore = -1;
+    for (var _ti = 0; _ti < array_length(_g.treasures); _ti++) {
+        var _t = _g.treasures[_ti];
+        if (array_length(_t.cards) == 0) continue;
+        var _v = max(ai_pile_marginal(_g, _p, _t), ai_pile_raw(_t) * 0.3);
+        var _methods = ai3_access_methods(_g, _p, _t.lane, _t.idx);
+        for (var _mi = 0; _mi < array_length(_methods); _mi++) {
+            var _m = _methods[_mi];
+            if (!_m.canCarry) continue;                                        // must be able to BANK via this colour
+            if (!arr_has(_g.boardDef.basicColors, _m.color)) continue;         // redemption only mints basics
+            var _score = _v / (1 + _m.cardCost + _m.turns);                    // cheaper recipe wins
+            if (_score > _bestScore) { _bestScore = _score; _best = _m.color; }
+        }
+    }
+    return _best;
 }
 
 /// MAIN-LANE (ADVANCE target) pick (user, 2026-07-18). Score each lane's pile by
@@ -731,6 +953,107 @@ function ai3_advance_commit(_g, _p, _t, _depth) {
     return max(0, _target - _myS);
 }
 
+/// EXPLOSIVE THREAT: total blast `damage` that will hit (lane,idx) THIS turn. An
+/// explosive enemy detonates a + pattern (its space + the 4 orthogonally-adjacent),
+/// killing `damage` pikmin of BOTH players in each space - even if you never engaged
+/// it - UNLESS it dies this turn (killed in pass A -> no boom). So any space within
+/// Manhattan distance 1 of a SURVIVING explosive enemy is a death trap for deployed
+/// pikmin. Pass _killedSet (enemies my committed strength kills) so an explosive I'm
+/// killing this turn is discounted. Covers explosive ENEMIES and explosive BOSSES.
+function ai3_explosive_threat(_g, _p, _lane, _idx, _killedSet = []) {
+    var _threat = 0;
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        for (var _i = 0; _i <= 6; _i++) {
+            if (abs(_l - _lane) + abs(_i - _idx) > 1) continue;   // outside the + pattern
+            var _e = _g.board.lanes[_l].spaces[_i].enemy;
+            if (_e == undefined) { var _bt = game_treasure_at(_g, _l, _i); if (_bt != undefined) _e = _bt.boss; }
+            if (_e == undefined) continue;
+            var _def = enemy_def_get(_e.enemyDefId);
+            if (_def.attackElement != "explosive" || _def.damage <= 0) continue;
+            var _killed = false;
+            for (var _k = 0; _k < array_length(_killedSet); _k++)
+                if (_killedSet[_k].lane == _l && _killedSet[_k].idx == _i) { _killed = true; break; }
+            if (!_killed) _threat += _def.damage;
+        }
+    }
+    return _threat;
+}
+
+/// The explosive enemy most worth DEFUSING - one whose + pattern covers a space
+/// where I HAVE PIKMIN (i.e. a space I'm ending on), and that I'm NOT already killing
+/// this turn. Returns its {lane,idx} (highest damage first) or undefined. Per the
+/// user: an explosive is only a threat worth spending a card on if it'll damage a
+/// space you intend to end on. The defuse = freeze it (bitter/ice/storm) so it skips
+/// its detonation, or one-shot it. Covers explosive enemies and bosses.
+function ai3_explosive_to_defuse(_g, _p, _killedSet = []) {
+    var _best = undefined, _bestDmg = 0;
+    var _offs = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        for (var _i = 0; _i <= 6; _i++) {
+            var _e = _g.board.lanes[_l].spaces[_i].enemy;
+            if (_e == undefined) { var _bt = game_treasure_at(_g, _l, _i); if (_bt != undefined) _e = _bt.boss; }
+            if (_e == undefined) continue;
+            var _def = enemy_def_get(_e.enemyDefId);
+            if (_def.attackElement != "explosive" || _def.damage <= 0) continue;
+            var _killed = false;
+            for (var _k = 0; _k < array_length(_killedSet); _k++)
+                if (_killedSet[_k].lane == _l && _killedSet[_k].idx == _i) { _killed = true; break; }
+            if (_killed) continue;                                          // I kill it this turn -> no boom
+            var _hitsMe = false;
+            for (var _o = 0; _o < array_length(_offs) && !_hitsMe; _o++) {
+                var _bl = _l + _offs[_o][0], _bi = _i + _offs[_o][1];
+                if (_bl < 0 || _bl >= _g.board.laneCount || _bi < 0 || _bi > 6) continue;
+                if (game_strength_at(_g, _p, _bl, _bi) > 0) _hitsMe = true;  // my pikmin in the blast
+            }
+            if (_hitsMe && _def.damage > _bestDmg) { _bestDmg = _def.damage; _best = { lane: _l, idx: _i }; }
+        }
+    }
+    return _best;
+}
+
+/// Home strength of colour _col that can legally reach the pile at (lane,idx).
+function ai3_reach_color(_g, _p, _lane, _idx, _col) {
+    if (!game_dest_legal(_g, _p, _col, _lane, _idx)) return 0;
+    var _s = 0, _toks = _g.players[_p].tokens;
+    for (var _i = 0; _i < array_length(_toks); _i++)
+        if (_toks[_i].loc.kind == "home" && _toks[_i].typeId == _col) _s += pikmin_type_get(_col).carry;
+    return _s;
+}
+
+/// Home NON-PURPLE strength that can reach the pile (purple can't rush). Each colour
+/// checked for road access separately.
+function ai3_reach_nonpurple(_g, _p, _lane, _idx) {
+    var _s = 0, _toks = _g.players[_p].tokens, _seen = {};
+    for (var _i = 0; _i < array_length(_toks); _i++) {
+        var _tk = _toks[_i];
+        if (_tk.loc.kind != "home" || _tk.typeId == "purple") continue;
+        if (!variable_struct_exists(_seen, _tk.typeId)) _seen[$ _tk.typeId] = game_dest_legal(_g, _p, _tk.typeId, _lane, _idx);
+        if (_seen[$ _tk.typeId]) _s += pikmin_type_get(_tk.typeId).carry;
+    }
+    return _s;
+}
+
+/// SNIPE: can I carry this pile HOME THIS TURN (uncontestable bank)? spicy adds a 2nd
+/// carry pass, rush/white make each pass 2 spaces -> 4 spaces = a centre pile (dist<=4)
+/// banked in one turn. WHITE path: all-white carriers get the 2-step natively (rush-
+/// independent, works even against a holding opp if I out-muscle) - need white reach
+/// >= max(weight, oppOnPile+1). RUSH path (non-white, non-purple): needs rush ON, own
+/// >= 2*weight, and opp NOT holding (opp < weight). Both need a spicy in hand and the
+/// pile within a 4-space haul. See cascade-orders-spec (the Zak-game "snipe" tier).
+function ai3_can_instant_bank(_g, _p, _t) {
+    if (array_length(_t.cards) == 0 || _t.boss != undefined) return false;
+    if (!arr_has(_g.players[_p].hand, "spicyspray")) return false;         // need the extra carry action
+    var _w = treasure_def_get(_t.cards[array_length(_t.cards) - 1]).weight;
+    var _dist = (_p == 0) ? (_t.idx + 1) : (7 - _t.idx);
+    if (_dist > 4) return false;                                            // combo hauls at most 4 spaces
+    var _oppS = game_strength_at(_g, 1 - _p, _t.lane, _t.idx);
+    // WHITE path (native 2-step, not opp-holding-gated): just out-muscle + meet weight
+    if (ai3_reach_color(_g, _p, _t.lane, _t.idx, "white") >= max(_w, _oppS + 1)) return true;
+    // RUSH path (non-white, non-purple): rush ON + 2x weight + opp not holding
+    if (global.expRules.rush && _oppS < _w && ai3_reach_nonpurple(_g, _p, _t.lane, _t.idx) >= max(_w * 2, _oppS + 1)) return true;
+    return false;
+}
+
 /// Bodies lost CLEARING this blocker enemy (prices PREPARE/clean so a suicide clear
 /// doesn't out-rank cheap safe ones). If I own NO colour that both hurts it AND
 /// survives its defence, the whole attack MELTS on a real suicide-defence (loss ~=
@@ -799,11 +1122,20 @@ function ai3_orders_plan(_g) {
         && array_length(_pl.pellets) > 0 && !arr_has(_pl.hand, "ivoryandviolet")) {
         ai_cull_deadweight(_g, _p);
     }
+    // DEMAND-DRIVEN redemption: keep own-colour when it can reach a live pile (efficient
+    // same-rate), but when own-colour is DEADWEIGHT (reaches nothing) redeem into the
+    // colour the plan actually needs (ai3_growth_demand) instead - "grow the needed
+    // colour, off-rate, only when the efficient one is useless". Falls back to v2 growth.
+    var _demand = ai3_growth_demand(_g, _p);
     var _guard = 0;
     while (array_length(_pl.pellets) > 0 && game_capped_count(_g, _p) < global.rules.pikminBoardCap && _guard < 40) {
         _guard += 1;
         var _pDef = pellet_def_get(_pl.pellets[0]);
-        var _col = arr_has(_g.boardDef.basicColors, _pDef.color) ? _pDef.color : ai2_pick_growth_color(_g, _p);
+        var _own = _pDef.color;
+        var _col;
+        if (arr_has(_g.boardDef.basicColors, _own) && ai3_color_reaches_target(_g, _p, _own)) _col = _own; // own colour is useful
+        else if (_demand != "") _col = _demand;                                                            // grow what the plan needs
+        else _col = ai2_pick_growth_color(_g, _p);                                                         // nothing clear -> v2 fallback
         game_play_pellet(_g, 0, _col);
     }
     var _hi = 0;
@@ -843,19 +1175,14 @@ function ai3_orders_plan(_g) {
         + ")  score " + string(game_realized_score(_g, _p)) + " vs " + string(game_realized_score(_g, 1 - _p))
         + "  myTurns=" + string(_myTurns) + "  homeStr=" + string(_homeStr) + "  risk=" + string(_risk) + " =====");
 
-    // --- main-lane pick + breadth/depth decision (milestone 3) ---
+    // --- main-lane pick (reworked after the Zak game, cascade-orders-spec) ---
+    // Default is FOCUS + secure the ONE main lane (spreading thin let a human flip
+    // every thin contest). Breadth is now gated per-pile on OPPONENT NON-ACCESS, not
+    // a reachable-pile count; a SNIPE (bank-this-turn) tops everything. Decided in the
+    // per-treasure loop below.
     var _main = ai3_main_lane(_g, _p);
-    var _reachN = 0;
-    for (var _rti = 0; _rti < array_length(_g.treasures); _rti++) {
-        var _rt = _g.treasures[_rti];
-        if (array_length(_rt.cards) > 0 && ai3_access_cost(_g, _p, _rt.lane, _rt.idx, _hasSpicy) < ACCESS_INF) _reachN += 1;
-    }
-    var _depth = (_reachN <= 1); // one reachable pile -> pour in; else spread thin
-    var _targets = ai3_target_piles(_g, _p, BREADTH_CAP); // contest at most 3 piles
-    var _tgtStr = "";
-    for (var _tsi = 0; _tsi < array_length(_targets); _tsi++) _tgtStr += (_tsi > 0 ? "," : "") + string(_targets[_tsi].lane + 1);
-    ai_dbg("v3 main-lane " + string(_main.lane + 1) + " (score " + string(round(_main.score)) + ")  reachable piles "
-        + string(_reachN) + " -> " + (_depth ? "DEPTH" : "BREADTH") + "  targets [" + _tgtStr + "]");
+    ai_dbg("v3 main-lane " + string(_main.lane + 1) + " (score " + string(round(_main.score))
+        + ") - focus+secure; snipe tops; breadth only where the opp can't reach");
 
     // --- my projected banking over the next ~2 turns (for the deny-interrupt bar) ---
     var _myProj = 0;
@@ -904,12 +1231,14 @@ function ai3_orders_plan(_g) {
             }
         }
 
-        // ---- BREADTH CAP: only pursue the top-3 reachable piles this turn (a
-        // DENY threat already `continue`d above; this gates MY advance/prepare) ----
-        var _inCap = false;
-        for (var _tc = 0; _tc < array_length(_targets); _tc++)
-            if (_targets[_tc].lane == _t.lane && _targets[_tc].idx == _t.idx) { _inCap = true; break; }
-        if (!_inCap) { ai_dbg("v3 skip lane" + string(_t.lane + 1) + " - outside breadth cap " + string(BREADTH_CAP)); continue; }
+        // Pursue every pile: PREPARE (clearing blockers) DEVELOPS the board and must
+        // never be gated; ADVANCE contests. A SNIPE (bank this turn) is top priority;
+        // the main lane is value-boosted. Securing is OPPORTUNISTIC in ai_orders_commit
+        // (it overstacks toward 2x when affordable) so holds survive a re-contest and
+        // body-cost naturally caps over-spread - NO hard skip gate (skipping secondaries
+        // killed board development -> grotto 0-banks, the over-correction from Zak).
+        var _isMain = (_t.lane == _main.lane);
+        var _snipe  = ai3_can_instant_bank(_g, _p, _t);
 
         // ---- ADVANCE: a pile MOVABLE NOW (road clear to it) ----
         if (_blk == undefined) {
@@ -925,23 +1254,29 @@ function ai3_orders_plan(_g) {
                 continue;
             }
             var _canBank = (_tBank <= _myTurns);
-            // MILESTONE-3 sizing: ai3_advance_commit owns min-win + the depth/breadth
-            // over-stack (2x rush / securing buffer). DEPTH only on the ONE main lane;
-            // every other reachable pile is min-contested (breadth). `presized` tells
-            // ai_orders_commit NOT to re-apply its own rush overstack.
-            var _useDepth = _depth && (_t.lane == _main.lane);
-            var _req = ai3_advance_commit(_g, _p, _t, _useDepth);
+            // req = MIN-WIN (always committable - never PASS a pile for lack of 2x);
+            // a SNIPE needs the full carry strength THIS turn, so it's sized to depth
+            // and presized (exact). Non-snipe advances stay un-presized so ai_orders_
+            // commit overstacks toward 2x WHEN AFFORDABLE (opportunistic securing - a
+            // held pile survives the opponent's re-stack instead of a thin flip).
+            var _req = ai3_advance_commit(_g, _p, _t, _snipe);
             if (_req <= 0) {
                 // already holding enough - advances free this turn, no bodies spent (the latch)
                 ai_dbg("v3 holding lane" + string(_t.lane + 1) + " (myS " + string(_myS) + ") - advancing free");
                 continue;
             }
             var _val = ((_canBank ? _wMe : 0) + (_oppS > 0 ? _wOpp * 0.5 : 0)) / max(1, _tBank);
-            if (_t.lane == _main.lane) _val *= 3;   // MAIN-GOAL focus: tops its tier
+            if (_isMain) _val *= 3;    // focus the main lane
+            if (_snipe)  _val *= 5;    // an uncontestable bank tops everything
+            // DEPLOY-AVOIDANCE: a pile in a surviving explosive's blast wipes carriers
+            // sent there - discount it UNLESS I hold a defuser (bitter/ice) to neutralise
+            // the explosive first (then I deploy + defuse, per the user's model).
+            var _boom = ai3_explosive_threat(_g, _p, _t.lane, _t.idx);
+            if (_boom > 0 && !arr_has(_pl.hand, "bitterspray") && !arr_has(_pl.hand, "icebomb")) _val /= (1 + _boom);
             if (_val <= 0) continue;
             array_push(_cands, { tier: 2, kind: "pile", lane: _t.lane, idx: _t.idx, req: _req,
-                value: _val, enemyDef: undefined, oppS: _oppS, myS: _myS, w: _w, presized: true,
-                why: "v3 ADVANCE " + string(_raw) + "p " + (_useDepth ? "DEPTH" : "breadth") + (_canBank ? " tb" + string(_tBank) : " DENY") + (_myS > 0 ? " (holding " + string(_myS) + ")" : "") });
+                value: _val, enemyDef: undefined, oppS: _oppS, myS: _myS, w: _w, presized: _snipe,
+                why: "v3 " + (_snipe ? "SNIPE" : (_isMain ? "FOCUS" : "advance")) + " " + string(_raw) + "p" + (_canBank ? " tb" + string(_tBank) : "") + (_myS > 0 ? " (holding " + string(_myS) + ")" : "") });
             continue;
         }
 
@@ -956,8 +1291,9 @@ function ai3_orders_plan(_g) {
                 // no immune colour for melts the whole attack -> heavily discount, so a
                 // cheap safe clear elsewhere beats sacrificing the army to open one lane.
                 var _clr = ai3_clear_loss(_g, _p, _eDef, ai_enemy_req(_g, _p, _eDef, _blk.enemy.curHp));
+                var _expB = (_eDef.attackElement == "explosive") ? 2 : 1; // ONE-SHOT PRIORITY: killing it (pass A) removes a wide threat + no boom
                 array_push(_cands, { tier: 1, kind: "enemy", lane: _t.lane, idx: _blk.idx, req: ai_enemy_req(_g, _p, _eDef, _blk.enemy.curHp),
-                    value: _prepVal / (1 + _clr), enemyDef: _eDef, oppS: 0, myS: 0,
+                    value: _prepVal / (1 + _clr) * _expB, enemyDef: _eDef, oppS: 0, myS: 0,
                     why: "v3 PREPARE open " + _eDef.name + " (fric " + string(round(_fric * 10) / 10) + ", loss " + string(_clr) + ")" });
             }
         } else if (_blk.kind == "structure") {
@@ -982,8 +1318,9 @@ function ai3_orders_plan(_g) {
                 var _eD2 = enemy_def_get(_sp2.enemy.enemyDefId);
                 if (ai_can_group_hurt(_g, _p, _eD2)) {
                     var _clr2 = ai3_clear_loss(_g, _p, _eD2, ai_enemy_req(_g, _p, _eD2, _sp2.enemy.curHp));
+                    var _expB2 = (_eD2.attackElement == "explosive") ? 2 : 1; // one-shot priority (kill it before it booms)
                     array_push(_cands, { tier: 1, kind: "clean", lane: _laneIdx, idx: _si, req: ai_enemy_req(_g, _p, _eD2, _sp2.enemy.curHp),
-                        value: (8 + ai_reward_value(_eD2) * 0.5) / (1 + _clr2), enemyDef: _eD2, oppS: 0, myS: 0,
+                        value: (8 + ai_reward_value(_eD2) * 0.5) / (1 + _clr2) * _expB2, enemyDef: _eD2, oppS: 0, myS: 0,
                         why: "v3 clean " + _eD2.name + " (loss " + string(_clr2) + ")" });
                 }
             }
@@ -1145,8 +1482,615 @@ function ai3_try_bridge(_g, _p) {
     return false;
 }
 
-/// Move phase: chain-candypop, then cascade bridge (PREPARE via card), then the
-/// shared situational plays (spicy/ice/bomb/wall - v2's are well-tuned), resolve.
+// ============================================================================
+// ACHIEVEMENT MODEL (v3b orders, user-designed 2026-07-22, see cascade-orders-spec).
+// Reframes orders as "get the most POINTS out of this turn": enumerate every step you
+// can COMPLETE this turn that advances a pile's capture, each worth that pile's value V,
+// then the knapsack (node B) spends the body+card quota to maximise Σvalue. Focus falls
+// out of V - finishing one pile's chain (clear+build+advance = 3V) beats scattering.
+// ============================================================================
+
+/// REMAINING WORK to bank a pile = the tug-axis distance: obstacles I must clear/bridge on
+/// my road (enemies, walls, blocking emitters, hazards my colours can't cross, intervening
+/// piles) + the carry distance from the pile to my home edge. Each unit is one "step" toward
+/// the bank; an action's value is V x (units it completes) / remaining-work, so the same step
+/// is worth MORE on a lane closer to done (fewer units left) - that's what makes it finish
+/// what it starts, softly, without a gate. Min 1 (avoid /0 at the home edge).
+function ai3b_remaining_work(_g, _p, _lane, _idx) {
+    var _dir = (_p == 0) ? 1 : -1;
+    var _s = (_p == 0) ? 0 : 6;
+    var _work = 0;
+    var _cols = [];
+    var _toks = _g.players[_p].tokens;
+    for (var _i = 0; _i < array_length(_toks); _i++) if (!arr_has(_cols, _toks[_i].typeId)) array_push(_cols, _toks[_i].typeId);
+    while (_s != _idx) {
+        var _sp = _g.board.lanes[_lane].spaces[_s];
+        if (_sp.enemy != undefined) _work += 1;
+        else if (_sp.structure != undefined) {
+            var _sd = hazard_def_get(_sp.structure.structId);
+            if (_sd.type == "wall") _work += 1;
+            else if (_sd.type != "bridge" && !ai_emitter_passable(_g, _p, _sd)) _work += 1;
+        } else if (_sp.kind == "hazard" && _sp.hazard != "" && _sp.hazard != "poison") {
+            var _cross = false;
+            for (var _c = 0; _c < array_length(_cols) && !_cross; _c++)
+                if (game_type_can_enter(pikmin_type_get(_cols[_c]), _sp, true, false)) _cross = true;
+            if (!_cross) _work += 1;
+        }
+        if (game_treasure_at(_g, _lane, _s) != undefined) _work += 1;
+        _s += _dir;
+    }
+    var _carry = (_p == 0) ? (_idx + 1) : (7 - _idx);
+    return max(1, _work + _carry);
+}
+
+/// NODE 1 (tug-axis value) - achievement enumeration. Each entry: { type, lane, idx, value,
+/// bodies, color, cards }. Value = pile V x (units this action completes / remaining work),
+/// on WILL-DIE / WILL-MOVE outcomes (not attempts):
+///   build   - removes 1 obstacle-unit               -> V/W
+///   clear   - an enemy that WILL die (I reach its kill req) -> V/W;
+///   chip    - an enemy I can only damage, not kill    -> 20 flat (permanent-HP progress)
+///   advance - the pile MOVES `spaces` toward my home  -> V*spaces/W (0 if a tie moves it none)
+///   bank    - the move reaches home                    -> V*spaces/W + V (completion bonus, ~2V)
+/// A DEEP pile has large W, so a 1-space drag is a tiny fraction - the optimizer prefers
+/// near-home progress with no gate (that's how the idx5-tug dies). color "any" = ai_send picks
+/// bodies; "hurt" = a colour that can damage the blocker.
+function ai3b_achievements(_g, _p) {
+    var _opp = 1 - _p;
+    var _out = [];
+    for (var _ti = 0; _ti < array_length(_g.treasures); _ti++) {
+        var _t = _g.treasures[_ti];
+        if (array_length(_t.cards) == 0 || _t.boss != undefined) continue;
+        var _V = max(ai_pile_marginal(_g, _p, _t), ai_pile_raw(_t) * 0.3);
+        if (_V <= 0) continue;
+        var _w = treasure_def_get(_t.cards[array_length(_t.cards) - 1]).weight;
+        var _myS = game_strength_at(_g, _p, _t.lane, _t.idx);
+        var _oppS = game_strength_at(_g, _opp, _t.lane, _t.idx);
+        var _W = ai3b_remaining_work(_g, _p, _t.lane, _t.idx);   // tug-axis distance (min 1)
+
+        // cheapest crewable method (roster-aware) - its builds are the bridges I actually need
+        var _myCols = [];
+        var _mt = _g.players[_p].tokens;
+        for (var _k = 0; _k < array_length(_mt); _k++) if (!arr_has(_myCols, _mt[_k].typeId)) array_push(_myCols, _mt[_k].typeId);
+        var _methods = ai3_access_methods(_g, _p, _t.lane, _t.idx);
+        var _m = undefined, _mCost = 999999;
+        for (var _mi = 0; _mi < array_length(_methods); _mi++) {
+            if (!_methods[_mi].canCarry || !arr_has(_myCols, _methods[_mi].color)) continue;
+            var _c = _methods[_mi].cardCost + _methods[_mi].turns;
+            if (_c < _mCost) { _mCost = _c; _m = _methods[_mi]; }
+        }
+
+        // BUILD: each needed bridge removes 1 obstacle-unit -> V/W
+        if (_m != undefined)
+            for (var _bi = 0; _bi < array_length(_m.builds); _bi++)
+                array_push(_out, { type: "build", lane: _t.lane, idx: _m.builds[_bi].idx, value: _V / _W, bodies: 0, color: "", cards: _m.builds[_bi].cost, build: _m.builds[_bi].via });
+
+        // ADVANCE / BANK on the tug axis, WITH THE LOCK RULE + the CHAIN RULE (user). Two disciplines:
+        //  - LOCK: a contested move the opponent can immediately re-contest scores NOTHING; the tug
+        //    fraction only counts if the move is LOCKED (overcommit past their lane reserve, or a
+        //    cheaper item-lock: freeze / wall / spicy-snipe). BANK is locked by completion.
+        //  - CHAIN: an enemy blocker RESPAWNS+REGENS each day (scrGame day-respawn), and a live
+        //    enemy makes the pile an illegal destination (game_dest_legal), so CLEARING it is worth
+        //    points ONLY when the same PLAN also controls+carries the pile - a bare clear just gets
+        //    undone tomorrow (that was the grind that never banked). So the supply-clear is folded
+        //    INTO the advance/bank as extra body cost; a bare clear is not an achievement. BRIDGES
+        //    are durable, so BUILD stays independent above.
+        var _blk = ai_first_blocker(_g, _p, _t.lane, _t.idx);
+        var _clearReq = 0, _clearIdx = -1, _blocked = false;
+        if (_blk != undefined) {
+            if (_blk.kind == "enemy") {
+                var _eDef = enemy_def_get(_blk.enemy.enemyDefId);
+                if (ai_can_group_hurt(_g, _p, _eDef)) {
+                    var _creq = ai_enemy_req(_g, _p, _eDef, _blk.enemy.curHp);
+                    var _ereach = ai_send(_g, _p, _t.lane, _blk.idx, 99, _eDef, true);
+                    if (_ereach >= _creq) { _clearReq = _creq; _clearIdx = _blk.idx; } // survivors pour on to the pile
+                    else _blocked = true;                       // can't open supply this turn -> no durable progress
+                } else _blocked = true;                          // un-hurtable blocker -> dead lane for me
+            } else _blocked = true;                              // hazard/wall -> a durable BUILD opens it, not a clear
+        }
+        if (!_blocked) {
+            var _hasSpicy = arr_has(_g.players[_p].hand, "spicyspray");
+            var _oppLaneStr = 0;
+            var _otoks = _g.players[_opp].tokens;
+            for (var _oi = 0; _oi < array_length(_otoks); _oi++)
+                if (_otoks[_oi].loc.kind == "space" && _otoks[_oi].loc.lane == _t.lane) _oppLaneStr += pikmin_type_get(_otoks[_oi].typeId).carry;
+            // bodies that end up on the pile: those already there + whatever pours past the cleared blocker.
+            // Survivors only reach the pile if the cleared enemy was the LAST obstacle before it - a 2nd
+            // blocker still stops them this turn (that lane needs another turn's clear first).
+            var _pour = (_clearIdx >= 0)
+                ? max(0, ai_send(_g, _p, _t.lane, _clearIdx, 99, undefined, true) - _clearReq)
+                : ai_send(_g, _p, _t.lane, _t.idx, 99, undefined, true);
+            if (_clearIdx >= 0) {
+                var _lo2 = min(_clearIdx, _t.idx) + 1, _hi2 = max(_clearIdx, _t.idx) - 1;   // bounded, in-range 0..6
+                for (var _s2 = _lo2; _s2 <= _hi2; _s2++)
+                    if (_g.board.lanes[_t.lane].spaces[_s2].enemy != undefined) { _pour = 0; break; }
+            }
+            var _reach = _myS + _pour;
+            var _carry = (_p == 0) ? (_t.idx + 1) : (7 - _t.idx);
+            var _perTurn = (global.expRules.rush && _w <= 6) ? 2 : 1;
+            var _carryNow = _perTurn * (_hasSpicy ? 2 : 1);
+            // TWO LOCK THRESHOLDS (the fix for the mutual death-grip on a contested pile):
+            //  - SNIPE (banks THIS turn): the opponent can't respond before it lands, so I only need to
+            //    out-bid their CURRENT in-lane strength (oppLaneStr+1), cheaper with an item/wall lock.
+            //  - HOLD (multi-turn advance): the opponent re-contests over the turns it takes, reinforcing
+            //    from home - so to actually lock it I must out-bid their TOTAL reach (in-lane + the home
+            //    reserve that can path to the pile). A pile the opponent can flood is NOT lockable for a
+            //    haul; this diverts me to piles they can't reinforce (committed elsewhere / blocked road)
+            //    instead of dumping my army into a tug I lose. Item locks are one-turn, so snipe-only.
+            var _oppReach = _oppLaneStr + ai_send(_g, _opp, _t.lane, _t.idx, 99, undefined, true);
+            var _itemLocks = false, _wallLocks = false;
+            if (_oppLaneStr > 0) {
+                var _fc = ["bitterspray", "icebomb", "storm"];
+                for (var _fi = 0; _fi < array_length(_fc) && !_itemLocks; _fi++) {
+                    if (!arr_has(_g.players[_p].hand, _fc[_fi])) continue;
+                    var _fa = ai3_card_play_args(_g, _p, _fc[_fi]);
+                    if (_fa != undefined && _fa.lane == _t.lane && _fa.idx == _t.idx) _itemLocks = true;
+                }
+                if (!_itemLocks && arr_has(_g.players[_p].hand, "phosbatpod")) {
+                    var _wt = ai3_wall_target(_g, _p);
+                    if (_wt != undefined && _wt.lane == _t.lane && (_wt.idx - ((_p == 0) ? 1 : -1)) == _t.idx) _wallLocks = true;
+                }
+            }
+            var _snipeNeed = _w;                                             // lock-before-response = beat their in-lane
+            if (_oppLaneStr > 0) {
+                if (_itemLocks) _snipeNeed = _w;                            // frozen -> just lift
+                else if (_wallLocks) _snipeNeed = max(_w, _oppS + 1);       // walled -> beat the current stack only
+                else _snipeNeed = max(_w, _oppLaneStr + 1);                // beat the whole in-lane presence
+            }
+            // a WALL is DURABLE (unlike a one-turn freeze), so it cuts the reinforcement for the HOLD too:
+            // the opponent can only contest with the current stack behind it.
+            var _holdNeed = _wallLocks ? max(_w, _oppS + 1) : max(_w, _oppReach + 1);   // lock-across-turns
+
+            // FINISH-IN-TIME: a multi-turn haul only realizes value if it BANKS before the game ends.
+            var _tFinish = ai3_road_turns(_g, _p, _t.lane, _t.idx) + ai2_turns_to_bank(_g, _p, _t.idx, _w, _hasSpicy);
+            if (_myS >= _holdNeed) _tFinish -= 1;                            // already controlling -> take-control turn paid
+            var _inTime = (_tFinish <= ai2_my_turns_left(_g));
+
+            if (_carry <= _carryNow && _reach >= _snipeNeed) {              // SNIPE / BANK: grab + carry home in one turn
+                // LEVER 1: bank = fraction + 2V (realized-V + deny-their-potential-V + frees-my-army-V).
+                // A live blocker on the carry path must die too (_clearReq folded into bodies).
+                array_push(_out, { type: "bank", lane: _t.lane, idx: _t.idx, value: _V * min(_carryNow, _carry) / _W + 2 * _V, bodies: _clearReq + max(0, _snipeNeed - _myS), color: "any", cards: 0, clearIdx: _clearIdx, clearReq: _clearReq });
+            } else if (_reach >= _holdNeed && _inTime) {                     // HOLD: multi-turn haul on a pile they can't flood
+                array_push(_out, { type: "advance", lane: _t.lane, idx: _t.idx, value: _V * min(_carryNow, _carry) / _W, bodies: _clearReq + max(0, _holdNeed - _myS), color: "any", cards: 0, clearIdx: _clearIdx, clearReq: _clearReq });
+            }
+        }
+    }
+    return _out;
+}
+
+/// DENY value on the tug axis: what stopping the opponent's carry on a pile for a turn is
+/// worth = their pile value x the spaces of their motion I prevent, over THEIR remaining axis
+/// (obstacles+carry to their home). Near their home (small remaining axis) this is large -
+/// stopping an imminent bank prevents their completion. 0 if they don't control it (no carry
+/// to stop). This is the SAME currency as a pikmin advance, just measured on their motion.
+function ai3b_deny_value(_g, _p, _t) {
+    var _opp = 1 - _p;
+    var _w = treasure_def_get(_t.cards[array_length(_t.cards) - 1]).weight;
+    if (game_strength_at(_g, _opp, _t.lane, _t.idx) < _w) return 0;      // they don't control it
+    var _oppV = max(ai_pile_marginal(_g, _opp, _t), ai_pile_raw(_t) * 0.3);
+    var _oppWork = ai3b_remaining_work(_g, _opp, _t.lane, _t.idx);
+    var _oppPerTurn = (global.expRules.rush && _w <= 6) ? 2 : 1;
+    var _oppCarry = (_opp == 0) ? (_t.idx + 1) : (7 - _t.idx);
+    return _oppV * min(_oppPerTurn, _oppCarry) / max(1, _oppWork);
+}
+
+/// NODE 2 - ITEM achievements: each held card's best play, valued on the SAME tug axis as
+/// pikmin actions, so ONE optimizer spends pikmin AND items toward one score. Items cost
+/// their card, not bodies (bodies 0), so they don't compete with pikmin-advances - that's
+/// how "use items for deny" falls out. Reuses the built targeting (ai3_card_play_args /
+/// ai3_wall_target) as the target picker; the value is the tug-axis motion it causes/prevents.
+/// { type:"item", play:<cardId>, lane, idx, value, bodies:0, cards:0, args }.
+function ai3b_item_achievements(_g, _p) {
+    var _hand = _g.players[_p].hand;
+    var _out = [];
+    // FREEZE (bitter / ice / storm): stop an opponent carry (or convert/defuse -> chip floor)
+    var _fc = ["bitterspray", "icebomb", "storm"];
+    for (var _fi = 0; _fi < array_length(_fc); _fi++) {
+        if (!arr_has(_hand, _fc[_fi])) continue;
+        var _args = ai3_card_play_args(_g, _p, _fc[_fi]);               // the built targeting picks the play
+        if (_args == undefined) continue;
+        var _t = game_treasure_at(_g, _args.lane, _args.idx);
+        var _val = (_t != undefined) ? ai3b_deny_value(_g, _p, _t) : 0;
+        if (_val < 20) _val = 20;                                       // a play the targeting chose is worth at least the chip floor
+        array_push(_out, { type: "item", play: _fc[_fi], lane: _args.lane, idx: _args.idx, value: _val, bodies: 0, cards: 0, args: _args });
+    }
+    // WALL (phosbat): trap an opponent pile -> denies its whole bank (their remaining axis)
+    if (arr_has(_hand, "phosbatpod")) {
+        var _wt = ai3_wall_target(_g, _p);
+        if (_wt != undefined) {
+            var _pileIdx = _wt.idx - ((_p == 0) ? 1 : -1);              // the pile the wall sits behind
+            var _pt = game_treasure_at(_g, _wt.lane, _pileIdx);
+            var _val = 20;
+            if (_pt != undefined) _val = max(ai3b_deny_value(_g, _p, _pt), max(ai_pile_marginal(_g, 1 - _p, _pt), ai_pile_raw(_pt) * 0.3) * 0.5);
+            array_push(_out, { type: "item", play: "phosbatpod", lane: _wt.lane, idx: _wt.idx, value: _val, bodies: 0, cards: 0, args: { lane: _wt.lane, idx: _wt.idx } });
+        }
+    }
+    return _out;
+}
+
+/// NODE B - the EXACT OPTIMIZER (replaces greedy, user 2026-07-22: "take out the greedy
+/// calculus... it needs to optimize the value"). "Do as many high-value actions as you
+/// can, simultaneously." Body-actions (clear/advance/bank) cost only bodies; card-actions
+/// (build) cost only rawmaterial - DISJOINT resources - so it's two independent 0/1
+/// knapsacks, each finding the max-value subset within its budget. No mutual exclusions
+/// remain (min-contest dropped -> at most one advance/bank per pile). Colour/reach is
+/// still enforced at execution (ai_send skips what it can't crew).
+function ai3b_optimize(_achs, _bodyBudget, _cardBudget) {
+    var _body = [], _card = [];
+    for (var _i = 0; _i < array_length(_achs); _i++) {
+        if (_achs[_i].cards > 0) array_push(_card, _achs[_i]); else array_push(_body, _achs[_i]);
+    }
+    var _chosen = ai3b_knapsack(_body, _bodyBudget, "bodies");
+    var _cc = ai3b_knapsack(_card, _cardBudget, "cards");
+    for (var _i = 0; _i < array_length(_cc); _i++) array_push(_chosen, _cc[_i]);
+    return _chosen;
+}
+
+/// 0/1 knapsack: the max-value subset of _items within _cap of the _costKey resource
+/// (exact DP). Zero-cost items (a free bank/advance already controlled) are always taken.
+function ai3b_knapsack(_items, _cap, _costKey) {
+    var _n = array_length(_items);
+    var _cap0 = max(0, _cap);
+    var _dp = array_create(_cap0 + 1, 0);
+    var _keep = array_create(_n);
+    for (var _i = 0; _i < _n; _i++) {
+        _keep[_i] = array_create(_cap0 + 1, false);
+        var _cost = _items[_i][$ _costKey];
+        var _val = _items[_i].value;
+        if (_cost <= 0) {                                            // free: always taken (a constant offset)
+            for (var _b = 0; _b <= _cap0; _b++) { _dp[_b] += _val; _keep[_i][_b] = true; }
+            continue;
+        }
+        for (var _b = _cap0; _b >= _cost; _b--) {
+            if (_dp[_b - _cost] + _val > _dp[_b]) { _dp[_b] = _dp[_b - _cost] + _val; _keep[_i][_b] = true; }
+        }
+    }
+    var _chosen = [];
+    var _rem = _cap0;
+    for (var _i = _n - 1; _i >= 0; _i--) {
+        if (_keep[_i][_rem]) {
+            array_push(_chosen, _items[_i]);
+            var _cost = _items[_i][$ _costKey];
+            if (_cost > 0) _rem -= _cost;
+        }
+    }
+    return _chosen;
+}
+
+/// v3's economy preamble as a shared helper (redeem pellets demand-driven, play posy,
+/// position-preserving recall). v3b reuses it; cascade keeps its own inline copy untouched
+/// (it's the tournament baseline - don't risk it). Mutates _g in place.
+function ai3_economy_preamble(_g, _p) {
+    var _pl = _g.players[_p];
+    if (game_capped_count(_g, _p) >= global.rules.pikminBoardCap
+        && array_length(_pl.pellets) > 0 && !arr_has(_pl.hand, "ivoryandviolet")) ai_cull_deadweight(_g, _p);
+    var _demand = ai3_growth_demand(_g, _p);
+    var _guard = 0;
+    while (array_length(_pl.pellets) > 0 && game_capped_count(_g, _p) < global.rules.pikminBoardCap && _guard < 40) {
+        _guard += 1;
+        var _own = pellet_def_get(_pl.pellets[0]).color;
+        var _col;
+        if (arr_has(_g.boardDef.basicColors, _own) && ai3_color_reaches_target(_g, _p, _own)) _col = _own;
+        else if (_demand != "") _col = _demand;
+        else _col = ai2_pick_growth_color(_g, _p);
+        game_play_pellet(_g, 0, _col);
+    }
+    var _hi = 0;
+    while (_hi < array_length(_pl.hand)) {
+        if (_pl.hand[_hi] == "colorchangingposy" && game_capped_count(_g, _p) <= global.rules.pikminBoardCap - 3
+            && game_play_gather(_g, _hi, { color: ai2_pick_growth_color(_g, _p) })) continue;
+        _hi += 1;
+    }
+    var _tokens = _pl.tokens;
+    var _lo = (_p == 0) ? 0 : 4, _hiSide = (_p == 0) ? 2 : 6;
+    for (var _i = 0; _i < array_length(_tokens); _i++) {
+        var _tok = _tokens[_i], _loc = _tok.loc;
+        if (_loc.kind != "space" || token_is_disabled(_tok)) continue;
+        if (!game_can_reach_home(_g, _p, _tok.typeId, _loc.lane, _loc.idx)) continue;
+        var _rsp = _g.board.lanes[_loc.lane].spaces[_loc.idx];
+        if (_rsp.enemy != undefined || _rsp.structure != undefined || game_treasure_at(_g, _loc.lane, _loc.idx) != undefined) continue;
+        if (_loc.idx >= _lo && _loc.idx <= _hiSide) _tok.loc = { kind: "home" };
+    }
+}
+
+/// v3b ORDERS: preamble, then enumerate achievements, knapsack them, and commit. Body
+/// budget = deployable home strength; card budget = rawmaterial count (a build costs 2).
+function ai3b_orders_plan(_g) {
+    var _p = _g.activePlayer;
+    ai3_economy_preamble(_g, _p);
+    var _achs = ai3b_achievements(_g, _p);
+    var _items = ai3b_item_achievements(_g, _p);              // fold held items into the SAME optimizer
+    for (var _ii = 0; _ii < array_length(_items); _ii++) array_push(_achs, _items[_ii]);
+    var _bodyBudget = ai_home_strength(_g, _p);
+    var _raw = 0, _hand = _g.players[_p].hand;
+    for (var _i = 0; _i < array_length(_hand); _i++) if (_hand[_i] == "rawmaterial") _raw += 1;
+    var _chosen = ai3b_optimize(_achs, _bodyBudget, _raw);
+    ai_dbg("");
+    ai_dbg("===== v3b TURN P" + string(_p + 1) + "  Day " + string(_g.dayNumber) + " (" + string(_g.dayTrack) + "/" + string(global.rules.dayTrackLength)
+        + ")  score " + string(game_realized_score(_g, _p)) + " vs " + string(game_realized_score(_g, 1 - _p))
+        + "  budget=" + string(_bodyBudget) + "  chose " + string(array_length(_chosen)) + "/" + string(array_length(_achs)) + " =====");
+    for (var _i = 0; _i < array_length(_chosen); _i++) {
+        var _a = _chosen[_i];
+        ai_dbg("v3b " + _a.type + " lane" + string(_a.lane + 1) + " idx" + string(_a.idx) + " val" + string(round(_a.value)) + " bodies" + string(_a.bodies));
+    }
+    return { chosen: _chosen, idx: 0 };
+}
+
+/// Paced driver: one committed achievement per tick, then leftover -> chip-grind + done.
+function ai3b_orders(_g) {
+    if (!variable_struct_exists(_g, "ai3bPlan") || _g.ai3bPlan == undefined) {
+        _g.ai3bPlan = ai3b_orders_plan(_g);
+        return;
+    }
+    var _plan = _g.ai3bPlan;
+    while (_plan.idx < array_length(_plan.chosen)) {
+        var _a = _plan.chosen[_plan.idx];
+        _plan.idx += 1;
+        if (ai3b_execute(_g, _g.activePlayer, _a)) return;   // one visible commit per tick
+    }
+    ai3_orders_finish(_g, { cands: [] });                    // empty cands -> just the chip-grind + orders done
+    _g.ai3bPlan = undefined;
+}
+
+/// Execute one chosen achievement: build a structure, or send bodies to a clear/carry.
+/// A 0-body bank/advance (already controlling) needs no deploy - the move phase carries it.
+function ai3b_execute(_g, _p, _a) {
+    switch (_a.type) {
+        case "build":
+            for (var _hi = 0; _hi < array_length(_g.players[_p].hand); _hi++)
+                if (_g.players[_p].hand[_hi] == "rawmaterial")
+                    return game_play_gather(_g, _hi, { lane: _a.lane, idx: _a.idx, build: _a.build });
+            return false;
+        case "advance": case "bank":
+            var _did = false;
+            // CHAIN: open the supply blocker first (a live enemy makes the pile an illegal destination;
+            // it respawns each day, so it's only worth clearing paired with this carry). The control
+            // bodies land once the enemy resolves - next turn's replan sees the open lane and carries.
+            var _cReq = variable_struct_exists(_a, "clearReq") ? _a.clearReq : 0;
+            if (variable_struct_exists(_a, "clearIdx") && _a.clearIdx >= 0 && _cReq > 0) {
+                var _esp = _g.board.lanes[_a.lane].spaces[_a.clearIdx];
+                if (_esp.enemy != undefined)
+                    _did = ai_send(_g, _p, _a.lane, _a.clearIdx, _cReq, enemy_def_get(_esp.enemy.enemyDefId)) > 0;
+            }
+            var _ctrl = _a.bodies - _cReq;                    // bodies to control/carry the pile itself
+            if (_ctrl > 0) _did = (ai_send(_g, _p, _a.lane, _a.idx, _ctrl, undefined) > 0) || _did;
+            return _did;                                      // 0-body, already-controlling move carries on its own
+    }
+    return false;
+}
+
+/// The v3b BRAIN: v3's gather + move (card play), with the achievement-model orders.
+function ai3b_step(_g) {
+    global.aiDbgP = _g.activePlayer;
+    switch (_g.phase) {
+        case "gather": ai3_gather(_g); break;
+        case "orders": ai3b_orders(_g); break;
+        case "move":   ai3_move(_g);   break;
+    }
+}
+
+// ============================================================================
+// CARD PLAY (move phase) - the v3 play layer, built card-by-card. Each ai3_play_*
+// returns the game_play_gather ARGS for the best play of that card right now, or
+// undefined for "don't play it". ai3_card_play_args dispatches; ai3_try_play_cards
+// drives. Cards not yet ported return undefined and fall through to v2's ai_try_card.
+// ============================================================================
+
+/// SPICY SPRAY {lane,idx}: an extra carry action (2 spaces) for the pikmin on a
+/// space. Play it on the most valuable pile I already CONTROL (my strength >= weight
+/// and > the opponent's) that isn't about to bank on its own (dist >= 2, else the
+/// spray is wasted). This is what completes a SNIPE (a controlled centre pile the
+/// spray carries the rest of the way home) and accelerates any heavy haul.
+function ai3_play_spicy(_g, _p) {
+    var _best = undefined, _bestVal = -1;
+    for (var _ti = 0; _ti < array_length(_g.treasures); _ti++) {
+        var _t = _g.treasures[_ti];
+        if (array_length(_t.cards) == 0 || _t.boss != undefined) continue;
+        var _w = treasure_def_get(_t.cards[array_length(_t.cards) - 1]).weight;
+        var _myS = game_strength_at(_g, _p, _t.lane, _t.idx);
+        if (_myS < _w || _myS <= game_strength_at(_g, 1 - _p, _t.lane, _t.idx)) continue; // must control the carry
+        var _dist = (_p == 0) ? (_t.idx + 1) : (7 - _t.idx);
+        if (_dist < 2) continue;                                    // banks on its own - don't waste the spray
+        var _val = max(ai_pile_marginal(_g, _p, _t), ai_pile_raw(_t) * 0.3);
+        if (_val > _bestVal) { _bestVal = _val; _best = { lane: _t.lane, idx: _t.idx }; }
+    }
+    return _best;
+}
+
+/// A stun-deny/convert is worth playing a card for only if it swings at least this much
+/// pile value (marginal points). Below it, hold the card.
+#macro STUN_DENY_MIN 8
+
+/// BITTER as a DENY/CONVERT tool. Bitter freezes the opponent's tokens on a space but
+/// SPARES your own (the one stun that does), so it can freeze a group sharing a pile
+/// with you. Frozen pikmin are skipped by game_strength_at, so their carry reads 0 for
+/// the resolution. Two uses, scored by pile value:
+///   CONVERT - a pile I have the carry weight on (myS >= w) but can't take because the
+///             opponent out-contests me (oppS >= myS): freeze flips control to me and I
+///             carry/advance it this turn.
+///   DENY    - a pile the opponent controls and is about to carry home (oppS >= w) that
+///             I can't out-body: freeze stalls the carry a turn (weighted by how close
+///             it is to THEIR bank - near-home carries hurt most).
+/// Returns the best {lane, idx, val} or undefined. Bitter is single-space and the
+/// contesting/carrying group sits on the pile's own space, so that's the target.
+function ai3_bitter_pikmin_target(_g, _p) {
+    var _best = undefined, _bestVal = -1;
+    var _opp = 1 - _p;
+    for (var _ti = 0; _ti < array_length(_g.treasures); _ti++) {
+        var _t = _g.treasures[_ti];
+        if (array_length(_t.cards) == 0 || _t.boss != undefined) continue;
+        var _oppS = game_strength_at(_g, _opp, _t.lane, _t.idx);
+        if (_oppS <= 0) continue;                                   // nothing of theirs to freeze
+        var _myS = game_strength_at(_g, _p, _t.lane, _t.idx);
+        var _w   = treasure_def_get(_t.cards[array_length(_t.cards) - 1]).weight;
+        var _val = -1;
+        if (_myS >= _w && _oppS >= _myS) {                          // CONVERT: I have the weight, they out-contest me
+            _val = max(ai_pile_marginal(_g, _p, _t), ai_pile_raw(_t) * 0.3);
+        } else if (_oppS >= _w && _oppS > _myS) {                   // DENY: they're carrying it and I can't out-body them
+            var _oppDist = (_opp == 0) ? (_t.idx + 1) : (7 - _t.idx); // spaces to the opponent's home
+            var _imm = clamp((7 - _oppDist) / 7, 0.3, 1.0);
+            _val = max(ai_pile_marginal(_g, _opp, _t), ai_pile_raw(_t) * 0.3) * _imm * 0.8;
+        }
+        if (_val > _bestVal) { _bestVal = _val; _best = { lane: _t.lane, idx: _t.idx, val: _val }; }
+    }
+    return _best;
+}
+
+/// BITTER SPRAY {lane,idx}. Prefer a strong pikmin convert/deny (a points swing); else
+/// defuse a threatening explosive (protects deployed bodies); else fall through to v2's
+/// ai_try_card for bitter's other uses.
+function ai3_play_bitter(_g, _p) {
+    var _pk  = ai3_bitter_pikmin_target(_g, _p);
+    if (_pk != undefined && _pk.val >= STUN_DENY_MIN) return { lane: _pk.lane, idx: _pk.idx };
+    var _exp = ai3_explosive_to_defuse(_g, _p);
+    if (_exp != undefined) return _exp;
+    if (_pk != undefined) return { lane: _pk.lane, idx: _pk.idx };
+    return undefined;
+}
+
+/// ICE/STORM as a DENY tool: freeze is INDISCRIMINATE (hits my own pikmin too), so it
+/// can only stall an opposing carry on a pile where I have NO pikmin in the footprint.
+/// Finds the highest-value size×size footprint covering a pile the opponent controls
+/// (oppS >= w, out-bodying me) that holds none of my pikmin. Returns {lane,idx,val}.
+function ai3_freeze_deny_target(_g, _p, _size) {
+    var _best = undefined, _bestVal = -1;
+    var _opp = 1 - _p;
+    for (var _ti = 0; _ti < array_length(_g.treasures); _ti++) {
+        var _t = _g.treasures[_ti];
+        if (array_length(_t.cards) == 0 || _t.boss != undefined) continue;
+        var _oppS = game_strength_at(_g, _opp, _t.lane, _t.idx);
+        var _w    = treasure_def_get(_t.cards[array_length(_t.cards) - 1]).weight;
+        if (_oppS < _w) continue;                                              // they don't control -> nothing to stall
+        if (_oppS <= game_strength_at(_g, _p, _t.lane, _t.idx)) continue;      // I already out-contest with bodies
+        for (var _dl = -(_size - 1); _dl <= 0; _dl++) {
+            for (var _di = -(_size - 1); _di <= 0; _di++) {
+                var _l0 = clamp(_t.lane + _dl, 0, _g.board.laneCount - _size);
+                var _i0 = clamp(_t.idx + _di, 0, 7 - _size);
+                if (!(_t.lane >= _l0 && _t.lane <= _l0 + _size - 1 && _t.idx >= _i0 && _t.idx <= _i0 + _size - 1)) continue;
+                var _safe = true;
+                for (var _a = 0; _a < _size && _safe; _a++)
+                    for (var _b = 0; _b < _size; _b++)
+                        if (game_strength_at(_g, _p, _l0 + _a, _i0 + _b) > 0) { _safe = false; break; } // would freeze my own
+                if (_safe) {
+                    var _oppDist = (_opp == 0) ? (_t.idx + 1) : (7 - _t.idx);
+                    var _imm = clamp((7 - _oppDist) / 7, 0.3, 1.0);
+                    var _val = max(ai_pile_marginal(_g, _opp, _t), ai_pile_raw(_t) * 0.3) * _imm;
+                    if (_val > _bestVal) { _bestVal = _val; _best = { lane: _l0, idx: _i0, val: _val }; }
+                }
+            }
+        }
+    }
+    return _best;
+}
+
+/// ICE BOMB (size 1) / LIGHTNING STORM (size 2, 2x2). First DEFUSE a threatening
+/// explosive via a size×size footprint that covers it and holds none of my own pikmin
+/// (user: "as you don't have pikmin on ITS space"); if there's nothing to defuse, use
+/// the freeze to DENY an opposing carry (same no-friendly-in-footprint rule).
+function ai3_play_freeze(_g, _p, _size) {
+    var _exp = ai3_explosive_to_defuse(_g, _p);
+    if (_exp != undefined) {
+        for (var _dl = -(_size - 1); _dl <= 0; _dl++) {
+            for (var _di = -(_size - 1); _di <= 0; _di++) {
+                var _l0 = clamp(_exp.lane + _dl, 0, _g.board.laneCount - _size);
+                var _i0 = clamp(_exp.idx + _di, 0, 7 - _size);
+                if (!(_exp.lane >= _l0 && _exp.lane <= _l0 + _size - 1 && _exp.idx >= _i0 && _exp.idx <= _i0 + _size - 1)) continue; // must cover the explosive
+                var _safe = true;
+                for (var _a = 0; _a < _size && _safe; _a++)
+                    for (var _b = 0; _b < _size; _b++)
+                        if (game_strength_at(_g, _p, _l0 + _a, _i0 + _b) > 0) { _safe = false; break; } // freeze would hit my own
+                if (_safe) return { lane: _l0, idx: _i0 };
+            }
+        }
+    }
+    var _deny = ai3_freeze_deny_target(_g, _p, _size);
+    if (_deny != undefined && _deny.val >= STUN_DENY_MIN) return { lane: _deny.lane, idx: _deny.idx };
+    return undefined;
+}
+function ai3_play_ice(_g, _p)   { return ai3_play_freeze(_g, _p, 1); }
+function ai3_play_storm(_g, _p) { return ai3_play_freeze(_g, _p, 2); }
+
+/// WALL-OFF (v1: PHOSBAT POD only - the guaranteed enemy wall). Cut the opponent's
+/// supply/extraction on a contested pile: spawn an enemy on the space BETWEEN the pile
+/// and the OPPONENT's home edge (their side), so their pikmin already on the pile can't
+/// carry it home and their reserves can't reinforce. The block space is on the opponent's
+/// side, so it never obstructs MY own carry (opposite direction). NO pile-value floor -
+/// a guaranteed pull is worth it at ANY weight; the wall's whole point is you win by the
+/// MINIMUM (beat their now-TRAPPED stack + 1) instead of over-contesting to beat a re-stack.
+/// Fires when either:
+///   WIN  - my current + still-reachable strength can hit max(weight, trappedStack+1),
+///          i.e. once they can't reinforce, I can out-number and carry it this run.
+///   DENY - they already control it (would bank) and I can't take it -> wall stops the carry.
+/// Returns phosbat args {lane,idx} for the best such pile, or undefined. Needs an EMPTY
+/// enemy-slot at the block space + enemies to spawn. (rockstorm/warp/element-pick = follow-ups.)
+function ai3_wall_target(_g, _p) {
+    if (!arr_has(_g.players[_p].hand, "phosbatpod")) return undefined;
+    if (array_length(_g.decks.enemy) + array_length(_g.decks.enemyDiscard) == 0) return undefined; // nothing to spawn
+    var _opp = 1 - _p;
+    var _blockDir = (_p == 0) ? 1 : -1;                       // toward the opponent's home = away from mine
+    var _best = undefined, _bestVal = -1;
+    for (var _ti = 0; _ti < array_length(_g.treasures); _ti++) {
+        var _t = _g.treasures[_ti];
+        if (array_length(_t.cards) == 0 || _t.boss != undefined) continue;
+        var _oppS = game_strength_at(_g, _opp, _t.lane, _t.idx);
+        if (_oppS <= 0) continue;                             // no opposing stack to trap / cut off
+        // closest EMPTY enemy-slot between the pile and the opponent's home. Walling as
+        // close to the pile as possible stops them advancing the treasure toward their
+        // home before the wall bites. (Slots are mirrored, so an opp-side slot usually
+        // exists even when it isn't pile-adjacent - scan, don't just check idx+1.)
+        var _blockIdx = -1;
+        var _bs = _t.idx + _blockDir;
+        while (_bs >= 0 && _bs <= 6) {
+            var _cand = _g.board.lanes[_t.lane].spaces[_bs];
+            if (_cand.kind == "enemy" && _cand.enemy == undefined && _cand.structure == undefined
+                && game_treasure_at(_g, _t.lane, _bs) == undefined) { _blockIdx = _bs; break; }
+            _bs += _blockDir;
+        }
+        if (_blockIdx < 0) continue;                          // no wallable slot on their side of this pile
+        var _w = treasure_def_get(_t.cards[array_length(_t.cards) - 1]).weight;
+        var _myS = game_strength_at(_g, _p, _t.lane, _t.idx);
+        var _myPot = _myS + ai_send(_g, _p, _t.lane, _t.idx, 99, undefined, true); // + still-reachable this turn
+        var _canWin = (_myPot >= max(_w, _oppS + 1));         // beat their TRAPPED stack + make weight
+        var _deny   = (!_canWin) && (_oppS >= _w);            // they'd bank it, I can't take it -> stop the carry
+        if (!_canWin && !_deny) continue;
+        var _val = _canWin ? max(ai_pile_marginal(_g, _p, _t), ai_pile_raw(_t) * 0.3)
+                           : max(ai_pile_marginal(_g, _opp, _t), ai_pile_raw(_t) * 0.3);
+        if (_canWin) _val *= 1.2;                             // winning a pile beats merely denying one
+        if (_val > _bestVal) { _bestVal = _val; _best = { lane: _t.lane, idx: _blockIdx }; }
+    }
+    return _best;
+}
+function ai3_play_block(_g, _p) { return ai3_wall_target(_g, _p); }
+
+/// Dispatch a card to its v3 play-args finder. undefined = not v3-ported (or no good
+/// play now) -> the caller falls through to v2's ai_try_card.
+function ai3_card_play_args(_g, _p, _cardId) {
+    switch (_cardId) {
+        case "spicyspray":  return ai3_play_spicy(_g, _p);
+        case "bitterspray": return ai3_play_bitter(_g, _p);
+        case "icebomb":     return ai3_play_ice(_g, _p);
+        case "storm":       return ai3_play_storm(_g, _p);
+        case "phosbatpod":  return ai3_play_block(_g, _p);
+        default: return undefined;
+    }
+}
+
+/// Try to play one v3-ported card from hand (the first with a valid play). Returns
+/// true if it played something.
+function ai3_try_play_cards(_g, _p) {
+    var _hand = _g.players[_p].hand;
+    for (var _hi = 0; _hi < array_length(_hand); _hi++) {
+        var _cardId = _hand[_hi];
+        var _args = ai3_card_play_args(_g, _p, _cardId);
+        if (_args != undefined && game_play_gather(_g, _hi, _args)) {
+            ai_dbg("v3 PLAY " + _cardId + " @ lane" + string(_args.lane + 1) + " idx" + string(_args.idx)); // visible in probes
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Move phase: chain-candypop, then v3-ported card plays, then cascade bridge, then
+/// v2's remaining situational plays (cards not yet ported), then resolve.
 function ai3_move(_g) {
     var _p = _g.activePlayer;
     var _pl = _g.players[_p];
@@ -1155,10 +2099,11 @@ function ai3_move(_g) {
     while (_passes < 12) {
         _passes += 1;
         if (_g.activePlayer != _p) return; // a card ended the turn
-        var _played = ai3_try_bridge(_g, _p);
+        var _played = ai3_try_play_cards(_g, _p);      // v3-ported plays first
+        if (!_played) _played = ai3_try_bridge(_g, _p);
         if (!_played) {
             for (var _hi2 = 0; _hi2 < array_length(_pl.hand); _hi2++) {
-                if (ai_try_card(_g, _p, _hi2)) { _played = true; break; }
+                if (ai_try_card(_g, _p, _hi2)) { _played = true; break; } // v2 fallback for un-ported cards
             }
         }
         if (!_played) break;

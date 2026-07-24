@@ -519,20 +519,26 @@ for (var _hp = 0; _hp < 2; _hp++) {
     }
 }
 
-// --- opponent's hand: cardbacks laid flat behind the enemy home, so you can see how
-// --- many cards they hold and roughly what kind (BACK<type>.png; pellets share one). ---
-var _oppHi = 1; // P2 = the enemy shown at the far home
-var _oppHand = game.players[_oppHi].hand;
-var _oppPel = game.players[_oppHi].pellets;
-var _handN = array_length(_oppHand) + array_length(_oppPel);
-if (_handN > 0) {
+// --- hands laid flat behind each home. Normally only the OPPONENT (P2) is shown, as
+// --- cardbacks (count + kind). When SPECTATING (neither seat is human) BOTH hands are
+// --- shown FACE-UP so an AI-vs-AI game can be watched card-by-card. ---
+var _spectating = (ctl[0] != "human" && ctl[1] != "human");
+var _handPlayers = _spectating ? [0, 1] : [1]; // spectate: both; else just the far enemy
+for (var _hpI = 0; _hpI < array_length(_handPlayers); _hpI++) {
+    var _hpN = _handPlayers[_hpI];
+    var _hHand = game.players[_hpN].hand;
+    var _hPel = game.players[_hpN].pellets;
+    var _handN = array_length(_hHand) + array_length(_hPel);
+    if (_handN == 0) continue;
     var _cbPitch = min(50, 520 / _handN); // spread, but keep the row on the board for big hands
     var _cbRowW = _cbPitch * (_handN - 1);
-    var _cbY = board_home_y(_oppHi) + 36;  // just beyond (behind) their home
+    var _cbY = board_home_y(_hpN) + (_hpN == 1 ? 36 : -36); // just beyond (behind) each home
     for (var _hb = 0; _hb < _handN; _hb++) {
-        var _cbGather = (_hb < array_length(_oppHand));
+        var _cbGather = (_hb < array_length(_hHand));
+        var _cbId = _cbGather ? _hHand[_hb] : _hPel[_hb - array_length(_hHand)];
         var _cbX = -_cbRowW * 0.5 + _hb * _cbPitch;
-        var _cbSpr = card_back_sprite_get(_cbGather ? "gather" : "pellet");
+        var _cbSpr = _spectating ? card_sprite_get(_cbId) : -1; // face only when spectating
+        if (_cbSpr == -1) _cbSpr = card_back_sprite_get(_cbGather ? "gather" : "pellet"); // else the back
         if (_cbSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _cbSpr), _cbSpr, 0, _cbX, _cbY, 1.63, 56, c_white, 1);
         else vb_tile(_overlayVB, _cbX, _cbY, 1.62, 38, 54, _cbGather ? make_color_rgb(58, 50, 74) : make_color_rgb(74, 62, 40), 0.95);
     }

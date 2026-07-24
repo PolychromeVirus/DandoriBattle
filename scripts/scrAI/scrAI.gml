@@ -273,7 +273,11 @@ function ai_enemy_req(_g, _p, _def, _curHp) {
 /// colours by matchup quality. _dryRun just reports what could be sent.
 /// _surviveDefense: only send colours that survive striking the target's
 /// suicide-defence element (for clean kills on Goolix-likes and emitters).
-function ai_send(_g, _p, _lane, _idx, _needStrength, _enemyDef, _dryRun = false, _surviveDefense = false) {
+/// _noRedDouble: don't credit red's 2nd-strike (for a CLEAN, no-loss kill the hit must land in the
+/// first pass, so red-2x - which needs the red to survive to swing again - can't be relied on).
+/// _allowedCols: restrict the squad to these colours (v4 resource designation - a rush plan must
+/// not be funded with purple, an all-white plan only with whites).
+function ai_send(_g, _p, _lane, _idx, _needStrength, _enemyDef, _dryRun = false, _surviveDefense = false, _noRedDouble = false, _allowedCols = undefined) {
     if (_needStrength <= 0) return 0;
     var _homeLoc = { kind: "home" };
     var _homeCounts = game_counts_struct(_g, _p, _homeLoc);
@@ -285,6 +289,7 @@ function ai_send(_g, _p, _lane, _idx, _needStrength, _enemyDef, _dryRun = false,
     var _reqm = (_enemyDef != undefined) ? game_attack_requirement(_enemyDef) : undefined;
     for (var _c = 0; _c < array_length(_cols); _c++) {
         var _colId = _cols[_c];
+        if (_allowedCols != undefined && !arr_has(_allowedCols, _colId)) continue;
         if (!game_dest_legal(_g, _p, _colId, _lane, _idx)) continue;
         if (_enemyDef != undefined && _reqm == undefined && !ai_type_can_hurt(_colId, _enemyDef)) continue;
         if (_surviveDefense && _enemyDef != undefined && !ai_type_survives_defense(_colId, _enemyDef)) continue;
@@ -295,7 +300,7 @@ function ai_send(_g, _p, _lane, _idx, _needStrength, _enemyDef, _dryRun = false,
             if (ai_type_immune_attack(_colId, _enemyDef)) _score += 4;
             if (ai_type_survives_defense(_colId, _enemyDef)) _score += 3;
             // red 2nd strike: vs real enemies a red deals damage twice per combat
-            if (global.expRules.red && _colId == "red" && _enemyDef.id != "emitterstruct") { _eff *= 2; _score += 3; }
+            if (global.expRules.red && _colId == "red" && _enemyDef.id != "emitterstruct" && !_noRedDouble) { _eff *= 2; _score += 3; }
             // whites vs swift: the first strike eats them and eats poison - the meal
             // fights back, so whites are the cheapest possible swift answer
             if (_enemyDef.attackElement == "swift" && _colId == "white") _score += 5;

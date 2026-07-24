@@ -58,7 +58,23 @@
       "Bash(awk '/case \"rawmaterial\"/{f=1} f{print} /return true;/{if\\(f && ++n>=2\\){exit}}' scripts/scrGame/scrGame.gml)",
       "Bash(awk '/case \"warp\"/{f=1} f{print} /return true;/{if\\(f\\){exit}}' scripts/scrGame/scrGame.gml)",
       "Bash(tail -n 80 /c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt)",
-      "Bash(awk '/orders node 2 - deadweight/{f=1} f{print} /deadweight: \\(ALL PASS|FAILURES\\)/{if\\(f\\)exit}' /c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt)"
+      "Bash(awk '/orders node 2 - deadweight/{f=1} f{print} /deadweight: \\(ALL PASS|FAILURES\\)/{if\\(f\\)exit}' /c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt)",
+      "Read(//c/Users/polyc/Downloads/Telegram Desktop/**)",
+      "Bash(sed -n '/TOURNAMENT  board frozenriverbank/,$p' /c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt | grep -nE \"TOURNAMENT  board|^  base |^  lane5 |^  cascade \" | tail -20)",
+      "Skill(artifact-design)",
+      "Skill(artifact-design:*)",
+      "Bash(tail -18 \"/c/Users/polyc/.claude/projects/C--Users-polyc-GameMakerProjects-DandoriBattle/memory/cascade-orders-spec.md\")",
+      "Bash(awk ' *)",
+      "Bash(awk '/######## TOURNAMENT/{blk=NR} END{}' /c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt)",
+      "Bash(awk '/######## TOURNAMENT/{s=NR} {a[NR]=$0} END{for\\(i=s;i<=NR;i++\\) print a[i]}' /c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt)",
+      "Bash(find \"/c/Users/polyc/AppData/Local\" -name \"ai_debug.txt\" -o -name \"sim_bench.txt\" -o -name \"sim_tourney.csv\" 2>/dev/null | head)",
+      "Bash(awk 'NR>=32473 && NR<=35000 && /TURN P[12]/ {if \\(prev\\) print \\(NR-prevline\\) \" lines  <-  \" prevtxt; prevline=NR; prevtxt=$0} {if \\(/TURN P[12]/\\) 0}' /c/Users/polyc/AppData/Local/DandoriBattle/ai_debug.txt)",
+      "Bash(awk 'NR>=32473 && /TURN P/ {if \\(prevline\\) print \\(NR-prevline\\) \"\\\\t\" prevtxt; prevline=NR; sub\\(/^[^=]*/,\"\"\\); prevtxt=$0}' /c/Users/polyc/AppData/Local/DandoriBattle/ai_debug.txt)",
+      "Bash(awk '/######## TOURNAMENT/{b=$4} /^  v4 /{print b, $0} /^  cascade /{c[b]=$3} END{}' /c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt)",
+      "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_v4.py\")",
+      "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_mines.py\")",
+      "Bash(awk '/######## TOURNAMENT/{b=$4} /^  \\(base|cascade|v4\\) .*winRate/{print b, $0}' /c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt)",
+      "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_ledger.py\")"
     ]
   }
 }

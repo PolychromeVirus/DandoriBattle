@@ -120,13 +120,14 @@ function sim_tick(_g, _ctl) {
     // Hand-limit overflow, then boss-bounty hazards, then the turn itself -
     // same precedence as Step_0.
     if (_g.pendingDiscard != undefined) {
-        ai_resolve_discard(_g);
+        if (sim_ctl(_ctl, _g.pendingDiscard.playerIdx) == "v4") ai4_resolve_discard(_g);
+        else ai_resolve_discard(_g);
         _g.fx = [];
         return;
     }
     if (array_length(_g.pendingFree) > 0) {
         var _fb = sim_ctl(_ctl, _g.pendingFree[0].playerIdx);
-        if (_fb == "v3") ai3_place_free_hazard(_g);
+        if (_fb == "v3" || _fb == "v3b" || _fb == "v4") ai3_place_free_hazard(_g);
         else if (_fb == "v2") ai2_place_free_hazard(_g);
         else ai_place_free_hazard(_g);
         _g.fx = [];
@@ -134,7 +135,7 @@ function sim_tick(_g, _ctl) {
     }
 
     var _brain = sim_ctl(_ctl, _g.activePlayer);
-    if (_brain == "v3") ai3_step(_g); else if (_brain == "v2") ai2_step(_g); else ai_step(_g);
+    if (_brain == "v3") ai3_step(_g); else if (_brain == "v3b") ai3b_step(_g); else if (_brain == "v4") ai4_step(_g); else if (_brain == "v2") ai2_step(_g); else ai_step(_g);
     _g.fx = []; // nothing drains it headless; the rules never read it
 }
 
@@ -277,6 +278,10 @@ function sim_policies_all() {
         // v3 CASCADE brain: not a v2 hook - its seat runs ai3_step (kind "none" so
         // no v2 policy hooks fire; ctl "v3" swaps the whole brain)
         { id: "cascade", kind: "none",    lane: -1, ctl: "v3" },
+        // v3b ACHIEVEMENT brain: v3 gather+move, achievement-model orders (ctl "v3b")
+        { id: "cascade2", kind: "none",   lane: -1, ctl: "v3b" },
+        // v4 VALUATION brain: from-scratch one-valuation/three-pass (ctl "v4"); shared move layer
+        { id: "v4",      kind: "none",    lane: -1, ctl: "v4" },
     ];
 }
 
@@ -289,7 +294,7 @@ function sim_policies_all() {
 /// (null). 3 policies -> 9 pairings; at 100/pairing = 900 games (~5 min
 /// riverbank). Revive anything by adding its id back to _active.
 function sim_policies() {
-    var _active = ["base", "lane5", "cascade"];
+    var _active = ["base", "cascade", "v4"];
     var _all = sim_policies_all();
     var _out = [];
     for (var _i = 0; _i < array_length(_all); _i++) {
@@ -1005,7 +1010,8 @@ function sim_test_access() {
     sim_put_home_col(_u, 0, "red", 6);
     _all &= sim_expect(ai3_road_turns(_u, 0, 0, 3), ACCESS_INF, "road: un-hurtable blocker -> INF (dead for me)");
 
-    // fire crossed by fire-immune reds -> 0; fire + non-immune rocks (unbridgeable) -> INF
+    // fire crossed by fire-immune reds -> 0; fire + non-immune rocks -> BRIDGEABLE (a
+    // bridge goes on ANY hazard, incl. fire) -> +1 turn, NOT a dead lane (was the bug).
     var _f = sim_blank("familiargrotto");
     _f.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
     _f.board.lanes[0].spaces[1].kind = "hazard"; _f.board.lanes[0].spaces[1].hazard = "fire";
@@ -1015,7 +1021,7 @@ function sim_test_access() {
     _f2.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
     _f2.board.lanes[0].spaces[1].kind = "hazard"; _f2.board.lanes[0].spaces[1].hazard = "fire";
     sim_put_home_col(_f2, 0, "rock", 6);
-    _all &= sim_expect(ai3_road_turns(_f2, 0, 0, 3), ACCESS_INF, "road: fire, non-immune rocks, unbridgeable -> INF");
+    _all &= sim_expect(ai3_road_turns(_f2, 0, 0, 3), 1, "road: fire, non-immune rocks, but bridgeable -> 1 (build a bridge)");
 
     // chasm reds can't cross, but the board's pool can bridge it -> +1
     var _c = sim_blank("familiargrotto");
@@ -1182,6 +1188,1252 @@ function sim_test_clear_loss() {
     return _all;
 }
 
+function sim_test_instant_bank() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: orders snipe / instant-bank (ai3_can_instant_bank) ===");
+    var _all = true;
+    var _savedRush = global.expRules.rush;
+
+    // WHITE path: 5 whites on a centre w5 pile + spicy -> YES (all-white 2-step, rush-INDEPENDENT)
+    global.expRules.rush = false;
+    var _g = sim_blank("familiargrotto"); _g.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _g.players[0].hand = ["spicyspray"]; sim_put_home_col(_g, 0, "white", 5);
+    _all &= sim_expect(ai3_can_instant_bank(_g, 0, _g.treasures[0]), true, "snipe: 5 whites, centre w5, spicy -> yes (white, rush off)");
+    // white out-muscles a HOLDING opp (whites aren't opp-holding-gated): 8 whites vs opp 5
+    var _gw = sim_blank("familiargrotto"); _gw.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _gw.players[0].hand = ["spicyspray"]; sim_put_home_col(_gw, 0, "white", 8); sim_put(_gw, 1, 0, 3, 5);
+    _all &= sim_expect(ai3_can_instant_bank(_gw, 0, _gw.treasures[0]), true, "snipe: 8 whites out-muscle a holding opp (5) -> yes");
+    // white insufficient (4 < weight 5)
+    var _g2 = sim_blank("familiargrotto"); _g2.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _g2.players[0].hand = ["spicyspray"]; sim_put_home_col(_g2, 0, "white", 4);
+    _all &= sim_expect(ai3_can_instant_bank(_g2, 0, _g2.treasures[0]), false, "snipe: 4 whites < weight 5 -> no");
+
+    // RUSH path: 10 reds, centre w5, rush ON + spicy -> yes (>= 2x weight)
+    global.expRules.rush = true;
+    var _g3 = sim_blank("familiargrotto"); _g3.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _g3.players[0].hand = ["spicyspray"]; sim_put_home_col(_g3, 0, "red", 10);
+    _all &= sim_expect(ai3_can_instant_bank(_g3, 0, _g3.treasures[0]), true, "snipe: 10 reds (2x w5), rush+spicy -> yes");
+    // below 2x
+    var _g4 = sim_blank("familiargrotto"); _g4.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _g4.players[0].hand = ["spicyspray"]; sim_put_home_col(_g4, 0, "red", 8);
+    _all &= sim_expect(ai3_can_instant_bank(_g4, 0, _g4.treasures[0]), false, "snipe: 8 reds < 2x weight (10) -> no");
+    // rush OFF disables the non-white path
+    global.expRules.rush = false;
+    _all &= sim_expect(ai3_can_instant_bank(_g3, 0, _g3.treasures[0]), false, "snipe: 10 reds but rush OFF -> no (non-white needs rush)");
+    // opp HOLDING disables the rush path (reds can't rush a held pile)
+    global.expRules.rush = true;
+    var _g5 = sim_blank("familiargrotto"); _g5.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _g5.players[0].hand = ["spicyspray"]; sim_put_home_col(_g5, 0, "red", 12); sim_put(_g5, 1, 0, 3, 5);
+    _all &= sim_expect(ai3_can_instant_bank(_g5, 0, _g5.treasures[0]), false, "snipe: reds vs holding opp (5>=w5) -> no");
+
+    // NO SPICY (only 1 carry action = 2 spaces, can't clear 4)
+    var _g6 = sim_blank("familiargrotto"); _g6.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _g6.players[0].hand = []; sim_put_home_col(_g6, 0, "white", 8);
+    _all &= sim_expect(ai3_can_instant_bank(_g6, 0, _g6.treasures[0]), false, "snipe: no spicy -> no");
+    // TOO FAR (pile at idx4 -> dist 5 > 4)
+    var _g7 = sim_blank("familiargrotto"); _g7.treasures = [{ cards: [TW5], lane: 0, idx: 4, boss: undefined }];
+    _g7.players[0].hand = ["spicyspray"]; sim_put_home_col(_g7, 0, "white", 8);
+    _all &= sim_expect(ai3_can_instant_bank(_g7, 0, _g7.treasures[0]), false, "snipe: pile too far (dist 5 > 4) -> no");
+
+    global.expRules.rush = _savedRush;
+    sim_report(_all ? "=== instant-bank: ALL PASS ===" : "=== instant-bank: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_play_spicy() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: card play - spicy target (ai3_play_spicy) ===");
+    var _all = true;
+
+    // controlled centre pile (6 mine >= w5, opp 0, dist 4) -> spray it (lane index 0)
+    var _g = sim_blank("familiargrotto"); _g.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }]; sim_put(_g, 0, 0, 3, 6);
+    var _r = ai3_play_spicy(_g, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.lane, 0, "spicy: controlled centre pile -> spray it");
+
+    // not controlling (4 < weight 5) -> no play
+    var _g2 = sim_blank("familiargrotto"); _g2.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }]; sim_put(_g2, 0, 0, 3, 4);
+    _r = ai3_play_spicy(_g2, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.lane, -1, "spicy: not controlling the tug -> no play");
+
+    // controlled but at the home edge (dist 1) -> banks on its own, don't waste it
+    var _g3 = sim_blank("familiargrotto"); _g3.treasures = [{ cards: [TW5], lane: 0, idx: 0, boss: undefined }]; sim_put(_g3, 0, 0, 0, 6);
+    _r = ai3_play_spicy(_g3, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.lane, -1, "spicy: dist 1 (banks anyway) -> no play");
+
+    // two controlled piles -> spray the RICHER one (lane index 1 = cosmicarchive 230 > totem 20)
+    var _g4 = sim_blank("familiargrotto");
+    _g4.treasures = [{ cards: [TW1], lane: 0, idx: 3, boss: undefined }, { cards: [TW10], lane: 1, idx: 3, boss: undefined }];
+    sim_put(_g4, 0, 0, 3, 12); sim_put(_g4, 0, 1, 3, 12);
+    _r = ai3_play_spicy(_g4, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.lane, 1, "spicy: two controlled -> spray the richer pile");
+
+    // opponent out-muscling the tug -> not controlling -> no play
+    var _g5 = sim_blank("familiargrotto"); _g5.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }]; sim_put(_g5, 0, 0, 3, 5); sim_put(_g5, 1, 0, 3, 6);
+    _r = ai3_play_spicy(_g5, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.lane, -1, "spicy: opp out-muscles the tug -> no play");
+
+    sim_report(_all ? "=== spicy play: ALL PASS ===" : "=== spicy play: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_explosive() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: explosive blast threat (ai3_explosive_threat) ===");
+    var _all = true;
+    // volatiledweevil: explosive, damage 10.
+    var _g = sim_blank("familiargrotto");
+    _g.board.lanes[0].spaces[3].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+
+    _all &= sim_expect(ai3_explosive_threat(_g, 0, 0, 3), 10, "on its space -> 10");
+    _all &= sim_expect(ai3_explosive_threat(_g, 0, 0, 2), 10, "adjacent idx -> 10");
+    _all &= sim_expect(ai3_explosive_threat(_g, 0, 1, 3), 10, "adjacent lane -> 10");
+    _all &= sim_expect(ai3_explosive_threat(_g, 0, 0, 1), 0,  "2 spaces away (outside +) -> 0");
+    _all &= sim_expect(ai3_explosive_threat(_g, 0, 2, 3), 0,  "2 lanes away -> 0");
+    // killed this turn -> no boom
+    _all &= sim_expect(ai3_explosive_threat(_g, 0, 0, 3, [{ lane: 0, idx: 3 }]), 0, "explosive I kill this turn -> 0");
+
+    // non-explosive enemy -> no threat
+    var _g2 = sim_blank("familiargrotto");
+    _g2.board.lanes[0].spaces[3].enemy = { enemyDefId: "albinodwarfbulborb", curHp: 3 };
+    _all &= sim_expect(ai3_explosive_threat(_g2, 0, 0, 3), 0, "non-explosive enemy -> 0");
+
+    // two explosives both adjacent to one space -> summed
+    var _g3 = sim_blank("familiargrotto");
+    _g3.board.lanes[0].spaces[2].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+    _g3.board.lanes[0].spaces[4].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+    _all &= sim_expect(ai3_explosive_threat(_g3, 0, 0, 3), 20, "two adjacent explosives -> 10+10");
+
+    sim_report(_all ? "=== explosive threat: ALL PASS ===" : "=== explosive threat: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_explosive_defuse() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: defuse a threatening explosive (ai3_explosive_to_defuse) ===");
+    var _all = true;
+
+    // explosive on (0,3), my pikmin ON it -> defuse (idx 3)
+    var _g = sim_blank("familiargrotto");
+    _g.board.lanes[0].spaces[3].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+    sim_put(_g, 0, 0, 3, 3);
+    var _r = ai3_explosive_to_defuse(_g, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, 3, "my pikmin on the explosive's space -> defuse it");
+
+    // my pikmin ADJACENT (its blast covers them) -> still defuse
+    var _g2 = sim_blank("familiargrotto");
+    _g2.board.lanes[0].spaces[3].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+    sim_put(_g2, 0, 0, 2, 3);
+    _r = ai3_explosive_to_defuse(_g2, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, 3, "my pikmin adjacent (in the blast) -> defuse");
+
+    // my pikmin 2 away (outside the +) -> not a threat, don't waste a card
+    var _g3 = sim_blank("familiargrotto");
+    _g3.board.lanes[0].spaces[3].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+    sim_put(_g3, 0, 0, 1, 3);
+    _r = ai3_explosive_to_defuse(_g3, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, -1, "my pikmin outside the blast -> no defuse");
+
+    // explosive with NO pikmin of mine near -> not my problem
+    var _g4 = sim_blank("familiargrotto");
+    _g4.board.lanes[0].spaces[3].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+    _r = ai3_explosive_to_defuse(_g4, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, -1, "explosive but no pikmin in its blast -> no defuse");
+
+    // one I one-shot this turn -> no boom -> no defuse needed
+    _r = ai3_explosive_to_defuse(_g, 0, [{ lane: 0, idx: 3 }]);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, -1, "explosive I kill this turn -> no defuse");
+
+    // two threats -> defuse the higher-damage one (volatile d10 @ idx2 > careening d5 @ idx4)
+    var _g5 = sim_blank("familiargrotto");
+    _g5.board.lanes[0].spaces[2].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+    _g5.board.lanes[0].spaces[4].enemy = { enemyDefId: "careeningdirigibug", curHp: 7 };
+    sim_put(_g5, 0, 0, 3, 3);
+    _r = ai3_explosive_to_defuse(_g5, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, 2, "two threats -> defuse the higher-damage explosive");
+
+    sim_report(_all ? "=== explosive defuse: ALL PASS ===" : "=== explosive defuse: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_play_freeze() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: ice/storm explosive defuse (ai3_play_ice / ai3_play_storm) ===");
+    var _all = true;
+
+    // ICE (size 1): explosive (0,3), my pikmin ADJACENT (0,2) - the 1-space footprint
+    // on the explosive spares them -> defuse at the explosive's space
+    var _g = sim_blank("familiargrotto");
+    _g.board.lanes[0].spaces[3].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+    sim_put(_g, 0, 0, 2, 3);
+    var _r = ai3_play_ice(_g, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, 3, "ice: adjacent pikmin -> freeze the explosive's space");
+
+    // ICE unsafe: my pikmin ON the explosive -> ice would freeze them -> no play
+    var _g2 = sim_blank("familiargrotto");
+    _g2.board.lanes[0].spaces[3].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+    sim_put(_g2, 0, 0, 3, 3);
+    _r = ai3_play_ice(_g2, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, -1, "ice: my pikmin on the explosive -> unsafe, no play");
+
+    // STORM (2x2): explosive (1,3), my pikmin at (0,3) - a 2x2 can cover the explosive
+    // WITHOUT my pikmin -> safe defuse exists
+    var _g3 = sim_blank("familiargrotto");
+    _g3.board.lanes[1].spaces[3].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+    sim_put(_g3, 0, 0, 3, 3);
+    _r = ai3_play_storm(_g3, 0);
+    _all &= sim_expect(is_undefined(_r) ? 0 : 1, 1, "storm: pikmin on one side -> a safe 2x2 exists");
+
+    // STORM unsafe: my pikmin ON the explosive -> every covering 2x2 hits them -> no play
+    var _g4 = sim_blank("familiargrotto");
+    _g4.board.lanes[1].spaces[3].enemy = { enemyDefId: "volatiledweevil", curHp: 4 };
+    sim_put(_g4, 0, 1, 3, 3);
+    _r = ai3_play_storm(_g4, 0);
+    _all &= sim_expect(is_undefined(_r) ? 0 : 1, 0, "storm: pikmin on the explosive -> no safe 2x2");
+
+    sim_report(_all ? "=== ice/storm defuse: ALL PASS ===" : "=== ice/storm defuse: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_stun_deny() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: stun as deny/convert (ai3_play_bitter / ai3_play_ice) ===");
+    var _all = true;
+
+    // BITTER CONVERT: I have the weight (12 >= w10) but the opponent out-contests me
+    // (12) -> freeze their group (bitter spares mine) so my stack carries it this turn.
+    var _g = sim_blank("familiargrotto"); _g.treasures = [{ cards: [TW10], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_g, 0, 0, 3, 12); sim_put(_g, 1, 0, 3, 12);
+    var _r = ai3_play_bitter(_g, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, 3, "bitter: contested pile I have weight on -> convert it");
+
+    // BITTER DENY: opp controls (12 >= w10) and I can't out-body them (0) -> stall it.
+    var _g2 = sim_blank("familiargrotto"); _g2.treasures = [{ cards: [TW10], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_g2, 1, 0, 3, 12);
+    _r = ai3_play_bitter(_g2, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, 3, "bitter: opp about to carry, I can't out-body -> deny it");
+
+    // BITTER no-op: I already control cleanly (12 vs opp 3) -> don't waste the card.
+    var _g3 = sim_blank("familiargrotto"); _g3.treasures = [{ cards: [TW10], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_g3, 0, 0, 3, 12); sim_put(_g3, 1, 0, 3, 3);
+    _r = ai3_play_bitter(_g3, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, -1, "bitter: I already win the tug -> no play");
+
+    // BITTER no-op: nothing of theirs on the pile -> no play.
+    var _g4 = sim_blank("familiargrotto"); _g4.treasures = [{ cards: [TW10], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_g4, 0, 0, 3, 12);
+    _r = ai3_play_bitter(_g4, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, -1, "bitter: no opponent pikmin to freeze -> no play");
+
+    // ICE DENY: opp controls (12 >= w10), I have NO pikmin near -> freeze their carry.
+    var _g5 = sim_blank("familiargrotto"); _g5.treasures = [{ cards: [TW10], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_g5, 1, 0, 3, 12);
+    _r = ai3_play_ice(_g5, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, 3, "ice: opp carrying, no pikmin of mine -> deny it");
+
+    // ICE blocked: my pikmin share the pile -> ice would freeze them too -> no play.
+    var _g6 = sim_blank("familiargrotto"); _g6.treasures = [{ cards: [TW10], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_g6, 1, 0, 3, 12); sim_put(_g6, 0, 0, 3, 5);
+    _r = ai3_play_ice(_g6, 0);
+    _all &= sim_expect(is_undefined(_r) ? -1 : _r.idx, -1, "ice: my pikmin on the pile -> won't freeze my own");
+
+    sim_report(_all ? "=== stun deny/convert: ALL PASS ===" : "=== stun deny/convert: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_road_obstacles() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: road obstacles (ai3_road_obstacles) ===");
+    var _all = true;
+
+    var _g = sim_blank("familiargrotto");
+    // paint lane 0 clear, then place: chasm @1, enemy @2 (road to a pile @4)
+    for (var _i = 0; _i <= 6; _i++) _g.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "chasm", enemy: undefined, structure: undefined };
+    _g.board.lanes[0].spaces[2].enemy = { enemyDefId: "albinodwarfbulborb", curHp: 3 };
+    _g.treasures = [{ cards: [TW5], lane: 0, idx: 4, boss: undefined }];
+    var _obs = ai3_road_obstacles(_g, 0, 0, 4);
+    _all &= sim_expect(array_length(_obs), 2, "p0 -> idx4: chasm + enemy = 2 obstacles");
+    _all &= sim_expect(array_length(_obs) >= 1 ? _obs[0].kind : "", "hazard", "first obstacle is the chasm");
+    _all &= sim_expect(array_length(_obs) >= 2 ? _obs[1].kind : "", "enemy",  "second obstacle is the enemy");
+
+    // clear lane -> no obstacles
+    for (var _i = 0; _i <= 6; _i++) _g.board.lanes[1].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _all &= sim_expect(array_length(ai3_road_obstacles(_g, 0, 1, 4)), 0, "clear road -> no obstacles");
+
+    // poison terrain is SOFT (listed, but flagged non-blocking)
+    _g.board.lanes[1].spaces[2] = { kind: "hazard", hazard: "poison", enemy: undefined, structure: undefined };
+    var _pobs = ai3_road_obstacles(_g, 0, 1, 4);
+    _all &= sim_expect(array_length(_pobs), 1, "poison on the road -> listed");
+    _all &= sim_expect(array_length(_pobs) >= 1 ? (_pobs[0].soft ? 1 : 0) : -1, 1, "poison obstacle is soft");
+
+    // direction matters: p1 comes from idx6, so the same pile-side obstacles differ.
+    // pile @2, obstacles for p1 (walking 6->2): enemy @4.
+    for (var _i = 0; _i <= 6; _i++) _g.board.lanes[2].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g.board.lanes[2].spaces[4].enemy = { enemyDefId: "albinodwarfbulborb", curHp: 3 };
+    _all &= sim_expect(array_length(ai3_road_obstacles(_g, 1, 2, 2)), 1, "p1 6->2: one enemy on the way");
+
+    sim_report(_all ? "=== road obstacles: ALL PASS ===" : "=== road obstacles: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_open_has(_ans, _via) {
+    for (var _i = 0; _i < array_length(_ans.open); _i++) if (_ans.open[_i].via == _via) return true;
+    return false;
+}
+
+function sim_test_obstacle_answers() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: obstacle answers (ai3_obstacle_answers) ===");
+    var _all = true;
+    var _sb = global.expRules.blue, _sy = global.expRules.yellow;
+    global.expRules.blue = true; global.expRules.yellow = false;
+
+    // WATER (grotto): blue crosses, red doesn't; bridge + lifeguard open it
+    var _g = sim_blank("familiargrotto");
+    _g.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "water", enemy: undefined, structure: undefined };
+    var _wa = ai3_obstacle_answers(_g, 0, { idx: 1, kind: "hazard", soft: false, hazard: "water" }, true);
+    _all &= sim_expect(arr_has(_wa.nativeColors, "blue") ? 1 : 0, 1, "water: blue crosses natively");
+    _all &= sim_expect(arr_has(_wa.nativeColors, "red")  ? 1 : 0, 0, "water: red does not");
+    _all &= sim_expect(sim_open_has(_wa, "bridge")    ? 1 : 0, 1, "water: bridgeable");
+    _all &= sim_expect(sim_open_has(_wa, "lifeguard") ? 1 : 0, 1, "water: lifeguard open (exp on)");
+
+    // ICE (frigid): the CORRECTION - ice IS bridgeable; ice crosses, blue doesn't
+    var _gf = sim_blank("frigidwasteland");
+    _gf.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "ice", enemy: undefined, structure: undefined };
+    var _ia = ai3_obstacle_answers(_gf, 0, { idx: 1, kind: "hazard", soft: false, hazard: "ice" }, true);
+    _all &= sim_expect(arr_has(_ia.nativeColors, "ice")  ? 1 : 0, 1, "ice: ice pikmin cross");
+    _all &= sim_expect(arr_has(_ia.nativeColors, "blue") ? 1 : 0, 0, "ice: blue does not");
+    _all &= sim_expect(sim_open_has(_ia, "bridge") ? 1 : 0, 1, "ice: bridgeable (the fix)");
+
+    // HEIGHT (scorched): reach needs a climber; stick + bridge open it
+    var _gs = sim_blank("scorchedplayground");
+    _gs.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "height", enemy: undefined, structure: undefined };
+    var _hr = ai3_obstacle_answers(_gs, 0, { idx: 1, kind: "hazard", soft: false, hazard: "height" }, true);
+    _all &= sim_expect(arr_has(_hr.nativeColors, "yellow") ? 1 : 0, 1, "height reach: yellow climbs");
+    _all &= sim_expect(arr_has(_hr.nativeColors, "red")    ? 1 : 0, 0, "height reach: red can't");
+    _all &= sim_expect(sim_open_has(_hr, "climbingstick") ? 1 : 0, 1, "height: stick available");
+    // carry direction: height is free going home
+    var _hc = ai3_obstacle_answers(_gs, 0, { idx: 1, kind: "hazard", soft: false, hazard: "height" }, false);
+    _all &= sim_expect(arr_has(_hc.nativeColors, "red") ? 1 : 0, 1, "height carry: free for all going home");
+
+    // ENEMY: nobody passes a live enemy; killing clears it
+    var _ea = ai3_obstacle_answers(_g, 0, { idx: 1, kind: "enemy", soft: false, enemyDefId: "albinodwarfbulborb", curHp: 3 }, true);
+    _all &= sim_expect(array_length(_ea.nativeColors), 0, "enemy: no colour passes a live enemy");
+    _all &= sim_expect(sim_open_has(_ea, "kill") ? 1 : 0, 1, "enemy: cleared by killing");
+
+    // POISON: soft - everyone passes, nothing to open
+    _g.board.lanes[0].spaces[2] = { kind: "hazard", hazard: "poison", enemy: undefined, structure: undefined };
+    var _pa = ai3_obstacle_answers(_g, 0, { idx: 2, kind: "hazard", soft: true, hazard: "poison" }, true);
+    _all &= sim_expect(arr_has(_pa.nativeColors, "red") ? 1 : 0, 1, "poison: non-immune still passes (soft)");
+    _all &= sim_expect(array_length(_pa.open), 0, "poison: nothing to open");
+
+    global.expRules.blue = _sb; global.expRules.yellow = _sy;
+    sim_report(_all ? "=== obstacle answers: ALL PASS ===" : "=== obstacle answers: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_road_bridgeable() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: ANY hazard is bridgeable (ai3_road_turns / hazard_bridgeable fix) ===");
+    var _all = true;
+
+    // frigid: an ICE gate with no native crosser used to read ACCESS_INF (dead lane).
+    // With the fix it's bridgeable -> a finite +1-turn road.
+    var _g = sim_blank("frigidwasteland");
+    _g.players[0].tokens = [];                                   // no ice/winged in roster
+    for (var _i = 0; _i <= 6; _i++) _g.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "ice", enemy: undefined, structure: undefined };
+    _g.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    var _rt = ai3_road_turns(_g, 0, 0, 3);
+    _all &= sim_expect(_rt < ACCESS_INF ? 1 : 0, 1, "ice lane is NOT dead (bridgeable)");
+    _all &= sim_expect(_rt, 1, "ice gate costs +1 turn to bridge");
+
+    // the helper directly: bridge opens any element hazard on a bridge-board
+    _all &= sim_expect(ai3_hazard_bridgeable(_g, "ice")     ? 1 : 0, 1, "ice bridgeable");
+    _all &= sim_expect(ai3_hazard_bridgeable(_g, "fire")    ? 1 : 0, 1, "fire bridgeable");
+    _all &= sim_expect(ai3_hazard_bridgeable(_g, "electric")? 1 : 0, 1, "electric bridgeable");
+
+    sim_report(_all ? "=== bridgeable fix: ALL PASS ===" : "=== bridgeable fix: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_method_for(_methods, _color) {
+    for (var _i = 0; _i < array_length(_methods); _i++) if (_methods[_i].color == _color) return _methods[_i];
+    return undefined;
+}
+
+function sim_test_access_methods() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: access methods (ai3_access_methods) - the hand-analyzed lanes ===");
+    var _all = true;
+    var _sb = global.expRules.blue, _sy = global.expRules.yellow;
+    global.expRules.blue = true; global.expRules.yellow = false;
+
+    // helper: paint lane 0 of a board with the given hazard road, pile at idx3
+    // (caller sets spaces after).
+
+    // --- SCORCHED height lane: plain, height, height, treasure ---
+    var _gs = sim_blank("scorchedplayground");
+    for (var _i = 0; _i <= 6; _i++) _gs.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gs.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "height", enemy: undefined, structure: undefined };
+    _gs.board.lanes[0].spaces[2] = { kind: "hazard", hazard: "height", enemy: undefined, structure: undefined };
+    _gs.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    var _m = ai3_access_methods(_gs, 0, 0, 3);
+    var _my = sim_method_for(_m, "yellow"); var _mr = sim_method_for(_m, "red");
+    _all &= sim_expect(is_undefined(_my) ? 0 : (_my.canCarry ? 1 : 0), 1, "scorched: yellow climbs+carries");
+    _all &= sim_expect(is_undefined(_my) ? -1 : array_length(_my.builds), 0, "scorched: yellow needs no builds");
+    _all &= sim_expect(is_undefined(_mr) ? 0 : (_mr.canCarry ? 1 : 0), 1, "scorched: red can bank (with structures)");
+    _all &= sim_expect(is_undefined(_mr) ? -1 : array_length(_mr.builds), 2, "scorched: red bridges both heights (2)");
+
+    // --- GROTTO water lane: plain, water, water, treasure ---
+    var _gg = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gg.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gg.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "water", enemy: undefined, structure: undefined };
+    _gg.board.lanes[0].spaces[2] = { kind: "hazard", hazard: "water", enemy: undefined, structure: undefined };
+    _gg.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _m = ai3_access_methods(_gg, 0, 0, 3);
+    var _mb = sim_method_for(_m, "blue"); var _mp = sim_method_for(_m, "purple");
+    _all &= sim_expect(is_undefined(_mb) ? -1 : array_length(_mb.builds), 0, "grotto: blue swims free (0 builds)");
+    _all &= sim_expect(is_undefined(_mb) ? 0 : (_mb.canCarry ? 1 : 0), 1, "grotto: blue banks");
+    _all &= sim_expect(is_undefined(_mp) ? -1 : array_length(_mp.builds), 2, "grotto: purple bridges both waters (2)");
+
+    // --- FRIGID ice lane: ice, ice, water, treasure (the bridgeable-ice fix) ---
+    var _gf = sim_blank("frigidwasteland");
+    for (var _i = 0; _i <= 6; _i++) _gf.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gf.board.lanes[0].spaces[0] = { kind: "hazard", hazard: "ice", enemy: undefined, structure: undefined };
+    _gf.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "ice", enemy: undefined, structure: undefined };
+    _gf.board.lanes[0].spaces[2] = { kind: "hazard", hazard: "water", enemy: undefined, structure: undefined };
+    _gf.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _m = ai3_access_methods(_gf, 0, 0, 3);
+    var _mw = sim_method_for(_m, "winged"); var _mi = sim_method_for(_m, "ice"); var _mbf = sim_method_for(_m, "blue");
+    _all &= sim_expect(is_undefined(_mw) ? -1 : array_length(_mw.builds), 0, "frigid: winged flies all (0 builds)");
+    _all &= sim_expect(is_undefined(_mi) ? -1 : array_length(_mi.builds), 1, "frigid: ice crosses ice, bridges only the water (1)");
+    _all &= sim_expect(is_undefined(_mbf) ? -1 : array_length(_mbf.builds), 2, "frigid: blue bridges the two ices (2) - ice IS bridgeable");
+
+    // --- PLATEAU lane: enemy, fire, water, treasure ---
+    var _gp = sim_blank("undergroundplateau");
+    for (var _i = 0; _i <= 6; _i++) _gp.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gp.board.lanes[0].spaces[0] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _gp.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "fire", enemy: undefined, structure: undefined };
+    _gp.board.lanes[0].spaces[2] = { kind: "hazard", hazard: "water", enemy: undefined, structure: undefined };
+    _gp.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _m = ai3_access_methods(_gp, 0, 0, 3);
+    var _mpp = sim_method_for(_m, "purple");
+    _all &= sim_expect(is_undefined(_mpp) ? 0 : (_mpp.canCarry ? 1 : 0), 1, "plateau: purple can bank lane 3");
+    _all &= sim_expect(is_undefined(_mpp) ? -1 : array_length(_mpp.builds), 2, "plateau: purple bridges fire + water (2)");
+    _all &= sim_expect(is_undefined(_mpp) ? -1 : array_length(_mpp.clears), 1, "plateau: purple clears the entry enemy (1)");
+
+    global.expRules.blue = _sb; global.expRules.yellow = _sy;
+    sim_report(_all ? "=== access methods: ALL PASS ===" : "=== access methods: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_growth_demand() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: demand-driven growth colour (ai3_growth_demand) ===");
+    var _all = true;
+    var _sb = global.expRules.blue; global.expRules.blue = true;
+
+    // grotto water lane: blue banks for 0 cards -> it's the demanded colour
+    var _g = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _g.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "water", enemy: undefined, structure: undefined };
+    _g.board.lanes[0].spaces[2] = { kind: "hazard", hazard: "water", enemy: undefined, structure: undefined };
+    _g.treasures = [{ cards: [TW10], lane: 0, idx: 3, boss: undefined }];
+    _all &= sim_expect(ai3_growth_demand(_g, 0), "blue", "water pile -> grow blue (cheapest carrier)");
+
+    // open lane: any basic banks for 0 cards -> demand is some board basic
+    var _g2 = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _g2.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g2.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    var _d = ai3_growth_demand(_g2, 0);
+    _all &= sim_expect(arr_has(_g2.boardDef.basicColors, _d) ? 1 : 0, 1, "open pile -> demand is a board basic");
+
+    global.expRules.blue = _sb;
+    sim_report(_all ? "=== growth demand: ALL PASS ===" : "=== growth demand: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_wall_off() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: wall-off (ai3_wall_target / phosbat) ===");
+    var _all = true;
+
+    // helper: fresh grotto with lane 0 plain + an empty enemy-slot at idx4 (opp side for p0)
+    // WIN case: contested TW5 @idx3 (opp 3, I can reach 6) -> wall so I out-number the trapped 3
+    var _g = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _g.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g.board.lanes[0].spaces[4] = { kind: "enemy", hazard: "", enemy: undefined, structure: undefined };
+    _g.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_g, 1, 0, 3, 3);                       // opp 3 on the pile (not controlling w5)
+    sim_put_home_col(_g, 0, "red", 6);             // I can send 6 -> beats trapped 3 + makes weight
+    _g.players[0].hand = ["phosbatpod"]; _g.decks.enemy = ["albinodwarfbulborb"];
+    var _wt = ai3_wall_target(_g, 0);
+    _all &= sim_expect(is_undefined(_wt) ? -1 : _wt.idx, 4, "wall WIN: can out-number the trapped stack -> phosbat at idx4");
+
+    // 1/1 MIRROR on a 1-weight pile: wall + a second body wins it (any weight is worth a pull)
+    var _gm = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gm.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gm.board.lanes[0].spaces[4] = { kind: "enemy", hazard: "", enemy: undefined, structure: undefined };
+    _gm.treasures = [{ cards: [TW1], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_gm, 1, 0, 3, 1); sim_put(_gm, 0, 0, 3, 1);   // mirror 1/1
+    sim_put_home_col(_gm, 0, "red", 2);                    // a second body to add
+    _gm.players[0].hand = ["phosbatpod"]; _gm.decks.enemy = ["albinodwarfbulborb"];
+    _all &= sim_expect(is_undefined(ai3_wall_target(_gm, 0)) ? -1 : 1, 1, "wall WIN: 1/1 mirror, 1-weight -> still worth walling");
+
+    // DENY case: opp CONTROLS (6 >= w5), I have no stake -> wall stops their carry
+    var _gd = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gd.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gd.board.lanes[0].spaces[4] = { kind: "enemy", hazard: "", enemy: undefined, structure: undefined };
+    _gd.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_gd, 1, 0, 3, 6);
+    _gd.players[0].hand = ["phosbatpod"]; _gd.decks.enemy = ["albinodwarfbulborb"];
+    _all &= sim_expect(is_undefined(ai3_wall_target(_gd, 0)) ? -1 : 1, 1, "wall DENY: opp controls, I can't take it -> wall to stop the bank");
+
+    // slot NOT pile-adjacent: enemy-slot at idx5 only (idx4 plain) -> scan finds idx5
+    var _gn = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gn.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gn.board.lanes[0].spaces[5] = { kind: "enemy", hazard: "", enemy: undefined, structure: undefined };
+    _gn.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_gn, 1, 0, 3, 6);                       // opp controls -> deny
+    _gn.players[0].hand = ["phosbatpod"]; _gn.decks.enemy = ["albinodwarfbulborb"];
+    var _wn = ai3_wall_target(_gn, 0);
+    _all &= sim_expect(is_undefined(_wn) ? -1 : _wn.idx, 5, "wall: non-adjacent opp-side slot -> scan finds idx5");
+
+    // contested but I CAN'T win and they DON'T control (opp 2 < w5, I have nothing) -> skip
+    var _gs = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gs.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gs.board.lanes[0].spaces[4] = { kind: "enemy", hazard: "", enemy: undefined, structure: undefined };
+    _gs.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_gs, 1, 0, 3, 2);
+    _gs.players[0].hand = ["phosbatpod"]; _gs.decks.enemy = ["albinodwarfbulborb"];
+    _all &= sim_expect(is_undefined(ai3_wall_target(_gs, 0)) ? -1 : 1, -1, "wall: can't win & they don't control -> no premature wall");
+
+    // block space is plain (no enemy-slot) -> phosbat can't land there
+    var _g3 = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _g3.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g3.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_g3, 1, 0, 3, 6);
+    _g3.players[0].hand = ["phosbatpod"]; _g3.decks.enemy = ["albinodwarfbulborb"];
+    _all &= sim_expect(is_undefined(ai3_wall_target(_g3, 0)) ? -1 : 1, -1, "wall: block space not an enemy-slot -> no wall");
+
+    // don't hold phosbat -> no wall
+    var _g4 = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _g4.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g4.board.lanes[0].spaces[4] = { kind: "enemy", hazard: "", enemy: undefined, structure: undefined };
+    _g4.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_g4, 1, 0, 3, 6);
+    _g4.players[0].hand = []; _g4.decks.enemy = ["albinodwarfbulborb"];
+    _all &= sim_expect(is_undefined(ai3_wall_target(_g4, 0)) ? -1 : 1, -1, "wall: no phosbat in hand -> no wall");
+
+    sim_report(_all ? "=== wall-off: ALL PASS ===" : "=== wall-off: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_achievements() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: achievement enumeration (ai3b_achievements, tug-axis value) ===");
+    var _all = true;
+    var _sb = global.expRules.blue, _sr = global.expRules.rush;
+    global.expRules.blue = true; global.expRules.rush = false;      // perTurn = 1 -> deterministic
+
+    // BANK: a controlled pile at the home edge -> W=1, moves 1 (the last), reaches home ->
+    // value = V*(1/1) + V (completion bonus) = 2V
+    var _gb = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gb.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gb.treasures = [{ cards: [TW1], lane: 0, idx: 0, boss: undefined }];
+    sim_put(_gb, 0, 0, 0, 3);
+    var _Vb = max(ai_pile_marginal(_gb, 0, _gb.treasures[0]), ai_pile_raw(_gb.treasures[0]) * 0.3);
+    var _bank = undefined, _abk = ai3b_achievements(_gb, 0);
+    for (var _a = 0; _a < array_length(_abk); _a++) if (_abk[_a].type == "bank") _bank = _abk[_a];
+    _all &= sim_expect(is_undefined(_bank) ? -1 : round(_bank.value), round(3 * _Vb), "bank: home edge = V*1/W + 2V premium (realized + deny + freed army) = 3V");
+
+    // CHAIN RULE: an enemy blocker respawns each day AND makes the pile an illegal destination, so
+    // clearing it is worth points ONLY when the same plan also controls+carries. A pile behind a
+    // killable enemy is now ONE bundled ADVANCE (clear folded in as body cost, clearIdx set) - never
+    // a bare clear. TW1@3 behind a dwarf@2, enough red to clear AND lift.
+    var _gA = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gA.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gA.board.lanes[0].spaces[2] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _gA.treasures = [{ cards: [TW1], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_gA, 0, "red", 8);
+    var _VA = max(ai_pile_marginal(_gA, 0, _gA.treasures[0]), ai_pile_raw(_gA.treasures[0]) * 0.3);
+    var _advA = undefined, _bareA = 0, _aA = ai3b_achievements(_gA, 0);
+    for (var _a = 0; _a < array_length(_aA); _a++) {
+        if (_aA[_a].type == "clear" || _aA[_a].type == "chip") _bareA += 1;
+        if (_aA[_a].type == "advance") _advA = _aA[_a];
+    }
+    _all &= sim_expect(_bareA, 0, "chain: NO standalone clear/chip achievement exists anymore");
+    _all &= sim_expect(is_undefined(_advA) ? 0 : 1, 1, "chain: pile behind a killable enemy -> ONE bundled advance");
+    _all &= sim_expect(is_undefined(_advA) ? -1 : _advA.clearIdx, 2, "chain: the advance carries its supply-clear (clearIdx=2)");
+    _all &= sim_expect(is_undefined(_advA) ? -1 : round(_advA.value), round(_VA / 5), "chain: value = advance fraction V*1/W (W = enemy + carry4 = 5)");
+
+    // GRIND ELIMINATION (the whole point): only enough bodies to KILL the blocker, none left to
+    // control the pile -> the plan can't complete -> NO achievement at all. The old model emitted a
+    // bare clear here (worth V/W) and ground the same respawning enemy every turn, never banking.
+    var _gG = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gG.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gG.board.lanes[0].spaces[2] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _gG.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];   // weight 5 -> control needs 5
+    sim_put_home_col(_gG, 0, "red", 4);            // ~kills the dwarf, but <5 survivors -> can't lift
+    var _prog = 0, _aG = ai3b_achievements(_gG, 0);
+    for (var _a = 0; _a < array_length(_aG); _a++) if (_aG[_a].type == "clear" || _aG[_a].type == "chip" || _aG[_a].type == "advance" || _aG[_a].type == "bank") _prog += 1;
+    _all &= sim_expect(_prog, 0, "grind gone: can clear but not also control -> NO achievement (was a bare-clear grind)");
+
+    // CHIP REMOVED: a tanky enemy I can't kill this turn -> supply stays shut -> NO achievement
+    // (no chip-grind: chip damage regens at day-end anyway).
+    var _gc = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gc.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gc.board.lanes[0].spaces[2] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "armoredcannonbeetle", curHp: 25 }, structure: undefined };
+    _gc.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_gc, 0, "red", 2);            // 2 << req -> can't open supply
+    var _prog2 = 0, _ac = ai3b_achievements(_gc, 0);
+    for (var _a = 0; _a < array_length(_ac); _a++) if (_ac[_a].type == "clear" || _ac[_a].type == "chip" || _ac[_a].type == "advance" || _ac[_a].type == "bank") _prog2 += 1;
+    _all &= sim_expect(_prog2, 0, "chip removed: can't kill the blocker this turn -> NO progress achievement");
+
+    // TWO BLOCKERS: clearing the FIRST doesn't open the pile (the 2nd still stops the pour), so no
+    // advance fires until the lane is down to one blocker - even with a huge army.
+    var _g2 = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _g2.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g2.board.lanes[0].spaces[1] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _g2.board.lanes[0].spaces[2] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _g2.treasures = [{ cards: [TW1], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_g2, 0, "red", 12);
+    var _prog3 = 0, _a2 = ai3b_achievements(_g2, 0);
+    for (var _a = 0; _a < array_length(_a2); _a++) if (_a2[_a].type == "advance" || _a2[_a].type == "bank") _prog3 += 1;
+    _all &= sim_expect(_prog3, 0, "two blockers: 2nd enemy stops the pour -> no advance this turn (clear one first)");
+
+    // FINISH-IN-TIME (never-bank discipline): a pile tugged deep on the opponent's side that can't be
+    // banked before the game ends realizes NOTHING -> no advance offered, even with a huge army. The
+    // SAME pile early (plenty of turns left) IS offered. This is the opportunity-cost lever cascade
+    // wins on - the achievement model was chasing un-bankable deep piles with its whole army.
+    var _gft = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gft.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gft.treasures = [{ cards: [TW1], lane: 0, idx: 5, boss: undefined }];   // idx5 -> carry 6 -> ~7 turns to bank
+    sim_put_home_col(_gft, 0, "red", 12);
+    _gft.players[0].hand = [];
+    _gft.dayNumber = global.rules.days; _gft.dayTrack = global.rules.dayTrackLength;   // last turn -> ~1 turn left
+    var _advLate = 0, _afl = ai3b_achievements(_gft, 0);
+    for (var _a = 0; _a < array_length(_afl); _a++) if (_afl[_a].type == "advance") _advLate = 1;
+    _all &= sim_expect(_advLate, 0, "finish-in-time: deep pile, out of turns -> no advance (it never banks)");
+    _gft.dayNumber = 1; _gft.dayTrack = 1;                                              // early -> plenty of turns
+    var _advEarly = 0, _afe = ai3b_achievements(_gft, 0);
+    for (var _a = 0; _a < array_length(_afe); _a++) if (_afe[_a].type == "advance") _advEarly = 1;
+    _all &= sim_expect(_advEarly, 1, "finish-in-time: same deep pile early -> advance offered (time to finish)");
+
+    // BUILD: water lane, red only -> bridges enumerated at V/W; no advance (can't cross yet)
+    var _gwat = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gwat.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gwat.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "water", enemy: undefined, structure: undefined };
+    _gwat.board.lanes[0].spaces[2] = { kind: "hazard", hazard: "water", enemy: undefined, structure: undefined };
+    _gwat.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_gwat, 0, "red", 12);
+    var _bld = undefined, _advWat = 0, _aw = ai3b_achievements(_gwat, 0);
+    for (var _a = 0; _a < array_length(_aw); _a++) { if (_aw[_a].type == "build") _bld = _aw[_a]; if (_aw[_a].type == "advance" || _aw[_a].type == "bank") _advWat += 1; }
+    _all &= sim_expect(is_undefined(_bld) ? 0 : 1, 1, "build: bridges enumerated for the red method");
+    _all &= sim_expect(_advWat, 0, "water lane, red can't cross -> no advance (bridge first)");
+
+    // DEEP unwinnable: opp controls the pile with 12, I can bring 4 -> can't out-muscle -> 0 spaces -> no advance
+    var _gd = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gd.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gd.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_gd, 1, 0, 3, 12); sim_put_home_col(_gd, 0, "red", 4);
+    var _advD = 0, _ad = ai3b_achievements(_gd, 0);
+    for (var _a = 0; _a < array_length(_ad); _a++) if (_ad[_a].type == "advance" || _ad[_a].type == "bank") _advD += 1;
+    _all &= sim_expect(_advD, 0, "can't out-muscle -> it moves 0 spaces -> no advance (no gate, just 0 value)");
+
+    // LOCK RULE: a contested pile (opp has IN-LANE reserve that can re-contest) advances only
+    // if I OVERCOMMIT past that reserve. TW1 pile @3, opp 5 sitting at idx2 (reserve, not on it).
+    var _glk = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _glk.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _glk.treasures = [{ cards: [TW1], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_glk, 1, 0, 2, 5);                      // opp 5 in the lane (can re-contest)
+    sim_put_home_col(_glk, 0, "red", 8);            // 8 >= 5+1 -> can LOCK it
+    var _advLk = 0, _alk = ai3b_achievements(_glk, 0);
+    for (var _a = 0; _a < array_length(_alk); _a++) if (_alk[_a].type == "advance") _advLk = 1;
+    _all &= sim_expect(_advLk, 1, "lock: overcommit past the opp's lane reserve -> advance scores");
+
+    var _gum = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gum.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gum.treasures = [{ cards: [TW1], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_gum, 1, 0, 2, 5);                      // opp 5 in the lane
+    sim_put_home_col(_gum, 0, "red", 3);            // 3 < 5+1 -> can't lock -> it would just oscillate
+    var _advUm = 0, _aum = ai3b_achievements(_gum, 0);
+    for (var _a = 0; _a < array_length(_aum); _a++) if (_aum[_a].type == "advance") _advUm = 1;
+    _all &= sim_expect(_advUm, 0, "lock: can't overcommit past the reserve -> no advance (would just re-contest)");
+
+    // ITEM-LOCK (freeze is one-turn -> SNIPE-only): a NEAR-HOME pile (carry 1, bankable this turn) the
+    // opp controls; I can bring only 5 (< overcommit 6), but a held bitter freezes their stack so I
+    // lift+bank it in one turn. A freeze can't lock a multi-turn haul (it wears off) - hence near-home.
+    var _gil = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gil.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gil.treasures = [{ cards: [TW5], lane: 0, idx: 0, boss: undefined }];   // home edge -> carry 1 -> snipeable
+    sim_put(_gil, 1, 0, 0, 5);                      // opp controls it (bitter can deny)
+    sim_put_home_col(_gil, 0, "red", 5);            // 5 < overcommit 6, but == lift 5
+    _gil.players[0].hand = [];
+    var _advNoItem = 0, _an = ai3b_achievements(_gil, 0);
+    for (var _a = 0; _a < array_length(_an); _a++) if (_an[_a].type == "bank" || _an[_a].type == "advance") _advNoItem = 1;
+    _all &= sim_expect(_advNoItem, 0, "item-lock: no freeze -> can't out-muscle -> no snipe");
+    _gil.players[0].hand = ["bitterspray"];         // now a freeze locks the one-turn grab
+    var _advItem = 0, _ai2 = ai3b_achievements(_gil, 0);
+    for (var _a = 0; _a < array_length(_ai2); _a++) if (_ai2[_a].type == "bank" || _ai2[_a].type == "advance") _advItem = 1;
+    _all &= sim_expect(_advItem, 1, "item-lock: hold a bitter that targets it -> freeze locks the one-turn snipe -> banks");
+
+    // WALL-LOCK (lever 2): opp 3 on the pile + 5 reserve at idx2 (whole lane 8). I bring 5 - can't
+    // overcommit 9, but a phosbat walls idx4 behind the pile (cuts the reserve) so I only need oppS+1=4.
+    var _gwl = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gwl.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gwl.board.lanes[0].spaces[4] = { kind: "enemy", hazard: "", enemy: undefined, structure: undefined };   // wall goes here
+    _gwl.treasures = [{ cards: [TW1], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_gwl, 1, 0, 3, 3); sim_put(_gwl, 1, 0, 2, 5);   // opp 3 on it + 5 reserve
+    sim_put_home_col(_gwl, 0, "red", 5);
+    _gwl.decks.enemy = ["albinodwarfbulborb"];
+    _gwl.players[0].hand = [];
+    var _advNoW = 0, _anw = ai3b_achievements(_gwl, 0);
+    for (var _a = 0; _a < array_length(_anw); _a++) if (_anw[_a].type == "advance") _advNoW = 1;
+    _all &= sim_expect(_advNoW, 0, "wall-lock: no phosbat, 5 < overcommit 9 -> no advance");
+    _gwl.players[0].hand = ["phosbatpod"];
+    var _advW2 = 0, _aw3 = ai3b_achievements(_gwl, 0);
+    for (var _a = 0; _a < array_length(_aw3); _a++) if (_aw3[_a].type == "advance") _advW2 = 1;
+    _all &= sim_expect(_advW2, 1, "wall-lock: phosbat walls behind it -> only out-muscle the current stack -> advance scores");
+
+    // SNIPE (reach-based bank): a contested near-home pile I do NOT yet control - bringing enough to
+    // out-bid their IN-LANE strength banks it THIS turn (before they can respond). The old model only
+    // banked a pile it ALREADY controlled, so it could never grab a fresh pile decisively (the miss).
+    var _gsnA = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gsnA.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gsnA.treasures = [{ cards: [TW1], lane: 0, idx: 0, boss: undefined }];  // carry 1 -> bankable this turn
+    sim_put(_gsnA, 1, 0, 0, 3);                     // opp 3 on it; I hold none
+    _gsnA.players[0].hand = [];
+    sim_put_home_col(_gsnA, 0, "red", 3);           // 3 < out-bid 4 -> can't grab
+    var _snLo = 0, _asl = ai3b_achievements(_gsnA, 0);
+    for (var _a = 0; _a < array_length(_asl); _a++) if (_asl[_a].type == "bank") _snLo = 1;
+    _all &= sim_expect(_snLo, 0, "snipe: 3 red < out-bid their in-lane 3 -> no one-turn grab");
+    var _gsnB = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gsnB.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gsnB.treasures = [{ cards: [TW1], lane: 0, idx: 0, boss: undefined }];
+    sim_put(_gsnB, 1, 0, 0, 3);
+    _gsnB.players[0].hand = [];
+    sim_put_home_col(_gsnB, 0, "red", 5);           // 5 >= out-bid 4 -> snipe banks it, though I pre-control none
+    var _snHi = 0, _ash = ai3b_achievements(_gsnB, 0);
+    for (var _a = 0; _a < array_length(_ash); _a++) if (_ash[_a].type == "bank") _snHi = 1;
+    _all &= sim_expect(_snHi, 1, "snipe: 5 red out-bid their in-lane 3 -> bank in one turn (didn't pre-control)");
+
+    global.expRules.blue = _sb; global.expRules.rush = _sr;
+    sim_report(_all ? "=== achievements: ALL PASS ===" : "=== achievements: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_item_achievements() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: item achievements (ai3b_deny_value / ai3b_item_achievements) ===");
+    var _all = true;
+    var _sb = global.expRules.blue, _sr = global.expRules.rush;
+    global.expRules.blue = true; global.expRules.rush = false;
+
+    // DENY value: stopping a carry NEAR the opponent's home (small remaining axis) is worth
+    // more than stopping a deep one.  opp = player 1 (home idx6).
+    var _gn = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gn.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gn.treasures = [{ cards: [TW5], lane: 0, idx: 5, boss: undefined }];   // near opp home
+    sim_put(_gn, 1, 0, 5, 8);
+    var _dn = ai3b_deny_value(_gn, 0, _gn.treasures[0]);
+
+    var _gf = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gf.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gf.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];   // centre (deeper for them)
+    sim_put(_gf, 1, 0, 3, 8);
+    var _df = ai3b_deny_value(_gf, 0, _gf.treasures[0]);
+    _all &= sim_expect((_dn > _df) ? 1 : 0, 1, "deny: stopping a near-home bank worth more than a deep one");
+
+    // DENY 0 when they don't control it (no carry to stop)
+    var _gu = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gu.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gu.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_gu, 1, 0, 3, 2);                                // 2 < weight 5 -> not controlling
+    _all &= sim_expect(ai3b_deny_value(_gu, 0, _gu.treasures[0]), 0, "deny: opp doesn't control -> 0");
+
+    // ITEM enumeration: hold bitter + opp carrying a pile -> a bitter deny item achievement
+    var _gi = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gi.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gi.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_gi, 1, 0, 3, 8);                                // opp carrying -> bitter can deny it
+    _gi.players[0].hand = ["bitterspray"];
+    var _hasBitter = 0, _its = ai3b_item_achievements(_gi, 0);
+    for (var _i = 0; _i < array_length(_its); _i++) if (_its[_i].type == "item" && _its[_i].play == "bitterspray") _hasBitter = 1;
+    _all &= sim_expect(_hasBitter, 1, "item: hold bitter + opp carrying -> bitter deny achievement (0 bodies)");
+
+    // no relevant items in hand -> no item achievements
+    var _ge = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _ge.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _ge.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_ge, 1, 0, 3, 8);
+    _ge.players[0].hand = ["surveydrone"];                   // not a deny/wall item we enumerate yet
+    _all &= sim_expect(array_length(ai3b_item_achievements(_ge, 0)), 0, "item: no freeze/wall in hand -> none");
+
+    global.expRules.blue = _sb; global.expRules.rush = _sr;
+    sim_report(_all ? "=== item achievements: ALL PASS ===" : "=== item achievements: FAILURES ABOVE ===");
+    return _all;
+}
+
+function sim_test_ach_optimize() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: achievement optimizer (ai3b_optimize) ===");
+    var _all = true;
+
+    // THE case greedy gets wrong: budget 10. Greedy-by-value takes the 100 (10 bodies) = 100.
+    // The exact knapsack takes 60+60 (5+5 bodies) = 120. The optimizer must find 120.
+    var _achs = [
+        { type: "clear", lane: 1, idx: 1, value: 100, bodies: 10, cards: 0 },
+        { type: "clear", lane: 2, idx: 1, value: 60,  bodies: 5,  cards: 0 },
+        { type: "clear", lane: 3, idx: 1, value: 60,  bodies: 5,  cards: 0 },
+    ];
+    var _ch = ai3b_optimize(_achs, 10, 0);
+    var _tot = 0; for (var _i = 0; _i < array_length(_ch); _i++) _tot += _ch[_i].value;
+    _all &= sim_expect(_tot, 120, "optimize: knapsack beats greedy (60+60 > 100)");
+
+    // free (0-body) bank always taken; an unaffordable clear is dropped
+    var _achs2 = [
+        { type: "bank",  lane: 0, idx: 0, value: 100, bodies: 0,  cards: 0 },
+        { type: "clear", lane: 1, idx: 1, value: 50,  bodies: 20, cards: 0 },
+    ];
+    var _ch2 = ai3b_optimize(_achs2, 5, 0);
+    var _hasBank = 0, _hasClear = 0;
+    for (var _i = 0; _i < array_length(_ch2); _i++) { if (_ch2[_i].type == "bank") _hasBank = 1; if (_ch2[_i].type == "clear") _hasClear = 1; }
+    _all &= sim_expect(_hasBank, 1, "optimize: free bank always taken");
+    _all &= sim_expect(_hasClear, 0, "optimize: unaffordable clear dropped");
+
+    // builds use the CARD budget, not bodies
+    var _achs3 = [{ type: "build", lane: 0, idx: 1, value: 80, bodies: 0, cards: 2 }];
+    _all &= sim_expect(array_length(ai3b_optimize(_achs3, 0, 2)), 1, "optimize: build taken with 2 rawmaterial");
+    _all &= sim_expect(array_length(ai3b_optimize(_achs3, 0, 1)), 0, "optimize: build dropped with only 1 rawmaterial");
+
+    sim_report(_all ? "=== ach optimize: ALL PASS ===" : "=== ach optimize: FAILURES ABOVE ===");
+    return _all;
+}
+
+/// v4 brick 1 — the value core: m(endSpace) curve, escalating removal stack, grab.
+function sim_test_v4_value() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: v4 value core (ai4_move_mult / removal_stack / grab) ===");
+    var _all = true;
+
+    // m-curve, player 0 (home = low idx): +0.25 / space toward home, floor 1.0, bank 2.0
+    _all &= sim_expect(ai4_move_mult(0, 3),  1.00, "m: p0 centre idx3 = 1.00");
+    _all &= sim_expect(ai4_move_mult(0, 2),  1.25, "m: p0 idx2 = 1.25");
+    _all &= sim_expect(ai4_move_mult(0, 1),  1.50, "m: p0 idx1 = 1.50");
+    _all &= sim_expect(ai4_move_mult(0, 0),  1.75, "m: p0 idx0 = 1.75");
+    _all &= sim_expect(ai4_move_mult(0, -1), 2.00, "m: p0 banked (off edge) = 2.00");
+    _all &= sim_expect(ai4_move_mult(0, 5),  1.00, "m: p0 far half idx5 = 1.00 (floored)");
+    // mirror for player 1 (home = high idx)
+    _all &= sim_expect(ai4_move_mult(1, 3),  1.00, "m: p1 centre = 1.00");
+    _all &= sim_expect(ai4_move_mult(1, 4),  1.25, "m: p1 idx4 = 1.25");
+    _all &= sim_expect(ai4_move_mult(1, 6),  1.75, "m: p1 idx6 = 1.75");
+    _all &= sim_expect(ai4_move_mult(1, 7),  2.00, "m: p1 banked = 2.00");
+    _all &= sim_expect(ai4_move_mult(1, 1),  1.00, "m: p1 far half = 1.00 (floored)");
+
+    // escalating removal stack: grab 120 over 3 open tasks (the crowded-lane crack)
+    _all &= sim_expect(ai4_removal_stack(120, 3, 1),  40, "stack: 1 of 3 = grab/3 = 40");
+    _all &= sim_expect(ai4_removal_stack(120, 3, 2), 100, "stack: 2 of 3 = grab/3 + grab/2 = 100");
+    _all &= sim_expect(ai4_removal_stack(120, 3, 3), 220, "stack: 3 of 3 = grab(1/3+1/2+1)=220 (> flat grab 120)");
+    _all &= sim_expect(ai4_removal_stack(120, 1, 1), 120, "stack: last task in a 1-task lane = full grab");
+
+    // grab ties to the pile's position: centred grab = V, advanced grab = V x m
+    var _gv = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gv.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gv.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    var _V = ai4_pile_value(_gv, 0, _gv.treasures[0]);
+    _all &= sim_expect(ai4_grab_value(_gv, 0, _gv.treasures[0]), _V, "grab: centred pile grab = V");
+    _gv.treasures[0].idx = 1;
+    _all &= sim_expect(ai4_grab_value(_gv, 0, _gv.treasures[0]), _V * 1.5, "grab: pile advanced to idx1 -> grab = 1.5V");
+
+    sim_report(_all ? "=== v4 value core: ALL PASS ===" : "=== v4 value core: FAILURES ABOVE ===");
+    return _all;
+}
+
+/// v4 brick 2a — removal outcome enumeration (fundable-only, escalation inputs).
+function sim_test_v4_removals() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: v4 removal outcomes (ai4_lane_removals) ===");
+    var _all = true;
+
+    // two dwarves on the road; pikmin can only pay the FIRST -> 1 outcome, nOpen counts BOTH
+    var _g2 = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _g2.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g2.board.lanes[0].spaces[1] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _g2.board.lanes[0].spaces[2] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _g2.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_g2, 0, "red", 8);
+    _g2.players[0].hand = [];
+    var _r2 = ai4_lane_removals(_g2, 0, _g2.treasures[0]);
+    _all &= sim_expect(array_length(_r2), 1, "removals: 2 dwarves, pikmin reaches only the first -> 1 outcome");
+    _all &= sim_expect(array_length(_r2) > 0 ? _r2[0].nOpen : -1, 2, "removals: nOpen counts BOTH tasks (divisor stays 2)");
+
+    // give a bomb -> the second (unreachable) enemy becomes payable by item -> 2 outcomes
+    _g2.players[0].hand = ["bombrock"];
+    var _r2b = ai4_lane_removals(_g2, 0, _g2.treasures[0]);
+    _all &= sim_expect(array_length(_r2b), 2, "removals: + a bomb opens the deep enemy (no path needed) -> 2 outcomes");
+
+    // CHASM gaps (no fieldable colour crosses) bridge with raw material; both enumerated. WATER on
+    // grotto is crossable via blue (a board basic -> pellet-fieldable) = a USELESS task: excluded.
+    var _gw = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gw.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gw.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "chasm", enemy: undefined, structure: undefined };
+    _gw.board.lanes[0].spaces[2] = { kind: "hazard", hazard: "chasm", enemy: undefined, structure: undefined };
+    _gw.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_gw, 0, "red", 8);
+    _gw.players[0].hand = ["rawmaterial", "rawmaterial"];
+    var _rw = ai4_lane_removals(_gw, 0, _gw.treasures[0]);
+    _all &= sim_expect(array_length(_rw), 2, "removals: two chasm gaps, both bridgeable with raw material -> 2 outcomes");
+    _gw.board.lanes[0].spaces[1].hazard = "water"; _gw.board.lanes[0].spaces[2].hazard = "water";
+    _all &= sim_expect(array_length(ai4_lane_removals(_gw, 0, _gw.treasures[0])), 0, "removals: water crossable via a fieldable basic -> useless tasks, nothing to remove");
+
+    // REACHABLE but unaffordable: a tanky beetle red can hurt+reach but not out-strength with 2.
+    // Enumeration is now REACHABILITY-based (pellets could fund it later), so it IS enumerated;
+    // affordability is the OPTIMIZER/funding's job, and there it gets dropped.
+    var _gu = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gu.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gu.board.lanes[0].spaces[1] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "armoredcannonbeetle", curHp: 25 }, structure: undefined };
+    _gu.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_gu, 0, "red", 2);
+    _gu.players[0].hand = []; _gu.players[0].pellets = [];
+    _all &= sim_expect(array_length(ai4_lane_removals(_gu, 0, _gu.treasures[0])), 1, "removals: reachable enemy IS enumerated (affordability is funding's job, not enumeration's)");
+    _all &= sim_expect(array_length(ai4_optimize(_gu, 0).chosen), 0, "removals: ...but the optimizer won't fund a 25-strength kill with 2 red + no pellets");
+
+    // boss on the pile: one removal, nOpen 1, grab = the treasure underneath (the cheat)
+    var _gb = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gb.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gb.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: { enemyDefId: "armoredcannonbeetle", curHp: 25 } }];
+    sim_put_home_col(_gb, 0, "red", 30);
+    _gb.players[0].hand = [];
+    var _rb = ai4_lane_removals(_gb, 0, _gb.treasures[0]);
+    _all &= sim_expect(array_length(_rb), 1, "removals: boss is one removal outcome");
+    _all &= sim_expect(array_length(_rb) > 0 ? _rb[0].nOpen : -1, 1, "removals: boss lane nOpen = 1");
+    _all &= sim_expect((array_length(_rb) > 0 && _rb[0].boss) ? 1 : 0, 1, "removals: boss flagged (grab = treasure underneath)");
+
+    // FIELDABLE colours only (minefield loop): enemy behind a chasm on a red/white/rock board -
+    // exp-yellow could path there, but yellow is NOT fieldable (not owned, not a basic) -> no
+    // phantom pikmin outcome. A bomb (no path needed) still opens it.
+    var _gmf = sim_blank("theminefield");
+    for (var _i = 0; _i <= 6; _i++) _gmf.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gmf.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "chasm", enemy: undefined, structure: undefined };
+    _gmf.board.lanes[0].spaces[2] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _gmf.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _gmf.players[0].tokens = []; sim_put_home_col(_gmf, 0, "red", 8);
+    _gmf.players[0].hand = []; _gmf.players[0].pellets = [];
+    var _rmf = ai4_lane_removals(_gmf, 0, _gmf.treasures[0]);
+    var _mfPik = 0;
+    for (var _i = 0; _i < array_length(_rmf); _i++) { var _vv = _rmf[_i].variants;
+        for (var _v = 0; _v < array_length(_vv); _v++) if (_vv[_v].str > 0) _mfPik = 1; }
+    _all &= sim_expect(_mfPik, 0, "fieldable: chasm-locked enemy, no fieldable colour paths -> no phantom pikmin outcome");
+    _gmf.players[0].hand = ["bombrock"];
+    _all &= sim_expect(array_length(ai4_lane_removals(_gmf, 0, _gmf.treasures[0])) >= 1, true, "fieldable: a bomb (no path) still opens it");
+
+    // MINES: an armed mine on my road is a task; its removal = 1 sacrificial body. A carry that
+    // would end riders on a live/armable mine is not offered; clear it and the move opens.
+    var _gmn = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gmn.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gmn.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _gmn.players[0].tokens = []; sim_put_home_col(_gmn, 0, "red", 8);
+    _gmn.players[0].hand = []; _gmn.players[0].pellets = [];
+    _gmn.mines = [{ lane: 0, idx: 1, dmg: 10 }];                     // armed, on my carry path
+    var _rmn = ai4_lane_removals(_gmn, 0, _gmn.treasures[0]);
+    var _mnOk = 0;
+    for (var _i = 0; _i < array_length(_rmn); _i++) { var _vv = _rmn[_i].variants;
+        for (var _v = 0; _v < array_length(_vv); _v++) if (_vv[_v].str == 1) _mnOk = 1; }
+    _all &= sim_expect(_mnOk, 1, "mine: armed mine is a removal task - detonate with 1 sacrificial body");
+    _all &= sim_expect(array_length(ai4_lane_moves(_gmn, 0, _gmn.treasures[0])), 0, "mine: carry over a live mine would wipe the riders -> move not offered");
+    _gmn.mines = [];
+    _all &= sim_expect(array_length(ai4_lane_moves(_gmn, 0, _gmn.treasures[0])), 1, "mine: cleared -> the move opens");
+    _gmn.mines = [{ lane: 0, idx: 1, dmg: 2 }];                      // unarmed, my 5-deploy keeps it under 10
+    _all &= sim_expect(array_length(ai4_lane_moves(_gmn, 0, _gmn.treasures[0])) >= 1, true, "mine: unarmed + small deploy stays under 10 -> carry safe, move offered");
+    _gmn.mines = [{ lane: 0, idx: 1, dmg: 6 }];                      // 6 + deploy 5 >= 10 -> my own march arms it
+    _all &= sim_expect(array_length(ai4_lane_moves(_gmn, 0, _gmn.treasures[0])), 0, "mine: my own deploy would arm it -> move not offered");
+
+    // DEATH-SPIRAL guard: army wiped to 0, pellets in hand -> a kill must STILL be enumerated and
+    // funded (ai_can_group_hurt read owned tokens and bricked the brain for the rest of the game).
+    var _gds = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gds.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gds.board.lanes[0].spaces[1] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _gds.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _gds.players[0].tokens = [];                                     // the whole army is DEAD
+    _gds.players[0].pellets = ["red5"]; _gds.players[0].hand = [];
+    var _ods = ai4_optimize(_gds, 0);
+    _all &= sim_expect(array_length(_ods.chosen) >= 1, true, "death-spiral: army 0 + a red5 pellet -> the kill is still enumerated AND funded");
+
+    sim_report(_all ? "=== v4 removal outcomes: ALL PASS ===" : "=== v4 removal outcomes: FAILURES ABOVE ===");
+    return _all;
+}
+
+/// v4 brick 2b — move outcome enumeration (securing folded in, carry value, oatchi).
+function sim_test_v4_moves() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: v4 move outcomes (ai4_lane_moves) ===");
+    var _all = true;
+    var _sr = global.expRules.rush; global.expRules.rush = false;   // deterministic: baseSteps = 1
+
+    // UNCONTESTED carry: pile TW1@centre, road clear, 8 red, no opponent anywhere.
+    // min-win only (no buffer), carries 1 space to idx2 -> value V x 1.25.
+    var _gu = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gu.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gu.treasures = [{ cards: [TW1], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_gu, 0, "red", 8);
+    _gu.players[0].hand = [];
+    var _Vu = ai4_pile_value(_gu, 0, _gu.treasures[0]);
+    var _mu = ai4_lane_moves(_gu, 0, _gu.treasures[0]);
+    _all &= sim_expect(array_length(_mu), 1, "move: open uncontested lane -> one move outcome");
+    var _minWinOk = 0, _valOk = 0;
+    if (array_length(_mu) > 0) { var _vu = _mu[0].variants;
+        for (var _v = 0; _v < array_length(_vu); _v++) {
+            if (_vu[_v].str == 1 && _vu[_v].endIdx == 2) _minWinOk = 1;
+            if (_vu[_v].endIdx == 2 && _vu[_v].value == _Vu * 1.25) _valOk = 1;
+        } }
+    _all &= sim_expect(_minWinOk, 1, "move: uncontested -> min-win (str 1), lands idx2");
+    _all &= sim_expect(_valOk, 1, "move: value = V x m(idx2) = 1.25V");
+
+    // CONTESTED haul: opp 3 reserve in-lane -> min-win(1) + buffer(4) = str 5 (no bank this turn)
+    var _gc = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gc.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gc.treasures = [{ cards: [TW1], lane: 0, idx: 3, boss: undefined }];
+    sim_put(_gc, 1, 0, 2, 3);                       // opponent reserve that can re-contest
+    sim_put_home_col(_gc, 0, "red", 12);
+    _gc.players[0].hand = [];
+    var _mc = ai4_lane_moves(_gc, 0, _gc.treasures[0]);
+    var _bufOk = 0;
+    if (array_length(_mc) > 0) { var _vc = _mc[0].variants;
+        for (var _v = 0; _v < array_length(_vc); _v++) if (_vc[_v].str == 5) _bufOk = 1; }
+    _all &= sim_expect(_bufOk, 1, "move: contested haul -> min-win + buffer = str 5");
+
+    // BANK this turn: pile at my home edge -> banks regardless of contest, no buffer, value 2V
+    var _gb = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gb.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gb.treasures = [{ cards: [TW1], lane: 0, idx: 0, boss: undefined }];
+    sim_put(_gb, 1, 0, 1, 3);                       // they have reserve, but can't answer before it banks
+    sim_put_home_col(_gb, 0, "red", 5);
+    _gb.players[0].hand = [];
+    var _Vb = ai4_pile_value(_gb, 0, _gb.treasures[0]);
+    var _mb = ai4_lane_moves(_gb, 0, _gb.treasures[0]);
+    var _bankOk = 0;
+    if (array_length(_mb) > 0) { var _vb = _mb[0].variants;
+        for (var _v = 0; _v < array_length(_vb); _v++) if (_vb[_v].str == 1 && _vb[_v].value == _Vb * 2.0) _bankOk = 1; }
+    _all &= sim_expect(_bankOk, 1, "move: banking this turn -> out-muscle current only (str 1), value 2V");
+
+    // OATCHI jump: treasure on the far side, oatchirush in hand, no bodies -> a 2-space jump for free
+    var _go = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _go.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _go.treasures = [{ cards: [TW1], lane: 0, idx: 4, boss: undefined }];
+    _go.players[0].hand = ["oatchirush"];
+    var _mo = ai4_lane_moves(_go, 0, _go.treasures[0]);
+    var _oatOk = 0;
+    if (array_length(_mo) > 0) { var _vo = _mo[0].variants;
+        for (var _v = 0; _v < array_length(_vo); _v++) if (_vo[_v].str == 0 && arr_has(_vo[_v].items, "oatchirush") && _vo[_v].endIdx == 2) _oatOk = 1; }
+    _all &= sim_expect(_oatOk, 1, "move: oatchi jumps the far-side pile 2 spaces (idx4->idx2), no control needed");
+
+    // RESOURCE DESIGNATION (ruling): an all-white 2-step is only offered BOUND to white funding
+    var _gwh = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gwh.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gwh.treasures = [{ cards: [TW1], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_gwh, 0, "white", 6);
+    _gwh.players[0].hand = [];
+    var _mwh = ai4_lane_moves(_gwh, 0, _gwh.treasures[0]);
+    var _whOk = 0;
+    if (array_length(_mwh) > 0) { var _vw = _mwh[0].variants;
+        for (var _v = 0; _v < array_length(_vw); _v++)
+            if (_vw[_v].endIdx == 1 && variable_struct_exists(_vw[_v], "cols") && array_length(_vw[_v].cols) == 1 && _vw[_v].cols[0] == "white") _whOk = 1; }
+    _all &= sim_expect(_whOk, 1, "designation: all-white 2-step offered, BOUND to white-only funding (idx3->idx1)");
+
+    // RESOURCE DESIGNATION: a rush variant funds purple-free (purple cancels rush)
+    global.expRules.rush = true;
+    var _gru = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gru.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gru.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_gru, 0, "red", 12); sim_put_home_col(_gru, 0, "purple", 2);
+    _gru.players[0].hand = [];
+    var _mru = ai4_lane_moves(_gru, 0, _gru.treasures[0]);
+    var _ruOk = 0;
+    if (array_length(_mru) > 0) { var _vr = _mru[0].variants;
+        for (var _v = 0; _v < array_length(_vr); _v++)
+            if (_vr[_v].endIdx == 1 && variable_struct_exists(_vr[_v], "cols") && !arr_has(_vr[_v].cols, "purple") && _vr[_v].str >= 10) _ruOk = 1; }
+    _all &= sim_expect(_ruOk, 1, "designation: rush 2-step demands 2x weight, funded purple-free");
+    global.expRules.rush = false;
+
+    // RESPAWN ruling: an enemy kill on the LAST turn of the day = salvage 20 (any other turn: full value)
+    var _gst = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gst.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gst.board.lanes[0].spaces[2] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _gst.treasures = [{ cards: [TW5, TW5, TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_gst, 0, "red", 8);
+    _gst.players[0].hand = []; _gst.players[0].pellets = [];
+    _gst.dayTrack = global.rules.dayTrackLength;
+    _all &= sim_expect(round(ai4_optimize(_gst, 0).value), 20, "respawn: last-turn-of-day enemy kill = salvage 20");
+    _gst.dayTrack = 1;
+    _all &= sim_expect(ai4_optimize(_gst, 0).value > 20, true, "respawn: any earlier turn -> full kill value");
+
+    global.expRules.rush = _sr;
+    sim_report(_all ? "=== v4 move outcomes: ALL PASS ===" : "=== v4 move outcomes: FAILURES ABOVE ===");
+    return _all;
+}
+
+/// v4 brick 3 — joint funding (ai4_can_fund): colour pool + pellet conversion + items.
+function sim_test_v4_funding() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: v4 funding (ai4_can_fund) ===");
+    var _all = true;
+    var _any = ["red", "blue", "yellow", "purple", "white", "rock", "ice", "winged"];
+
+    var _g = sim_blank("familiargrotto");
+    sim_put_home_col(_g, 0, "red", 8);
+    _g.players[0].pellets = []; _g.players[0].hand = [];
+    _all &= sim_expect(ai4_can_fund(_g, 0, [{ str: 5, colors: _any }], {}) ? 1 : 0, 1, "fund: 8 home strength pays a 5 demand");
+    _all &= sim_expect(ai4_can_fund(_g, 0, [{ str: 12, colors: _any }], {}) ? 1 : 0, 0, "fund: 8 can't pay 12");
+    _all &= sim_expect(ai4_can_fund(_g, 0, [{ str: 5, colors: _any }, { str: 5, colors: _any }], {}) ? 1 : 0, 0, "fund: two 5-demands (=10) > 8 home -> infeasible");
+    _g.players[0].pellets = ["red5"];
+    _all &= sim_expect(ai4_can_fund(_g, 0, [{ str: 5, colors: _any }, { str: 5, colors: _any }], {}) ? 1 : 0, 1, "fund: + a red5 pellet (5) -> the pair is jointly fundable");
+
+    // forced colour: red at home can't pay a blue-only demand, a blue pellet can
+    var _gb = sim_blank("familiargrotto");
+    sim_put_home_col(_gb, 0, "red", 8); _gb.players[0].pellets = []; _gb.players[0].hand = [];
+    _all &= sim_expect(ai4_can_fund(_gb, 0, [{ str: 3, colors: ["blue"] }], {}) ? 1 : 0, 0, "fund: blue-forced demand, only red at home -> infeasible");
+    _gb.players[0].pellets = ["blue5"];
+    _all &= sim_expect(ai4_can_fund(_gb, 0, [{ str: 3, colors: ["blue"] }], {}) ? 1 : 0, 1, "fund: a blue5 pellet pays the blue demand");
+
+    // off-conversion: a red5 pellet becomes 2 of any other colour (off-rate)
+    var _go = sim_blank("familiargrotto");
+    _go.players[0].tokens = []; _go.players[0].pellets = ["red5"]; _go.players[0].hand = [];
+    _all &= sim_expect(ai4_can_fund(_go, 0, [{ str: 2, colors: ["blue"] }], {}) ? 1 : 0, 1, "fund: red5 off-converts to 2 blue -> pays a 2 demand");
+    _all &= sim_expect(ai4_can_fund(_go, 0, [{ str: 3, colors: ["blue"] }], {}) ? 1 : 0, 0, "fund: one off-conversion (2) can't pay a 3 demand");
+
+    // purple carry: 2 purples = 10 strength
+    var _gp = sim_blank("familiargrotto");
+    _gp.players[0].tokens = []; sim_put_home_col(_gp, 0, "purple", 2); _gp.players[0].pellets = []; _gp.players[0].hand = [];
+    _all &= sim_expect(ai4_can_fund(_gp, 0, [{ str: 10, colors: ["purple"] }], {}) ? 1 : 0, 1, "fund: 2 purples = 10 strength");
+
+    // item multiset: two bridges need 4 raw material
+    var _gi = sim_blank("familiargrotto");
+    sim_put_home_col(_gi, 0, "red", 8); _gi.players[0].pellets = [];
+    _gi.players[0].hand = ["rawmaterial", "rawmaterial", "rawmaterial"];
+    _all &= sim_expect(ai4_can_fund(_gi, 0, [], { rawmaterial: 4 }) ? 1 : 0, 0, "fund: 3 raw material can't build 2 bridges (need 4)");
+    _gi.players[0].hand = ["rawmaterial", "rawmaterial", "rawmaterial", "rawmaterial"];
+    _all &= sim_expect(ai4_can_fund(_gi, 0, [], { rawmaterial: 4 }) ? 1 : 0, 1, "fund: 4 raw material builds 2 bridges");
+
+    // DEPLOY-TRUTH: carriers on a pile can't phantom-fund another lane's demand...
+    var _gdt = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gdt.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gdt.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _gdt.players[0].tokens = []; sim_put(_gdt, 0, 0, 3, 12);          // 12 committed ON the pile, none home
+    _gdt.players[0].pellets = []; _gdt.players[0].hand = [];
+    _all &= sim_expect(ai4_can_fund(_gdt, 0, [{ str: 5, colors: _any }], {}) ? 1 : 0, 0, "deploy-truth: 12 carriers on a pile fund NOTHING elsewhere (deploy can't send them)");
+    // ...but their own pile's move is net-0 and still gets chosen (self-funded by myOn)
+    var _odt = ai4_optimize(_gdt, 0);
+    var _dtMove = 0;
+    for (var _i = 0; _i < array_length(_odt.chosen); _i++) if (_odt.chosen[_i].outcome.type == "move") _dtMove = 1;
+    _all &= sim_expect(_dtMove, 1, "deploy-truth: their own pile's move is net-0 -> still chosen");
+
+    // BOARD CAP: at 25 tokens a pellet grants nothing -> it can't fund a demand
+    var _gcap = sim_blank("familiargrotto");
+    _gcap.players[0].tokens = []; sim_put_home_col(_gcap, 0, "red", 25);
+    _gcap.players[0].pellets = ["red5"]; _gcap.players[0].hand = [];
+    _all &= sim_expect(ai4_can_fund(_gcap, 0, [{ str: 28, colors: _any }], {}) ? 1 : 0, 0, "cap: at 25 tokens the pellet grants 0 -> 28 demand infeasible");
+    var _gcap2 = sim_blank("familiargrotto");
+    _gcap2.players[0].tokens = []; sim_put_home_col(_gcap2, 0, "red", 20);
+    _gcap2.players[0].pellets = ["red5"]; _gcap2.players[0].hand = [];
+    _all &= sim_expect(ai4_can_fund(_gcap2, 0, [{ str: 25, colors: _any }], {}) ? 1 : 0, 1, "cap: 20 tokens + red5 (room 5) -> 25 demand feasible");
+
+    // ONE PLANNING LAYER: the winner's funding is recorded as a LEDGER and deploy plays it back.
+    var _gled = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gled.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gled.board.lanes[0].spaces[1] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _gled.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _gled.players[0].tokens = [];                                   // no bodies at all - pellet-only funding
+    _gled.players[0].pellets = ["red5"]; _gled.players[0].hand = [];
+    _gled.phase = "orders";                                         // game_play_pellet is orders-phase-gated
+    var _oled = ai4_optimize(_gled, 0);
+    var _hasAssign = 0;
+    for (var _i = 0; _i < array_length(_oled.chosen); _i++)
+        if (_oled.chosen[_i].assign != undefined && array_length(_oled.chosen[_i].assign.pellets) > 0) _hasAssign = 1;
+    _all &= sim_expect(_hasAssign, 1, "ledger: pellet-funded kill carries its exact redemption in the plan");
+    if (_hasAssign == 1) {
+        var _did = ai4_deploy_one(_gled, 0, _oled.chosen[0]);
+        _all &= sim_expect(_did ? 1 : 0, 1, "ledger: deploy plays the ledger back (redeems + sends)");
+        _all &= sim_expect(array_length(_gled.players[0].pellets), 0, "ledger: exactly the listed pellet was redeemed");
+        _all &= sim_expect(game_strength_at(_gled, 0, 0, 1) >= 3, true, "ledger: the kill squad actually arrived (>=3 on the enemy)");
+    }
+
+    sim_report(_all ? "=== v4 funding: ALL PASS ===" : "=== v4 funding: FAILURES ABOVE ===");
+    return _all;
+}
+
+/// v4 brick 4 — the optimizer (ai4_optimize): best jointly-fundable subset.
+function sim_test_v4_optimize() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: v4 optimizer (ai4_optimize) ===");
+    var _all = true;
+    var _sr = global.expRules.rush; global.expRules.rush = false;
+
+    // one open lane, plenty of bodies -> take the move (1-space carry = 1.25V)
+    var _g1 = sim_blank("familiargrotto");
+    for (var _l = 0; _l < _g1.board.laneCount; _l++) for (var _i = 0; _i <= 6; _i++) _g1.board.lanes[_l].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g1.treasures = [{ cards: [TW1], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_g1, 0, "red", 8); _g1.players[0].hand = []; _g1.players[0].pellets = [];
+    var _V1 = ai4_pile_value(_g1, 0, _g1.treasures[0]);
+    var _o1 = ai4_optimize(_g1, 0);
+    _all &= sim_expect(array_length(_o1.chosen), 1, "opt: one open lane -> take the move");
+    _all &= sim_expect(round(_o1.value * 4), round(_V1 * 5), "opt: value = 1-space carry = 1.25V");
+
+    // crowded lane: pikmin cracks the first enemy, a bomb cracks the deep one -> take BOTH (escalation)
+    var _g2 = sim_blank("familiargrotto");
+    for (var _l = 0; _l < _g2.board.laneCount; _l++) for (var _i = 0; _i <= 6; _i++) _g2.board.lanes[_l].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g2.board.lanes[0].spaces[1] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _g2.board.lanes[0].spaces[2] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
+    _g2.treasures = [{ cards: [TW5, TW5, TW5], lane: 0, idx: 3, boss: undefined }];   // realistic V so a clean kill out-values the 20 chip
+    sim_put_home_col(_g2, 0, "red", 8); _g2.players[0].hand = ["bombrock"]; _g2.players[0].pellets = [];
+    var _V2 = ai4_pile_value(_g2, 0, _g2.treasures[0]);
+    var _o2 = ai4_optimize(_g2, 0);
+    _all &= sim_expect(array_length(_o2.chosen), 2, "opt: crowded lane -> crack BOTH (pikmin + bomb)");
+    _all &= sim_expect(round(_o2.value * 2), round(_V2 * 3), "opt: 2-of-2 escalation = grab/2 + grab = 1.5V");
+
+    // strip the bomb -> only the first is reachable -> a single crack worth grab/2
+    _g2.players[0].hand = [];
+    var _o2b = ai4_optimize(_g2, 0);
+    _all &= sim_expect(array_length(_o2b.chosen), 1, "opt: no bomb -> only the first (reachable) removal");
+    _all &= sim_expect(round(_o2b.value * 2), round(_V2), "opt: 1-of-2 = grab/2 = 0.5V");
+
+    // nothing payable -> empty plan, zero value
+    var _g3 = sim_blank("familiargrotto");
+    for (var _l = 0; _l < _g3.board.laneCount; _l++) for (var _i = 0; _i <= 6; _i++) _g3.board.lanes[_l].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _g3.board.lanes[0].spaces[1] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "armoredcannonbeetle", curHp: 25 }, structure: undefined };
+    _g3.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    sim_put_home_col(_g3, 0, "red", 2); _g3.players[0].hand = []; _g3.players[0].pellets = [];
+    var _o3 = ai4_optimize(_g3, 0);
+    _all &= sim_expect(array_length(_o3.chosen), 0, "opt: nothing payable -> empty plan");
+
+    global.expRules.rush = _sr;
+    sim_report(_all ? "=== v4 optimizer: ALL PASS ===" : "=== v4 optimizer: FAILURES ABOVE ===");
+    return _all;
+}
+
+/// v4 discard policy: junk cards before pellets; never the 5-pellet while a 1 exists.
+function sim_test_v4_discard() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: v4 hand-limit discard (ai4_resolve_discard) ===");
+    var _all = true;
+    var _g = sim_blank("familiargrotto");
+    _g.players[0].hand = ["surveydrone", "rawmaterial"];
+    _g.players[0].pellets = ["red5", "red1"];
+    _g.pendingDiscard = { playerIdx: 0, need: 1 };
+    ai4_resolve_discard(_g);
+    _all &= sim_expect(arr_has(_g.players[0].hand, "surveydrone") ? 1 : 0, 0, "discard: junk card (surveydrone) goes before any pellet");
+    _all &= sim_expect(array_length(_g.players[0].pellets), 2, "discard: the pellet reserve is untouched");
+    var _g2 = sim_blank("familiargrotto");
+    _g2.players[0].hand = [];
+    _g2.players[0].pellets = ["red5", "red1"];
+    _g2.pendingDiscard = { playerIdx: 0, need: 1 };
+    ai4_resolve_discard(_g2);
+    _all &= sim_expect(arr_has(_g2.players[0].pellets, "red5") ? 1 : 0, 1, "discard: pellets-only -> the 1 goes, the 5 is protected");
+    sim_report(_all ? "=== v4 discard: ALL PASS ===" : "=== v4 discard: FAILURES ABOVE ===");
+    return _all;
+}
+
 /// Run all scenario tests (add each node's tests here as it's built).
 function sim_run_scenarios() {
     sim_report("");
@@ -1200,6 +2452,27 @@ function sim_run_scenarios() {
     sim_test_advance_commit();
     sim_test_target_piles();
     sim_test_clear_loss();
+    sim_test_instant_bank();
+    sim_test_play_spicy();
+    sim_test_stun_deny();
+    sim_test_road_obstacles();
+    sim_test_obstacle_answers();
+    sim_test_road_bridgeable();
+    sim_test_access_methods();
+    sim_test_growth_demand();
+    sim_test_wall_off();
+    sim_test_achievements();
+    sim_test_item_achievements();
+    sim_test_ach_optimize();
+    sim_test_explosive();
+    sim_test_explosive_defuse();
+    sim_test_play_freeze();
+    sim_test_v4_value();
+    sim_test_v4_removals();
+    sim_test_v4_moves();
+    sim_test_v4_funding();
+    sim_test_v4_optimize();
+    sim_test_v4_discard();
 }
 
 // ---------- probe ----------
