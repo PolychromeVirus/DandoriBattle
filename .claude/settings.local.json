@@ -74,7 +74,17 @@
       "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_v4.py\")",
       "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_mines.py\")",
       "Bash(awk '/######## TOURNAMENT/{b=$4} /^  \\(base|cascade|v4\\) .*winRate/{print b, $0}' /c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt)",
-      "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_ledger.py\")"
+      "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_ledger.py\")",
+      "Bash(awk 'NR>=13688 && NR<=14044' /c/Users/polyc/AppData/Local/DandoriBattle/ai_debug.txt)",
+      "Bash(awk 'NR>=13845 && NR<=13875' /c/Users/polyc/AppData/Local/DandoriBattle/ai_debug.txt)",
+      "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_discrete.py\")",
+      "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_send2.py\")",
+      "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_wire.py\")",
+      "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_verify.py\")",
+      "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_quota.py\")",
+      "Bash(awk '/######## TOURNAMENT/{b=$4} /^  base .*winRate/{split\\($0,a,\" \"\\);bw=a[4]} /^  cascade .*winRate/{split\\($0,a,\" \"\\);cw=a[4]} /^  v4 .*winRate/{split\\($0,a,\" \"\\);printf \"%-26s v4 %.2f  casc %.2f  base %.2f\\\\n\", b, a[4], cw, bw}' /c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt)",
+      "Bash(SIM_BENCH=\"/c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt\" python tools/derive_board_ai.py)",
+      "Bash(python -c \"import json; d=json.load\\(open\\('datafiles/data/board_ai_difficulty.json'\\)\\); print\\(json.dumps\\(d['theminefield'], indent=2\\)\\); print\\(\\); print\\(json.dumps\\(d['thedoghouse'], indent=2\\)\\)\")"
     ]
   }
 }

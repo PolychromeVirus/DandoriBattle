@@ -41,8 +41,8 @@ gameoverHold = 0;     // stillness frames for the game-over settle (own counter 
 
 // --- per-seat controllers: "human" | "v1" | "v2" (AI brains drive through the
 // --- same engine API, so any seat mix works - incl. AI vs AI) ---
-ctl = ["human", "v1"];      // live assignment for the running game
-menuCtl = ["human", "v1"];  // what the menu has selected for the next game
+ctl = ["human", "v4"];        // live assignment (resolved brains) for the running game
+menuCtl = ["human", "hard"];  // menu selection: "human" or a difficulty tier (easy/medium/hard)
 aiTickTimer = 0;
 
 // --- batch runner: N fast AI-vs-AI games back to back, results appended to
@@ -117,8 +117,14 @@ start_game = function(_boardId, _ctl = undefined) {
     tileVB = board_build_tile_vb(board);
     vertex_delete_buffer(groundVB); // retint the ground to the board's theme
     groundVB = build_ground(20, 14, 64, board_ground_palette(boardDef.setNumber));
-    ctl = (_ctl != undefined) ? [_ctl[0], _ctl[1]] : [menuCtl[0], menuCtl[1]];
+    // menu picks Human / difficulty tier; resolve each seat to a concrete brain for THIS board.
+    var _seats = (_ctl != undefined) ? _ctl : menuCtl;
+    ctl = [seat_brain(_boardId, _seats[0]), seat_brain(_boardId, _seats[1])];
     game.trace = [ctl[0] == "human", ctl[1] == "human"]; // human seats get decision-traced to ai_debug.txt
+    // record what's actually driving each seat (and the tier it resolved from) in ai_debug.txt
+    var _seatLbl = function(_tok, _brain) { return (_tok == _brain) ? _brain : (_tok + "->" + _brain); };
+    ai_dbg("");
+    ai_dbg("### GAME START  board " + _boardId + "  P1=" + _seatLbl(_seats[0], ctl[0]) + "  P2=" + _seatLbl(_seats[1], ctl[1]) + " ###");
     mode = "playing";
     selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined; freeBuild = "";
     dayCine = undefined; prevDayNumber = 1;

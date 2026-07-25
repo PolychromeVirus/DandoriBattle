@@ -46,22 +46,19 @@ if (mode == "menu") {
     draw_set_halign(fa_left);
     draw_set_font(-1);
 
-    // per-seat controllers (cycle Human -> v1 -> v2 -> v3 -> v3b -> v4) + the batch runner
+    // per-seat controllers: cycle Human -> COM difficulty tiers (the tier maps to the board's
+    // best-suited brain at game start, from board_ai_difficulty.json)
     var _togW = 170, _togY = 104;
     var _ctlName = function(_c) {
-        if (_c == "human") return "Human";
-        if (_c == "v1") return "AI v1";
-        if (_c == "v2") return "AI v2";
-        if (_c == "v3") return "AI v3";
-        if (_c == "v3b") return "AI v3b";
-        return "AI v4";
+        if (_c == "human")  return "Human";
+        if (_c == "easy")   return "COM - EASY";
+        if (_c == "medium") return "COM - MED";
+        return "COM - HARD";
     };
     var _cycle = function(_c) {
-        if (_c == "human") return "v1";
-        if (_c == "v1") return "v2";
-        if (_c == "v2") return "v3";
-        if (_c == "v3") return "v3b";
-        if (_c == "v3b") return "v4";
+        if (_c == "human")  return "easy";
+        if (_c == "easy")   return "medium";
+        if (_c == "medium") return "hard";
         return "human";
     };
     if (ui_button(_guiW * 0.5 - _togW - 90, _togY, _togW, 28, "P1: " + _ctlName(menuCtl[0]))) menuCtl[0] = _cycle(menuCtl[0]);

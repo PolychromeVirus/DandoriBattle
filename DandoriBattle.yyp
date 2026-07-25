@@ -1429,6 +1429,7 @@
     {"$GMIncludedFile":"","%Name":"CARDyellowwollyhop5.png","CopyToMask":-1,"filePath":"datafiles/cardimages","name":"CARDyellowwollyhop5.png","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
     {"$GMIncludedFile":"","%Name":"CARDzestbomb.png","CopyToMask":-1,"filePath":"datafiles/cardimages","name":"CARDzestbomb.png","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
     {"$GMIncludedFile":"","%Name":"CARDzirconiumrotor.png","CopyToMask":-1,"filePath":"datafiles/cardimages","name":"CARDzirconiumrotor.png","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
+    {"$GMIncludedFile":"","%Name":"board_ai_difficulty.json","CopyToMask":-1,"filePath":"datafiles/data","name":"board_ai_difficulty.json","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
     {"$GMIncludedFile":"","%Name":"boards.json","CopyToMask":-1,"filePath":"datafiles/data","name":"boards.json","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
     {"$GMIncludedFile":"","%Name":"dice.json","CopyToMask":-1,"filePath":"datafiles/data","name":"dice.json","resourceType":"GMIncludedFile","resourceVersion":"2.0",},
     {"$GMIncludedFile":"","%Name":"enemies.json","CopyToMask":-1,"filePath":"datafiles/data","name":"enemies.json","resourceType":"GMIncludedFile","resourceVersion":"2.0",},

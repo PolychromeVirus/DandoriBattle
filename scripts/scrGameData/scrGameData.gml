@@ -10,6 +10,37 @@ function json_load_included(_path) {
     return json_parse(_txt);
 }
 
+/// Like json_load_included, but returns _fallback instead of crashing when the file is absent
+/// (for GENERATED/optional data such as the board_ai_difficulty map).
+function json_load_optional(_path, _fallback) {
+    var _buf = buffer_load(_path);
+    if (_buf == -1) return _fallback;
+    var _txt = buffer_read(_buf, buffer_text);
+    buffer_delete(_buf);
+    return json_parse(_txt);
+}
+
+/// Resolve a difficulty tier ("easy"/"medium"/"hard") to a brain controller for a board, from the
+/// data-derived board_ai_difficulty map (tools/derive_board_ai.py). Falls back to a sensible ladder
+/// if the board (or the whole map) is missing.
+function difficulty_brain(_boardId, _tier) {
+    if (is_struct(global.boardAI) && variable_struct_exists(global.boardAI, _boardId)) {
+        var _b = global.boardAI[$ _boardId];
+        if (variable_struct_exists(_b, _tier)) return _b[$ _tier];
+    }
+    if (_tier == "hard")   return "v4";
+    if (_tier == "medium") return "v3";
+    return "v1";                                              // easy
+}
+
+/// Resolve a SEAT token to a concrete controller for a board: "human" stays human; a difficulty
+/// tier maps through the board's config; anything else is already a brain id (sim/batch/F1).
+function seat_brain(_boardId, _token) {
+    if (_token == "human") return "human";
+    if (_token == "easy" || _token == "medium" || _token == "hard") return difficulty_brain(_boardId, _token);
+    return _token;
+}
+
 function data_load_all() {
     global.rules        = json_load_included("data/rules.json");
     global.pikminData   = json_load_included("data/pikmin.json");
@@ -20,6 +51,7 @@ function data_load_all() {
     global.pelletData   = json_load_included("data/pellets.json");
     global.hazardData   = json_load_included("data/hazards.json");
     global.diceData     = json_load_included("data/dice.json");
+    global.boardAI      = json_load_optional("data/board_ai_difficulty.json", {});   // per-board difficulty->brain (generated)
 
     // Experimental type-identity abilities (toggled on the board-select menu; off by
     // default). These are being playtested - not final rules.

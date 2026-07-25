@@ -1,0 +1,306 @@
+{
+  "discodancefloor": {
+    "easy": "v3b",
+    "medium": "v4",
+    "hard": "v3",
+    "ranking": [
+      "v3b",
+      "v1",
+      "v4",
+      "v2",
+      "v3"
+    ],
+    "h2h": {
+      "v3b": 209,
+      "v1": 396,
+      "v4": 416,
+      "v2": 433,
+      "v3": 546
+    }
+  },
+  "familiargrotto": {
+    "easy": "v3b",
+    "medium": "v2",
+    "hard": "v4",
+    "ranking": [
+      "v3b",
+      "v1",
+      "v2",
+      "v3",
+      "v4"
+    ],
+    "h2h": {
+      "v3b": 77,
+      "v1": 400,
+      "v2": 473,
+      "v3": 475,
+      "v4": 575
+    }
+  },
+  "floodedgarden": {
+    "easy": "v3b",
+    "medium": "v2",
+    "hard": "v4",
+    "ranking": [
+      "v3b",
+      "v1",
+      "v2",
+      "v3",
+      "v4"
+    ],
+    "h2h": {
+      "v3b": 265,
+      "v1": 338,
+      "v2": 344,
+      "v3": 464,
+      "v4": 589
+    }
+  },
+  "frigidwasteland": {
+    "easy": "v3b",
+    "medium": "v1",
+    "hard": "v4",
+    "ranking": [
+      "v3b",
+      "v2",
+      "v1",
+      "v3",
+      "v4"
+    ],
+    "h2h": {
+      "v3b": 244,
+      "v2": 347,
+      "v1": 379,
+      "v3": 451,
+      "v4": 579
+    }
+  },
+  "frozenriverbank": {
+    "easy": "v3b",
+    "medium": "v3",
+    "hard": "v4",
+    "ranking": [
+      "v3b",
+      "v1",
+      "v3",
+      "v2",
+      "v4"
+    ],
+    "h2h": {
+      "v3b": 204,
+      "v1": 448,
+      "v3": 448,
+      "v2": 449,
+      "v4": 451
+    }
+  },
+  "hauntingswampland": {
+    "easy": "v3b",
+    "medium": "v2",
+    "hard": "v3",
+    "ranking": [
+      "v3b",
+      "v1",
+      "v2",
+      "v4",
+      "v3"
+    ],
+    "h2h": {
+      "v3b": 296,
+      "v1": 391,
+      "v2": 416,
+      "v4": 440,
+      "v3": 457
+    }
+  },
+  "meadowofmelancholy": {
+    "easy": "v3",
+    "medium": "v2",
+    "hard": "v4",
+    "ranking": [
+      "v3",
+      "v1",
+      "v2",
+      "v3b",
+      "v4"
+    ],
+    "h2h": {
+      "v3": 256,
+      "v1": 372,
+      "v2": 400,
+      "v3b": 402,
+      "v4": 570
+    }
+  },
+  "pricklypasture": {
+    "easy": "v3b",
+    "medium": "v1",
+    "hard": "v4",
+    "ranking": [
+      "v3b",
+      "v3",
+      "v1",
+      "v2",
+      "v4"
+    ],
+    "h2h": {
+      "v3b": 199,
+      "v3": 405,
+      "v1": 422,
+      "v2": 481,
+      "v4": 493
+    }
+  },
+  "scorchedplayground": {
+    "easy": "v3b",
+    "medium": "v2",
+    "hard": "v4",
+    "ranking": [
+      "v3b",
+      "v1",
+      "v2",
+      "v3",
+      "v4"
+    ],
+    "h2h": {
+      "v3b": 185,
+      "v1": 337,
+      "v2": 407,
+      "v3": 488,
+      "v4": 583
+    }
+  },
+  "stonesweptvalley": {
+    "easy": "v3b",
+    "medium": "v3",
+    "hard": "v4",
+    "ranking": [
+      "v3b",
+      "v1",
+      "v3",
+      "v2",
+      "v4"
+    ],
+    "h2h": {
+      "v3b": 48,
+      "v1": 427,
+      "v3": 430,
+      "v2": 473,
+      "v4": 622
+    }
+  },
+  "theburrow": {
+    "easy": "v3b",
+    "medium": "v3",
+    "hard": "v2",
+    "ranking": [
+      "v3b",
+      "v1",
+      "v3",
+      "v4",
+      "v2"
+    ],
+    "h2h": {
+      "v3b": 196,
+      "v1": 374,
+      "v3": 476,
+      "v4": 476,
+      "v2": 478
+    }
+  },
+  "thedoghouse": {
+    "easy": "v3b",
+    "medium": "v2",
+    "hard": "v1",
+    "ranking": [
+      "v3b",
+      "v4",
+      "v2",
+      "v3",
+      "v1"
+    ],
+    "h2h": {
+      "v3b": 53,
+      "v4": 454,
+      "v2": 493,
+      "v3": 497,
+      "v1": 503
+    }
+  },
+  "thehillswitheyesandteeth": {
+    "easy": "v3b",
+    "medium": "v2",
+    "hard": "v4",
+    "ranking": [
+      "v3b",
+      "v1",
+      "v2",
+      "v3",
+      "v4"
+    ],
+    "h2h": {
+      "v3b": 329,
+      "v1": 356,
+      "v2": 405,
+      "v3": 453,
+      "v4": 457
+    }
+  },
+  "theminefield": {
+    "easy": "v4",
+    "medium": "v1",
+    "hard": "v2",
+    "ranking": [
+      "v4",
+      "v3b",
+      "v1",
+      "v3",
+      "v2"
+    ],
+    "h2h": {
+      "v4": 265,
+      "v3b": 325,
+      "v1": 436,
+      "v3": 448,
+      "v2": 526
+    }
+  },
+  "trickystaircase": {
+    "easy": "v3b",
+    "medium": "v2",
+    "hard": "v4",
+    "ranking": [
+      "v3b",
+      "v1",
+      "v2",
+      "v3",
+      "v4"
+    ],
+    "h2h": {
+      "v3b": 197,
+      "v1": 357,
+      "v2": 382,
+      "v3": 498,
+      "v4": 566
+    }
+  },
+  "undergroundplateau": {
+    "easy": "v3b",
+    "medium": "v1",
+    "hard": "v2",
+    "ranking": [
+      "v3b",
+      "v4",
+      "v1",
+      "v3",
+      "v2"
+    ],
+    "h2h": {
+      "v3b": 98,
+      "v4": 421,
+      "v1": 429,
+      "v3": 477,
+      "v2": 575
+    }
+  }
+}

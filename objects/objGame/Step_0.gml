@@ -16,6 +16,7 @@ if (keyboard_check_pressed(ord("V")))  showCollection = !showCollection;
 if (keyboard_check_pressed(vk_f1)) { // cycle P2's controller mid-game
     ctl[1] = (ctl[1] == "human") ? "v1" : ((ctl[1] == "v1") ? "v2" : ((ctl[1] == "v2") ? "v3" : ((ctl[1] == "v3") ? "v3b" : ((ctl[1] == "v3b") ? "v4" : "human"))));
     game_log(game, "P2 controller: " + ctl[1]);
+    ai_dbg("### F1: P2 controller -> " + ctl[1] + " ###");   // diagnostic brain swap, logged to ai_debug.txt
 }
 if (keyboard_check_pressed(vk_escape)) { selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined; }
 if (keyboard_check_pressed(vk_f2))    { return_to_menu(); exit; }

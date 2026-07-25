@@ -1,4 +1,239 @@
 // ============================================================================
+// ai4_send2 - THE PHYSICAL LAYER.  The planner says WHAT (a list of body demands);
+// this says HOW (which specific pikmin, from where). It takes the WHOLE plan at once
+// so a colour-locked task still meets its quota, funds IDLE bodies first (any pikmin
+// not touching a card, wherever it stands), then EXCESS pikmin sitting on a treasure
+// (lowest priority - the min-win holding a pile is claimed by that pile's own advance,
+// in place), avoids hazard deaths where it can and sends EXTRA to cover the ones it
+// can't, so the requested amount ARRIVES. Dry-run = feasibility; real = execute. One
+// function both plans and acts, so they can never diverge (this retires the ledger).
+// ============================================================================
+
+/// A body here is REASSIGNABLE unless committed to combat (fighting an enemy, on a wall/emitter).
+/// On a treasure = lifting it, still reassignable (surplus above min-win can move; players swap lifters).
+function ai4_reassignable(_g, _lane, _idx) {
+    var _sp = _g.board.lanes[_lane].spaces[_idx];
+    if (_sp.enemy != undefined) return false;
+    if (_sp.structure != undefined && hazard_def_get(_sp.structure.structId).type != "bridge") return false;
+    return true;
+}
+
+/// Every fieldable body with its job: idle (not on a card) or on a treasure (excess).
+/// Excludes combat-committed (fighting an enemy, on a wall/emitter) and stranded (no path home).
+function ai4_eligible_bodies(_g, _p) {
+    var _out = [];
+    var _toks = _g.players[_p].tokens;
+    for (var _i = 0; _i < array_length(_toks); _i++) {
+        var _t = _toks[_i];
+        if (token_is_disabled(_t)) continue;
+        var _loc = _t.loc;
+        var _onT = false;
+        if (_loc.kind == "space") {
+            if (!ai4_reassignable(_g, _loc.lane, _loc.idx)) continue;                           // combat-committed only
+            _onT = (game_treasure_at(_g, _loc.lane, _loc.idx) != undefined);                    // lifting a pile = excess (low prio)
+        }
+        // NOTE: no reach-home filter - a body can still hold its own pile in place, and can move onto
+        // an in-lane card (enemy/treasure) even when trapped. ai4_send2 gates reachability PER TARGET
+        // via game_move_legal, so a "stranded" body is usable exactly where the engine allows.
+        array_push(_out, { typeId: _t.typeId, loc: _loc, onT: _onT, used: false });
+    }
+    return _out;
+}
+
+/// Poison spaces a non-immune _col crosses going _src -> (lane,idx). Each = 1 death (attrition).
+/// Cross-lane routes via home (src->home->dst), matching the engine's move legality.
+function ai4_path_poison(_g, _p, _col, _src, _lane, _idx) {
+    if (game_type_poison_immune(_col)) return 0;
+    if (_src.kind == "space" && _src.lane == _lane && _src.idx == _idx) return 0;               // in place
+    var _dst = { kind: "space", lane: _lane, idx: _idx };
+    var _legs = [];
+    if (_src.kind == "home" || (_src.kind == "space" && _src.lane == _lane)) {
+        array_push(_legs, [_src, _dst]);
+    } else {
+        array_push(_legs, [_src, { kind: "home" }]);
+        array_push(_legs, [{ kind: "home" }, _dst]);
+    }
+    var _n = 0;
+    for (var _l = 0; _l < array_length(_legs); _l++) {
+        var _ex = game_path_exited_spaces(_g, _p, _legs[_l][0], _legs[_l][1]);
+        for (var _e = 0; _e < array_length(_ex); _e++)
+            if (game_space_is_poison(_g, _ex[_e].lane, _ex[_e].idx)) _n += 1;
+    }
+    return _n;
+}
+
+/// Sort key for a fill candidate: rank ASC (in-place<idle<treasure), poison ASC, then carry -
+/// DESC on the bulk pass (big bodies cover the need), ASC on the remainder pass (small top-up).
+function ai4_send_key(_c, _pass1) { return _c.rank * 1000000 + _c.pz * 1000 + (_pass1 ? -_c.carry : _c.carry); }
+function ai4_sort_send(_arr, _pass1) {
+    for (var _a = 1; _a < array_length(_arr); _a++) {
+        var _t = _arr[_a], _b = _a - 1;
+        while (_b >= 0 && ai4_send_key(_arr[_b], _pass1) > ai4_send_key(_t, _pass1)) { _arr[_b + 1] = _arr[_b]; _b -= 1; }
+        _arr[_b + 1] = _t;
+    }
+}
+
+/// Does taking this body cost it to poison en route? Tracks per (source, colour) how many deaths
+/// remain to allocate (= poison spaces on its path); the first P bodies of a colour-from-a-path die.
+function ai4_take_dies(_bd, _c, _deaths) {
+    if (_c.pz <= 0) return false;
+    var _lk = (_bd.loc.kind == "home") ? "home" : ("L" + string(_bd.loc.lane) + ":" + string(_bd.loc.idx));
+    var _key = _lk + "|" + _bd.typeId;
+    var _rem = variable_struct_exists(_deaths, _key) ? _deaths[$ _key] : _c.pz;
+    if (_rem > 0) { _deaths[$ _key] = _rem - 1; return true; }
+    _deaths[$ _key] = 0;
+    return false;
+}
+
+/// Fulfil a whole plan's body demands FROM THE BOARD.
+///   _demands = [{ lane, idx, amount, colors }]  (colors == [] means "any").
+///   _dryRun  = true -> feasibility only (no moves); false -> execute.
+/// Returns { ok, delivered:[per-demand strength that ARRIVES] }.
+function ai4_send2(_g, _p, _demands, _dryRun) {
+    var _pool = ai4_eligible_bodies(_g, _p);
+    var _nd = array_length(_demands);
+    var _capRoom = max(0, global.rules.pikminBoardCap - game_capped_count(_g, _p));   // pellet redemptions can't exceed board headroom
+    var _pelw = []; var _pls = _g.players[_p].pellets;
+    for (var _pi = 0; _pi < array_length(_pls); _pi++) {
+        var _pd = pellet_def_get(_pls[_pi]);
+        array_push(_pelw, { id: _pls[_pi], color: _pd.color, same: _pd.sameTypeAmount, off: _pd.offTypeAmount, used: false });
+    }
+    var _redeems = [];   // {id, color, n, lane, idx} - pellets to crack, then march home->target
+
+    // order demands by COLOUR NECESSITY: primary = how many colours can satisfy it (fewer options =
+    // tighter, goes first), tie-broken by availability (fewer eligible bodies first). So [yellow]
+    // (1 option) always precedes [red|blue] (2 options); two 2-colour demands split by body count.
+    // "any" = every colour = loosest = last. The AI can feed demands in any order.
+    var _score = array_create(_nd, 0);
+    for (var _i = 0; _i < _nd; _i++) {
+        var _cc = _demands[_i].colors;
+        var _ncol = array_length(_cc);
+        var _cnt = 0;
+        for (var _bi = 0; _bi < array_length(_pool); _bi++)
+            if (_ncol == 0 || arr_has(_cc, _pool[_bi].typeId)) _cnt += 1;
+        _score[_i] = ((_ncol == 0) ? 999 : _ncol) * 100000 + _cnt;   // colour-count dominates; body-count breaks ties
+    }
+    var _ord = [];
+    for (var _i = 0; _i < _nd; _i++) array_push(_ord, _i);
+    for (var _a = 1; _a < array_length(_ord); _a++) {
+        var _tv = _ord[_a], _b = _a - 1;
+        while (_b >= 0 && _score[_ord[_b]] > _score[_tv]) { _ord[_b + 1] = _ord[_b]; _b -= 1; }
+        _ord[_b + 1] = _tv;
+    }
+
+    var _delivered = array_create(_nd, 0);
+    var _ok = true;
+    var _moves = [];   // {src, lane, idx, color}
+
+    for (var _oi = 0; _oi < array_length(_ord); _oi++) {
+        var _di = _ord[_oi];
+        var _dm = _demands[_di];
+        var _need = _dm.amount;
+        if (_need <= 0) continue;
+        var _cols = _dm.colors;
+        var _tl = _dm.lane, _ti = _dm.idx;
+
+        var _cand = [];
+        for (var _bi = 0; _bi < array_length(_pool); _bi++) {
+            var _bd = _pool[_bi];
+            if (_bd.used) continue;
+            if (array_length(_cols) > 0 && !arr_has(_cols, _bd.typeId)) continue;
+            var _inplace = (_bd.loc.kind == "space" && _bd.loc.lane == _tl && _bd.loc.idx == _ti);
+            // reachability PER TARGET via the engine's own rule: in-place is free; from home -> dest_legal;
+            // from another board space -> reach-home-then-there OR walk onto an in-lane card. So a lifter
+            // trapped on a pile is usable to HOLD it (in place) and to attack the enemy in front of it.
+            if (!_inplace && !game_move_legal(_g, _p, _bd.typeId, _bd.loc, { kind: "space", lane: _tl, idx: _ti })) continue;
+            var _rank = _inplace ? 0 : (_bd.onT ? 2 : 1);
+            array_push(_cand, { bi: _bi, carry: pikmin_type_get(_bd.typeId).carry, rank: _rank,
+                                pz: ai4_path_poison(_g, _p, _bd.typeId, _bd.loc, _tl, _ti) });
+        }
+
+        var _arrived = 0;
+        var _deaths = {};
+        ai4_sort_send(_cand, true);                                        // pass 1: bulk (big while need >= carry)
+        for (var _k = 0; _k < array_length(_cand) && _arrived < _need; _k++) {
+            var _c = _cand[_k];
+            if (_pool[_c.bi].used) continue;
+            if (_need - _arrived < _c.carry) continue;
+            var _bd2 = _pool[_c.bi];
+            if (!ai4_take_dies(_bd2, _c, _deaths)) _arrived += _c.carry;
+            _bd2.used = true;
+            array_push(_moves, { src: _bd2.loc, lane: _tl, idx: _ti, color: _bd2.typeId });
+        }
+        if (_arrived < _need) {
+            ai4_sort_send(_cand, false);                                   // pass 2: remainder (small top-up, covers deaths)
+            for (var _k = 0; _k < array_length(_cand) && _arrived < _need; _k++) {
+                var _c2 = _cand[_k];
+                if (_pool[_c2.bi].used) continue;
+                var _bd3 = _pool[_c2.bi];
+                if (!ai4_take_dies(_bd3, _c2, _deaths)) _arrived += _c2.carry;
+                _bd3.used = true;
+                array_push(_moves, { src: _bd3.loc, lane: _tl, idx: _ti, color: _bd3.typeId });
+            }
+        }
+        // PELLETS: still short -> redeem from the reserve (home bodies), cap-limited. Same-colour
+        // (full value) first, then off-convert to the best acceptable basic. Attrition on home->target.
+        if (_arrived < _need) {
+            for (var _pp = 0; _pp < array_length(_pelw) && _arrived < _need && _capRoom > 0; _pp++) {
+                var _pe = _pelw[_pp];
+                if (_pe.used) continue;
+                if (array_length(_cols) > 0 && !arr_has(_cols, _pe.color)) continue;   // locked demand: only its colours
+                var _n = min(_pe.same, _capRoom); if (_n <= 0) continue;
+                _capRoom -= _n; _pe.used = true;
+                var _pz = ai4_path_poison(_g, _p, _pe.color, { kind: "home" }, _tl, _ti);
+                _arrived += max(0, _n - _pz) * pikmin_type_get(_pe.color).carry;
+                array_push(_redeems, { id: _pe.id, color: _pe.color, n: _n, lane: _tl, idx: _ti });
+            }
+            if (_arrived < _need && array_length(_cols) > 0) {                          // off-conversion into the best acceptable basic
+                var _bestCol = ""; var _bestC = 0;
+                for (var _cx = 0; _cx < array_length(_cols); _cx++)
+                    if (arr_has(_g.boardDef.basicColors, _cols[_cx]) && pikmin_type_get(_cols[_cx]).carry > _bestC) { _bestC = pikmin_type_get(_cols[_cx]).carry; _bestCol = _cols[_cx]; }
+                if (_bestCol != "")
+                for (var _pp = 0; _pp < array_length(_pelw) && _arrived < _need && _capRoom > 0; _pp++) {
+                    var _pe2 = _pelw[_pp];
+                    if (_pe2.used) continue;
+                    var _n2 = min(_pe2.off, _capRoom); if (_n2 <= 0) continue;
+                    _capRoom -= _n2; _pe2.used = true;
+                    var _pz2 = ai4_path_poison(_g, _p, _bestCol, { kind: "home" }, _tl, _ti);
+                    _arrived += max(0, _n2 - _pz2) * pikmin_type_get(_bestCol).carry;
+                    array_push(_redeems, { id: _pe2.id, color: _bestCol, n: _n2, lane: _tl, idx: _ti });
+                }
+            }
+        }
+        _delivered[_di] = _arrived;
+        if (_arrived < _need) _ok = false;
+    }
+
+    if (!_dryRun) {
+        for (var _r = 0; _r < array_length(_redeems); _r++) {              // crack the pellets -> bodies appear at home
+            var _rd = _redeems[_r];
+            var _pls2 = _g.players[_p].pellets;
+            for (var _j = 0; _j < array_length(_pls2); _j++) if (_pls2[_j] == _rd.id) { game_play_pellet(_g, _j, _rd.color); break; }
+            var _cntp = {}; _cntp[$ _rd.color] = _rd.n;
+            game_order_move(_g, { kind: "home" }, { kind: "space", lane: _rd.lane, idx: _rd.idx }, _cntp);
+        }
+    }
+    if (!_dryRun) {                                                        // execute: aggregate moves by (src,target,colour)
+        var _agg = {};
+        for (var _m = 0; _m < array_length(_moves); _m++) {
+            var _mv = _moves[_m];
+            if (_mv.src.kind == "space" && _mv.src.lane == _mv.lane && _mv.src.idx == _mv.idx) continue; // in place
+            var _sk = (_mv.src.kind == "home" ? "home" : ("L" + string(_mv.src.lane) + ":" + string(_mv.src.idx)))
+                    + ">" + string(_mv.lane) + ":" + string(_mv.idx) + "|" + _mv.color;
+            if (!variable_struct_exists(_agg, _sk)) _agg[$ _sk] = { src: _mv.src, lane: _mv.lane, idx: _mv.idx, color: _mv.color, n: 0 };
+            _agg[$ _sk].n += 1;
+        }
+        var _keys = variable_struct_get_names(_agg);
+        for (var _kk = 0; _kk < array_length(_keys); _kk++) {
+            var _e = _agg[$ _keys[_kk]];
+            var _cnt = {}; _cnt[$ _e.color] = _e.n;
+            game_order_move(_g, _e.src, { kind: "space", lane: _e.lane, idx: _e.idx }, _cnt);
+        }
+    }
+    return { ok: _ok, delivered: _delivered };
+}
+
+// ============================================================================
 // v4 BRAIN — one valuation, three passes.  (spec: /v4-spec artifact, 2026-07-23)
 //
 // PRINCIPLE: enumerate every independent value-producing OUTCOME available this
@@ -69,7 +304,28 @@ function ai4_lane_moves(_g, _p, _t) {
     if (_t.boss != undefined) return [];
     // A MOVE lane = some colour can carry the WHOLE road. resolve_colors("carry") is that test.
     var _carryCols = ai4_resolve_colors(_g, _p, _t.lane, _t.idx, "carry", undefined);
-    if (array_length(_carryCols) == 0) return [];
+    if (array_length(_carryCols) == 0) {
+        // BLOCKED road, but if I already CONTROL this pile and the opponent can contest it, HOLD it.
+        // Ruling: removing my contesting pikmin from a pile the opponent can reach is worth -V (the
+        // pile's value, lost when they reclaim it). Encoded as a +V hold achievement the optimiser can
+        // select (maximiser: +V-to-hold == -V-to-abandon). The in-place lifters fund it (zero move);
+        // only bodies BEYOND min-win are surplus, free to clear the blocker.
+        var _myOnH = game_strength_at(_g, _p, _t.lane, _t.idx);
+        if (_myOnH <= 0) return [];                                          // don't control it -> nothing to hold
+        var _oppOnH = game_strength_at(_g, 1 - _p, _t.lane, _t.idx);
+        var _oppContestH = ai_send(_g, 1 - _p, _t.lane, _t.idx, 99, undefined, true);
+        for (var _k = 0; _k < array_length(_g.players[1 - _p].tokens); _k++) {
+            var _otk = _g.players[1 - _p].tokens[_k];
+            if (_otk.loc.kind == "space" && _otk.loc.lane == _t.lane) _oppContestH += pikmin_type_get(_otk.typeId).carry;
+        }
+        if (_oppContestH <= 0) return [];                                    // uncontested -> lifters ARE true surplus
+        var _VH = ai4_pile_value(_g, _p, _t);
+        var _holdStr = max(treasure_def_get(_t.cards[array_length(_t.cards) - 1]).weight, _oppOnH + 1);
+        var _holdCols = ai4_resolve_colors(_g, _p, _t.lane, _t.idx, "any", undefined);   // any body holds it; ai4_send2 uses the in-place lifters
+        return [{ laneId: _t.lane, type: "move", lane: _t.lane, idx: _t.idx, variants: [
+            { value: _VH, str: _holdStr, cols: _holdCols, need: "carry", items: [], endIdx: _t.idx, hold: true }   // +V (== avoiding the -V abandon)
+        ] }];
+    }
 
     var _w = treasure_def_get(_t.cards[array_length(_t.cards) - 1]).weight;
     var _V = ai4_pile_value(_g, _p, _t);
@@ -123,25 +379,25 @@ function ai4_lane_moves(_g, _p, _t) {
         var _dep = max(0, _need - _myOn);
         if (_banks || _oppContest <= 0) {
             // out-muscle current only (bank) / min-win (free lane): no buffer
-            array_push(_variants, { value: _val, str: _dep, cols: _ss.cols, need: "carry", items: _items0, endIdx: _end });
+            array_push(_variants, { value: _val, str: _need, cols: _ss.cols, need: "carry", items: _items0, endIdx: _end });
         } else {
             // contested multi-turn haul: an affordable securing buffer (a rush stack IS its own buffer)
             var _secReq = max(_need, _minWin + SECURE_BUFFER);
-            array_push(_variants, { value: _val, str: max(0, _secReq - _myOn), cols: _ss.cols, need: "carry", items: _items0, endIdx: _end });
+            array_push(_variants, { value: _val, str: _secReq, cols: _ss.cols, need: "carry", items: _items0, endIdx: _end });
             if (_s == 0) {   // item-secured alternatives on the plain set only (min-win + the item)
                 var _fc = ["bitterspray", "icebomb", "storm"];
                 for (var _f = 0; _f < array_length(_fc); _f++) {
                     if (!arr_has(_hand, _fc[_f])) continue;
                     var _fa = ai3_card_play_args(_g, _p, _fc[_f]);
                     if (_fa != undefined && _fa.lane == _t.lane && _fa.idx == _t.idx) {
-                        array_push(_variants, { value: _val, str: _dep, cols: _ss.cols, need: "carry", items: ai4_with(_items0, _fc[_f]), endIdx: _end });
+                        array_push(_variants, { value: _val, str: _need, cols: _ss.cols, need: "carry", items: ai4_with(_items0, _fc[_f]), endIdx: _end });
                         break;
                     }
                 }
                 if (arr_has(_hand, "phosbatpod")) {
                     var _wt = ai3_wall_target(_g, _p);
                     if (_wt != undefined && _wt.lane == _t.lane && (_wt.idx - ((_p == 0) ? 1 : -1)) == _t.idx)
-                        array_push(_variants, { value: _val, str: _dep, cols: _ss.cols, need: "carry", items: ai4_with(_items0, "phosbatpod"), endIdx: _end });
+                        array_push(_variants, { value: _val, str: _need, cols: _ss.cols, need: "carry", items: ai4_with(_items0, "phosbatpod"), endIdx: _end });
                 }
             }
         }
@@ -186,13 +442,26 @@ function ai4_available_by_color(_g, _p) {
         // recallable bodies. COMMITTED bodies (on a pile carrying, or on an enemy fighting) fund
         // ONLY their own outcome via myOn/net demands; counting them here let them phantom-fund
         // OTHER lanes' plans that deploy then delivered 0/N on.
-        if (_loc.kind == "space") {
-            if (!game_can_reach_home(_g, _p, _tok.typeId, _loc.lane, _loc.idx)) continue;   // stranded
-            var _csp = _g.board.lanes[_loc.lane].spaces[_loc.idx];
-            if (_csp.enemy != undefined || game_treasure_at(_g, _loc.lane, _loc.idx) != undefined) continue;  // committed
-        }
+        if (_loc.kind == "space" && !ai4_reassignable(_g, _loc.lane, _loc.idx)) continue;   // combat-committed only (treasure lifters INCLUDED; no reach-home filter)
         var _c = _tok.typeId;
         _out[$ _c] = (variable_struct_exists(_out, _c) ? _out[$ _c] : 0) + pikmin_type_get(_c).carry;
+    }
+    return _out;
+}
+
+/// Available bodies as COUNTS per colour (same fieldable set as ai4_available_by_color, but discrete).
+/// Funding spends whole pikmin from this, so the plan commits SPECIFIC bodies - a 1-strength demand
+/// takes one carry-1 body, never a whole purple.
+function ai4_available_bodies(_g, _p) {
+    var _out = {};
+    var _toks = _g.players[_p].tokens;
+    for (var _i = 0; _i < array_length(_toks); _i++) {
+        var _tok = _toks[_i];
+        if (token_is_disabled(_tok)) continue;
+        var _loc = _tok.loc;
+        if (_loc.kind == "space" && !ai4_reassignable(_g, _loc.lane, _loc.idx)) continue;   // combat-committed only; no reach-home filter (in-lane use is still valid)
+        var _c = _tok.typeId;
+        _out[$ _c] = (variable_struct_exists(_out, _c) ? _out[$ _c] : 0) + 1;
     }
     return _out;
 }
@@ -223,7 +492,7 @@ function ai4_resolve_colors(_g, _p, _lane, _idx, _need, _enemyDef) {
         var _c = _field[_i];
         var _ok = false;
         if (_need == "any") _ok = true;
-        else if (_need == "hurt") _ok = (_enemyDef != undefined) && ai_type_can_hurt(_c, _enemyDef) && game_dest_legal(_g, _p, _c, _lane, _idx);
+        else if (_need == "hurt") _ok = (_enemyDef != undefined) && ai4_can_hurt_base(_c, _enemyDef) && ai_type_survives_defense(_c, _enemyDef) && game_dest_legal(_g, _p, _c, _lane, _idx);
         else if (_need == "carry" || _need == "struct") _ok = game_dest_legal(_g, _p, _c, _lane, _idx);
         if (_ok) array_push(_out, _c);
     }
@@ -249,7 +518,7 @@ function ai4_fund_impl(_g, _p, _demands, _items, _record) {
         if (_have < _items[$ _names[_i]]) return undefined;
     }
 
-    var _home = ai4_available_by_color(_g, _p);
+    var _pool = ai4_available_bodies(_g, _p);   // DISCRETE bodies (counts), spent whole
     // BOARD-CAP headroom: at the 25-token cap a redemption grants NOTHING - pellets can only fund
     // up to the remaining room, or funding approves plans whose deploy under-delivers into min-contests.
     var _capRoom = max(0, global.rules.pikminBoardCap - game_capped_count(_g, _p));
@@ -275,11 +544,38 @@ function ai4_fund_impl(_g, _p, _demands, _items, _record) {
         if (_need <= 0) continue;
         var _cols = _dem[_i].colors;
         if (array_length(_cols) == 0) return undefined;
-        for (var _c = 0; _c < array_length(_cols) && _need > 0; _c++) {        // home of acceptable colours
-            var _cc = _cols[_c];
-            if (!variable_struct_exists(_home, _cc)) continue;
-            var _u = min(_need, _home[$ _cc]); _home[$ _cc] -= _u; _need -= _u;
-            if (_record && _u > 0) _entry.tokens[$ _cc] = (variable_struct_exists(_entry.tokens, _cc) ? _entry.tokens[$ _cc] : 0) + _u;
+        // DISCRETE, WASTE-MINIMISING fill. The specific pikmin are part of the plan: spend whole
+        // bodies, big ones (purple, carry 5) only while the remaining need still needs their bulk
+        // (need >= carry), the remainder in carry-1 bodies. So a 1-demand takes one rock, never a
+        // purple; purples stay for the big hauls. Each committed body leaves the pool for later steps.
+        var _ac = [];
+        for (var _c = 0; _c < array_length(_cols); _c++)
+            if (variable_struct_exists(_pool, _cols[_c]) && _pool[$ _cols[_c]] > 0 && !arr_has(_ac, _cols[_c])) array_push(_ac, _cols[_c]);
+        for (var _x = 1; _x < array_length(_ac); _x++) {                       // sort carry DESC
+            var _t2 = _ac[_x], _y = _x - 1;
+            while (_y >= 0 && pikmin_type_get(_ac[_y]).carry < pikmin_type_get(_t2).carry) { _ac[_y + 1] = _ac[_y]; _y -= 1; }
+            _ac[_y + 1] = _t2;
+        }
+        for (var _c = 0; _c < array_length(_ac) && _need > 0; _c++) {          // pass 1: bodies while need >= their carry (no overshoot)
+            var _cc = _ac[_c]; var _cw = pikmin_type_get(_cc).carry;
+            while (_pool[$ _cc] > 0 && _need >= _cw) {
+                _pool[$ _cc] -= 1; _need -= _cw;
+                if (_record) _entry.tokens[$ _cc] = (variable_struct_exists(_entry.tokens, _cc) ? _entry.tokens[$ _cc] : 0) + 1;
+            }
+        }
+        if (_need > 0) {                                                        // pass 2: remainder in the SMALLEST bodies (may overshoot if only big left)
+            for (var _x = 1; _x < array_length(_ac); _x++) {                   // re-sort carry ASC
+                var _t3 = _ac[_x], _y = _x - 1;
+                while (_y >= 0 && pikmin_type_get(_ac[_y]).carry > pikmin_type_get(_t3).carry) { _ac[_y + 1] = _ac[_y]; _y -= 1; }
+                _ac[_y + 1] = _t3;
+            }
+            for (var _c = 0; _c < array_length(_ac) && _need > 0; _c++) {
+                var _cc2 = _ac[_c];
+                while (_pool[$ _cc2] > 0 && _need > 0) {
+                    _pool[$ _cc2] -= 1; _need -= pikmin_type_get(_cc2).carry;
+                    if (_record) _entry.tokens[$ _cc2] = (variable_struct_exists(_entry.tokens, _cc2) ? _entry.tokens[$ _cc2] : 0) + 1;
+                }
+            }
         }
         if (_need <= 0) continue;
         var _bestCarry = 0;                                                    // off-conversion: pellets redeem into BASICS only
@@ -372,6 +668,29 @@ function ai4_combo_value(_g, _p, _outcomes, _sel) {
 }
 
 /// The pikmin demands + item multiset a selection asks of the pool.
+/// Can this colour DAMAGE the enemy, ignoring any "must be attacked by N <type>" quota (that quota
+/// is enforced separately by splitting the demand). Just the hard defences (crush/height).
+function ai4_can_hurt_base(_typeId, _enemyDef) {
+    var _td = pikmin_type_get(_typeId);
+    if (_enemyDef.defenseElement == "crush") return arr_has(_td.immunities, "crush");
+    if (_enemyDef.defenseElement == "height") return arr_has(_td.traits, "climbs_height") || arr_has(_td.traits, "flies_over_hazards");
+    return true;
+}
+
+/// The body demand(s) an outcome implies, SPLIT on colour requirement. A quota enemy ("must be
+/// attacked by at least N <type>") becomes TWO demands: N of <type> (colour-locked) + the rest from
+/// anything that can damage it (agnostic). ai4_send2 fields the locked one first. Non-quota = one demand.
+function ai4_body_demands(_g, _p, _lane, _idx, _need, _ed, _str) {
+    var _cols = ai4_resolve_colors(_g, _p, _lane, _idx, _need, _ed);
+    var _req = (_need == "hurt" && _ed != undefined) ? game_attack_requirement(_ed) : undefined;
+    if (_req == undefined) return [{ amount: _str, colors: _cols }];
+    var _qStr = _req.count * pikmin_type_get(_req.typeId).carry;
+    var _out = [{ amount: _qStr, colors: [_req.typeId] }];          // the specific quota
+    var _rest = _str - _qStr;
+    if (_rest > 0) array_push(_out, { amount: _rest, colors: _cols }); // the rest, from anything that damages it
+    return _out;
+}
+
 function ai4_combo_demands(_g, _p, _outcomes, _sel) {
     var _demands = []; var _items = {};
     for (var _i = 0; _i < array_length(_outcomes); _i++) {
@@ -383,8 +702,13 @@ function ai4_combo_demands(_g, _p, _outcomes, _sel) {
         var _fund = variable_struct_exists(_var, "fund") ? _var.fund : _var.str;
         if (_fund > 0) {
             var _ed = variable_struct_exists(_var, "enemyDef") ? _var.enemyDef : undefined;
-            var _dcols = variable_struct_exists(_var, "cols") ? _var.cols : ai4_resolve_colors(_g, _p, _o.lane, _o.idx, _var.need, _ed);
-            array_push(_demands, { str: _fund, colors: _dcols, srcOutcome: _srcOutcome });
+            if (variable_struct_exists(_var, "cols")) {
+                array_push(_demands, { str: _fund, colors: _var.cols, srcOutcome: _srcOutcome });   // move: designated colours
+            } else {
+                var _bd = ai4_body_demands(_g, _p, _o.lane, _o.idx, _var.need, _ed, _fund);
+                for (var _bi = 0; _bi < array_length(_bd); _bi++)
+                    array_push(_demands, { str: _bd[_bi].amount, colors: _bd[_bi].colors, srcOutcome: _srcOutcome });
+            }
         }
         for (var _c = 0; _c < array_length(_var.items); _c++) {
             var _cid = _var.items[_c];
@@ -396,8 +720,17 @@ function ai4_combo_demands(_g, _p, _outcomes, _sel) {
 
 /// THE OPTIMIZER: best fundable combination of outcomes for player _p this turn.
 /// Returns { value, chosen:[{outcome, varIdx}] }.
-function ai4_optimize(_g, _p) {
+/// Stable identity of an outcome (for the deliverability skip-set).
+function ai4_outcome_key(_o) { return _o.type + "_" + string(_o.lane) + "_" + string(_o.idx); }
+
+function ai4_optimize(_g, _p, _skip = undefined) {
     var _outcomes = ai4_enumerate(_g, _p);
+    if (_skip != undefined) {                                        // drop outcomes a dry-run proved undeliverable
+        var _filt = [];
+        for (var _i = 0; _i < array_length(_outcomes); _i++)
+            if (!variable_struct_exists(_skip, ai4_outcome_key(_outcomes[_i]))) array_push(_filt, _outcomes[_i]);
+        _outcomes = _filt;
+    }
     // safety cap: drop the lowest-ranked outcomes until the choice product is sane
     var _prod = 1;
     for (var _i = 0; _i < array_length(_outcomes); _i++) _prod *= (1 + array_length(_outcomes[_i].variants));
@@ -426,18 +759,8 @@ function ai4_optimize(_g, _p) {
         for (var _i = 0; _i < _n; _i++) _bestSel[_i] = _sel[_i];
     }
 
-    // ONE PLANNING LAYER: rebuild the winner's demands and record the deployment ledger; each
-    // chosen outcome carries its exact assignment (colour-strengths + pellet redemptions).
-    var _assignByOutcome = array_create(_n, undefined);
-    if (_bestVal > 0) {
-        var _bd = ai4_combo_demands(_g, _p, _outcomes, _bestSel);
-        var _ledger = ai4_fund(_g, _p, _bd.demands, _bd.items, true);
-        if (_ledger != undefined)
-            for (var _i = 0; _i < array_length(_bd.demands); _i++)
-                _assignByOutcome[_bd.demands[_i].srcOutcome] = _ledger[_i];
-    }
     var _chosen = [];
-    for (var _i = 0; _i < _n; _i++) if (_bestSel[_i] > 0) array_push(_chosen, { outcome: _outcomes[_i], varIdx: _bestSel[_i] - 1, assign: _assignByOutcome[_i] });
+    for (var _i = 0; _i < _n; _i++) if (_bestSel[_i] > 0) array_push(_chosen, { outcome: _outcomes[_i], varIdx: _bestSel[_i] - 1 });
     return { value: _bestVal, chosen: _chosen };
 }
 
@@ -481,18 +804,29 @@ function ai4_recall(_g, _p) {
 /// than ONE more draw (the single most useful card) would; else draw. The comparison must be
 /// symmetric - a roll vs a draw, not a pellet vs a whole hand of cards - or it over-draws into
 /// body starvation (cards to open lanes, no pikmin to carry them).
+/// RESERVE RULE decision: ROLL (build a body reserve) or DRAW (buy cards)? ~10-body reserve target.
+/// A board whose pellet DIE offers a "5" pellet: roll until a 5-pellet AND >= 4 pellets are held.
+/// A board WITHOUT 5-pellets (6-colour boards roll only "1"s = 2 bodies each): the has-5 clause could
+/// never be met, so v4 would roll forever - fall back to a body-count reserve (~10 bodies, ~5 ones).
+function ai4_gather_roll(_g, _p) {
+    var _pel = _g.players[_p].pellets;
+    var _die = _g.boardDef.pelletDie;
+    var _dieHas5 = false;
+    for (var _i = 0; _i < array_length(_die); _i++) if (_die[_i].value >= 5) { _dieHas5 = true; break; }
+    if (_dieHas5) {
+        var _has5 = false;
+        for (var _i = 0; _i < array_length(_pel); _i++) if (pellet_def_get(_pel[_i]).sameTypeAmount >= 5) { _has5 = true; break; }
+        return !(_has5 && array_length(_pel) >= 4);
+    }
+    var _bodies = 0;
+    for (var _i = 0; _i < array_length(_pel); _i++) _bodies += pellet_def_get(_pel[_i]).sameTypeAmount;
+    return _bodies < 10;
+}
+
 function ai4_gather(_g) {
     var _p = _g.activePlayer;
-    var _pl = _g.players[_p];
-    // RESERVE RULE: keep a body reserve on hand - roll while thin (fewer than 4 pellets AND no single
-    // "5" pellet), else draw for cards. A ~10-strength army one-shots almost anything without chipping,
-    // so building the reserve is near-always the efficient play; once it's stocked, spend gather on cards.
-    var _pel = _pl.pellets;
-    var _has5 = false;
-    for (var _i = 0; _i < array_length(_pel); _i++) if (pellet_def_get(_pel[_i]).sameTypeAmount >= 5) { _has5 = true; break; }
-    // reserve is satisfied only with BOTH a 5-pellet AND >= 4 pellets; keep rolling until then.
-    var _roll = !(_has5 && array_length(_pel) >= 4);
-    ai_dbg("v4 gather: pel=" + string(array_length(_pel)) + " has5=" + string(_has5) + " army=" + string(ai4_available_total(_g, _p)) + " -> " + (_roll ? "ROLL" : "DRAW"));
+    var _roll = ai4_gather_roll(_g, _p);
+    ai_dbg("v4 gather: pel=" + string(array_length(_g.players[_p].pellets)) + " army=" + string(ai4_available_total(_g, _p)) + " -> " + (_roll ? "ROLL" : "DRAW"));
     if (_roll) game_gather_roll(_g); else game_gather_draw(_g);
 }
 
@@ -520,8 +854,8 @@ function ai4_deploy_one(_g, _p, _c) {
         }
         var _sent = 0;
         var _tcols = variable_struct_get_names(_a.tokens);
-        for (var _i = 0; _i < array_length(_tcols); _i++)
-            _sent += ai_send(_g, _p, _o.lane, _o.idx, _a.tokens[$ _tcols[_i]], _ed, false, false, _clean, [_tcols[_i]]);
+        for (var _i = 0; _i < array_length(_tcols); _i++)                       // ledger tokens are body COUNTS
+            _sent += ai_send(_g, _p, _o.lane, _o.idx, _a.tokens[$ _tcols[_i]] * pikmin_type_get(_tcols[_i]).carry, _ed, false, false, _clean, [_tcols[_i]]);
         // pellet-granted bodies land at home in their redeemed colour - send those too
         var _pcols = {};
         for (var _i = 0; _i < array_length(_a.pellets); _i++) _pcols[$ _a.pellets[_i].color] = true;
@@ -556,8 +890,26 @@ function ai4_deploy_one(_g, _p, _c) {
 function ai4_orders(_g) {
     var _p = _g.activePlayer;
     if (!variable_struct_exists(_g, "ai4Plan") || _g.ai4Plan == undefined) {
-        ai4_recall(_g, _p);                                          // bring idle own-side bodies home before planning
-        var _plan = ai4_optimize(_g, _p);
+        // PLAN then VERIFY: only a plan whose ai4_send2 dry-run delivers EVERY demand is accepted.
+        // If a demand can't be fielded (reach / attrition / contest), drop that outcome and re-plan -
+        // so v4 never commits a turn to a pile it can't actually close.
+        var _skip = {};
+        var _plan; var _guard = 0;
+        while (_guard < 6) {
+            _guard += 1;
+            _plan = ai4_optimize(_g, _p, _skip);
+            var _vdem = ai4_plan_demands(_g, _p, _plan.chosen);
+            var _dry = ai4_send2(_g, _p, _vdem, true);
+            var _worst = -1; var _worstGap = 0;
+            for (var _i = 0; _i < array_length(_vdem); _i++) {
+                var _gap = _vdem[_i].amount - _dry.delivered[_i];
+                if (_gap > _worstGap) { _worstGap = _gap; _worst = _i; }
+            }
+            if (_worst < 0) break;                                    // fully deliverable -> accept
+            if (variable_struct_exists(_skip, _vdem[_worst].key)) break;
+            _skip[$ _vdem[_worst].key] = true;
+            ai_dbg("v4 replan: dropped " + _vdem[_worst].key + " (dry-run " + string(_dry.delivered[_worst]) + "/" + string(_vdem[_worst].amount) + ")");
+        }
         ai_dbg("");
         ai_dbg("===== v4 TURN P" + string(_p + 1) + "  Day " + string(_g.dayNumber) + " (" + string(_g.dayTrack) + "/" + string(global.rules.dayTrackLength)
             + ")  score " + string(game_realized_score(_g, _p)) + " vs " + string(game_realized_score(_g, 1 - _p))
@@ -572,14 +924,38 @@ function ai4_orders(_g) {
         _g.ai4Cards = { list: ai4_card_plays(_g, _p, _plan.chosen), idx: 0 };   // for the move phase (brick 5b)
         return;
     }
+    // deploy the WHOLE plan's bodies at once - ai4_send2 sources idle-first from wherever they stand
     var _plan = _g.ai4Plan;
-    while (_plan.idx < array_length(_plan.chosen)) {
-        var _c = _plan.chosen[_plan.idx];
-        _plan.idx += 1;
-        if (ai4_deploy_one(_g, _p, _c)) return;
+    var _dem = ai4_plan_demands(_g, _p, _plan.chosen);
+    if (array_length(_dem) > 0) {
+        var _res = ai4_send2(_g, _p, _dem, false);
+        for (var _i = 0; _i < array_length(_dem); _i++) {
+            var _d = _dem[_i];
+            var _tag = (_res.delivered[_i] < _d.amount) ? "UNDER-DELIVERED " : "sent ";
+            ai_dbg("v4 deploy lane" + string(_d.lane + 1) + " idx" + string(_d.idx) + ": " + _tag + string(_res.delivered[_i]) + "/" + string(_d.amount));
+        }
     }
     game_orders_done(_g);
     _g.ai4Plan = undefined;
+}
+
+/// The pikmin body demands a chosen plan implies (for ai4_send2). Item-only outcomes (str 0) skipped.
+function ai4_plan_demands(_g, _p, _chosen) {
+    var _out = [];
+    for (var _i = 0; _i < array_length(_chosen); _i++) {
+        var _o = _chosen[_i].outcome; var _v = _o.variants[_chosen[_i].varIdx];
+        if (!variable_struct_exists(_v, "str") || _v.str <= 0) continue;
+        var _ed = (_v.need == "hurt") ? _v.enemyDef : undefined;
+        var _k = ai4_outcome_key(_o);
+        if (variable_struct_exists(_v, "cols")) {
+            array_push(_out, { lane: _o.lane, idx: _o.idx, amount: _v.str, colors: _v.cols, key: _k });   // move: designated colours
+        } else {
+            var _bd = ai4_body_demands(_g, _p, _o.lane, _o.idx, _v.need, _ed, _v.str);
+            for (var _bi = 0; _bi < array_length(_bd); _bi++)
+                array_push(_out, { lane: _o.lane, idx: _o.idx, amount: _bd[_bi].amount, colors: _bd[_bi].colors, key: _k });
+        }
+    }
+    return _out;
 }
 
 // --- BRICK 5b: authoritative plan-driven card execution (move phase) ---

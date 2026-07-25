@@ -38,6 +38,13 @@ function sim_ctl(_ctl, _p) {
     return (_c == "human") ? "v1" : _c;
 }
 
+/// Display label for a policy = its brain VERSION (v1/v2/v3/v3b/v4), which is exactly its ctl
+/// (defaulting to "v2"). Used in tournament output so brains read as version numbers, not nicknames -
+/// and the short labels also dodge the fixed-width column merge that long ids ("cascade2") caused.
+function sim_brain_label(_pol) {
+    return variable_struct_exists(_pol, "ctl") ? _pol.ctl : "v2";
+}
+
 // ---------- cloning ----------
 
 /// Deep copy a game state. The copy shares nothing mutable with the original, so
@@ -263,7 +270,8 @@ function sim_benchmark(_boardId, _n = 25, _ctl = ["v2", "v2"]) {
 ///   base         - unmodified v2. The control - without it the table has no zero.
 function sim_policies_all() {
     return [
-        { id: "base",    kind: "none",    lane: -1 },
+        { id: "v1",      kind: "none",    lane: -1, ctl: "v1" },   // the original heuristic brain (ai_step)
+        { id: "base",    kind: "none",    lane: -1 },              // stock v2 (ctl defaults to "v2")
         { id: "lane1",   kind: "lane",    lane: 0 },
         { id: "lane2",   kind: "lane",    lane: 1 },
         { id: "lane3",   kind: "lane",    lane: 2 },
@@ -285,16 +293,13 @@ function sim_policies_all() {
     ];
 }
 
-/// The ACTIVE roster. Cut to the current question (2026-07-17): does planner v3
-/// beat stock v2? base = control, lane5 = the known-good yardstick (+92/+99/+99
-/// across three builds - if IT doesn't show, the run is broken), planner = the
-/// candidate. Retired with verdicts in hand: lane1 (trap, 3x replicated),
-/// spread2 (noise everywhere), numbers (story complete: mild here, fatal on rich
-/// boards), tiered (trap-seeking vacuum rule + mirror collision), contestN/R
-/// (null). 3 policies -> 9 pairings; at 100/pairing = 900 games (~5 min
-/// riverbank). Revive anything by adding its id back to _active.
+/// The ACTIVE roster. The full brain ladder (2026-07-25): v1 -> v2(base) -> v3(cascade)
+/// -> v3b(cascade2) -> v4. Purpose is per-board difficulty ranking: run all five, then
+/// tools/derive_board_ai.py ranks them per board (head-to-head) into easy/medium/hard tiers.
+/// 5 policies -> 25 pairings; at 100/pairing = 2500 games/board (~15-20 min each, so an
+/// F12 over 16 boards is a long overnight run - drop games/pairing if it's too slow).
 function sim_policies() {
-    var _active = ["base", "cascade", "v4"];
+    var _active = ["v1", "base", "cascade", "cascade2", "v4"];
     var _all = sim_policies_all();
     var _out = [];
     for (var _i = 0; _i < array_length(_all); _i++) {
@@ -433,7 +438,7 @@ function sim_tournament_tick() {
 
     var _f = file_text_open_append("sim_tourney.csv"); // per-game append: a crash loses nothing
     file_text_write_string(_f, string(_st.boardId) + "," + string(_st.seed + _st.k) + ","
-        + _pols[_st.a].id + "," + _pols[_st.b].id
+        + sim_brain_label(_pols[_st.a]) + "," + sim_brain_label(_pols[_st.b])
         + "," + string(_r.p0) + "," + string(_r.p1) + "," + string(_r.winner)
         + "," + string(_c0.switches) + "," + string(_c1.switches)
         + "," + string(_c0.replans) + "," + string(_c1.replans));
@@ -447,7 +452,7 @@ function sim_tournament_tick() {
         _st.b += 1;
         if (_st.b >= _st.n) {
             _st.b = 0;
-            sim_report("  ...done " + _pols[_st.a].id + " as P1 (" + string((get_timer() - _st.t0) / 1000000) + "s elapsed)");
+            sim_report("  ...done " + sim_brain_label(_pols[_st.a]) + " as P1 (" + string((get_timer() - _st.t0) / 1000000) + "s elapsed)");
             _st.a += 1;
             if (_st.a >= _st.n) {
                 sim_tournament_report(_st);
@@ -487,12 +492,12 @@ function sim_tournament_report(_st) {
 
     // --- win matrix: rows = policy as P1, cols = opponent as P2 ---
     var _hdr = "        ";
-    for (var _b = 0; _b < _n; _b++) _hdr += string_format_width(_pols[_b].id, 8);
+    for (var _b = 0; _b < _n; _b++) _hdr += string_format_width(sim_brain_label(_pols[_b]), 8);
     sim_report("");
-    sim_report("WIN MATRIX (row = P1 policy, cell = P1 wins out of " + string(_perPair) + " vs col as P2)");
+    sim_report("WIN MATRIX (row = P1 brain, cell = P1 wins out of " + string(_perPair) + " vs col as P2)");
     sim_report(_hdr);
     for (var _a = 0; _a < _n; _a++) {
-        var _row = string_format_width(_pols[_a].id, 8);
+        var _row = string_format_width(sim_brain_label(_pols[_a]), 8);
         var _wrowR = _wins[_a];
         for (var _b = 0; _b < _n; _b++) _row += string_format_width(string(_wrowR[_b]), 8);
         sim_report(_row);
@@ -508,7 +513,7 @@ function sim_tournament_report(_st) {
         var _w = 0;
         var _wrowO = _wins[_a];
         for (var _b = 0; _b < _n; _b++) _w += _wrowO[_b];
-        sim_report("  " + string_format_width(_pols[_a].id, 9)
+        sim_report("  " + string_format_width(sim_brain_label(_pols[_a]), 9)
             + " winRate " + string_format_width(string(_w / max(1, _n * _perPair)), 7)
             + " avgScore " + string_format_width(string(_pts[_a] / max(1, _played[_a])), 9)
             + " laneSwitch/g " + string_format_width(string(_sw[_a] / max(1, _played[_a])), 7)
@@ -2270,6 +2275,26 @@ function sim_test_v4_moves() {
     _all &= sim_expect(ai4_optimize(_gst, 0).value > 20, true, "respawn: any earlier turn -> full kill value");
 
     global.expRules.rush = _sr;
+
+    // HOLD (contested-pile ruling): a pile I control, ADVANCED behind a blocking enemy (carriers can't
+    // reach it -> no advance move), that the opponent can still contest -> a HOLD outcome worth V,
+    // so I don't strip the lifters (== -V for abandoning it). Uncontested -> no hold (lifters free).
+    var _gh = sim_blank("familiargrotto");
+    for (var _i = 0; _i <= 6; _i++) _gh.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
+    _gh.board.lanes[0].spaces[1] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };  // blocks home->idx2
+    _gh.treasures = [{ cards: [TW5], lane: 0, idx: 2, boss: undefined }];   // pile advanced to idx2
+    _gh.players[0].tokens = []; sim_put(_gh, 0, 0, 2, 6);                   // my 6 lifters ON the pile
+    _gh.players[1].tokens = []; sim_put_home_col(_gh, 1, "red", 8);         // opponent can march to contest
+    var _mh = ai4_lane_moves(_gh, 0, _gh.treasures[0]);
+    _all &= sim_expect(array_length(_mh), 1, "hold: blocked+controlled+contested pile -> a hold move is offered");
+    if (array_length(_mh) > 0) {
+        _all &= sim_expect(_mh[0].variants[0].endIdx, 2, "hold: holds in place (endIdx = current idx2)");
+        _all &= sim_expect((variable_struct_exists(_mh[0].variants[0], "hold") && _mh[0].variants[0].hold) ? 1 : 0, 1, "hold: flagged as a hold");
+        _all &= sim_expect(round(_mh[0].variants[0].value), round(ai4_pile_value(_gh, 0, _gh.treasures[0])), "hold: worth the pile's value V");
+    }
+    _gh.players[1].tokens = [];                                            // uncontested
+    _all &= sim_expect(array_length(ai4_lane_moves(_gh, 0, _gh.treasures[0])), 0, "hold: uncontested pile -> no hold (lifters are true surplus)");
+
     sim_report(_all ? "=== v4 move outcomes: ALL PASS ===" : "=== v4 move outcomes: FAILURES ABOVE ===");
     return _all;
 }
@@ -2316,18 +2341,20 @@ function sim_test_v4_funding() {
     _gi.players[0].hand = ["rawmaterial", "rawmaterial", "rawmaterial", "rawmaterial"];
     _all &= sim_expect(ai4_can_fund(_gi, 0, [], { rawmaterial: 4 }) ? 1 : 0, 1, "fund: 4 raw material builds 2 bridges");
 
-    // DEPLOY-TRUTH: carriers on a pile can't phantom-fund another lane's demand...
+    // TREASURE-LIFTER: carriers on a pile ARE reassignable surplus - they fund elsewhere AND
+    // ai4_send2 can pull them (players swap lifters). No phantom: funding and deploy agree.
     var _gdt = sim_blank("familiargrotto");
     for (var _i = 0; _i <= 6; _i++) _gdt.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
     _gdt.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
-    _gdt.players[0].tokens = []; sim_put(_gdt, 0, 0, 3, 12);          // 12 committed ON the pile, none home
+    _gdt.players[0].tokens = []; sim_put(_gdt, 0, 0, 3, 12);          // 12 lifters ON the pile, none home
     _gdt.players[0].pellets = []; _gdt.players[0].hand = [];
-    _all &= sim_expect(ai4_can_fund(_gdt, 0, [{ str: 5, colors: _any }], {}) ? 1 : 0, 0, "deploy-truth: 12 carriers on a pile fund NOTHING elsewhere (deploy can't send them)");
-    // ...but their own pile's move is net-0 and still gets chosen (self-funded by myOn)
+    _all &= sim_expect(ai4_can_fund(_gdt, 0, [{ str: 5, colors: _any }], {}) ? 1 : 0, 1, "treasure-lifter: pile carriers ARE available (reassignable) -> a 5-demand elsewhere funds");
+    _all &= sim_expect(ai4_send2(_gdt, 0, [{ lane: 0, idx: 1, amount: 5, colors: ["red"] }], false).delivered[0] >= 5, true, "treasure-lifter: ai4_send2 actually pulls 5 lifters off the pile to another space");
+    // ...and their own pile's move is still chosen (in-place lifters fund the hold at zero move)
     var _odt = ai4_optimize(_gdt, 0);
     var _dtMove = 0;
     for (var _i = 0; _i < array_length(_odt.chosen); _i++) if (_odt.chosen[_i].outcome.type == "move") _dtMove = 1;
-    _all &= sim_expect(_dtMove, 1, "deploy-truth: their own pile's move is net-0 -> still chosen");
+    _all &= sim_expect(_dtMove, 1, "treasure-lifter: the pile's own move is still chosen (in-place lifters hold it)");
 
     // BOARD CAP: at 25 tokens a pellet grants nothing -> it can't fund a demand
     var _gcap = sim_blank("familiargrotto");
@@ -2339,7 +2366,7 @@ function sim_test_v4_funding() {
     _gcap2.players[0].pellets = ["red5"]; _gcap2.players[0].hand = [];
     _all &= sim_expect(ai4_can_fund(_gcap2, 0, [{ str: 25, colors: _any }], {}) ? 1 : 0, 1, "cap: 20 tokens + red5 (room 5) -> 25 demand feasible");
 
-    // ONE PLANNING LAYER: the winner's funding is recorded as a LEDGER and deploy plays it back.
+    // ONE PLANNING LAYER: ai4_send2 both plans (dry) and executes (real) - pellet-only kill.
     var _gled = sim_blank("familiargrotto");
     for (var _i = 0; _i <= 6; _i++) _gled.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined };
     _gled.board.lanes[0].spaces[1] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };
@@ -2347,17 +2374,32 @@ function sim_test_v4_funding() {
     _gled.players[0].tokens = [];                                   // no bodies at all - pellet-only funding
     _gled.players[0].pellets = ["red5"]; _gled.players[0].hand = [];
     _gled.phase = "orders";                                         // game_play_pellet is orders-phase-gated
-    var _oled = ai4_optimize(_gled, 0);
-    var _hasAssign = 0;
-    for (var _i = 0; _i < array_length(_oled.chosen); _i++)
-        if (_oled.chosen[_i].assign != undefined && array_length(_oled.chosen[_i].assign.pellets) > 0) _hasAssign = 1;
-    _all &= sim_expect(_hasAssign, 1, "ledger: pellet-funded kill carries its exact redemption in the plan");
-    if (_hasAssign == 1) {
-        var _did = ai4_deploy_one(_gled, 0, _oled.chosen[0]);
-        _all &= sim_expect(_did ? 1 : 0, 1, "ledger: deploy plays the ledger back (redeems + sends)");
-        _all &= sim_expect(array_length(_gled.players[0].pellets), 0, "ledger: exactly the listed pellet was redeemed");
-        _all &= sim_expect(game_strength_at(_gled, 0, 0, 1) >= 3, true, "ledger: the kill squad actually arrived (>=3 on the enemy)");
+    var _dled = [{ lane: 0, idx: 1, amount: 3, colors: ["red"] }];
+    _all &= sim_expect(ai4_send2(_gled, 0, _dled, true).ok ? 1 : 0, 1, "send2: pellet-only 3-kill is feasible (dry-run)");
+    var _resl = ai4_send2(_gled, 0, _dled, false);
+    _all &= sim_expect(_resl.ok ? 1 : 0, 1, "send2: real run redeems the pellet and fields the squad");
+    _all &= sim_expect(array_length(_gled.players[0].pellets), 0, "send2: the red5 pellet was redeemed");
+    _all &= sim_expect(game_strength_at(_gled, 0, 0, 1) >= 3, true, "send2: the kill squad actually arrived (>=3 on the enemy)");
+
+    // DISCRETE BODIES (the plateau purple-waste): a 1-strength demand must take one carry-1 body,
+    // NOT a whole purple - and the purple must stay in the pool for a later bulk demand.
+    var _gpb = sim_blank("undergroundplateau");                     // basics purple/white/rock
+    _gpb.players[0].tokens = [];
+    sim_put_home_col(_gpb, 0, "purple", 2);                         // 2 purples (carry 5) ...
+    sim_put_home_col(_gpb, 0, "rock", 3);                           // ... and 3 rocks (carry 1)
+    _gpb.players[0].pellets = [];
+    var _led = ai4_fund(_gpb, 0, [{ str: 1, colors: ["purple","white","rock"] }], {}, true);
+    _all &= sim_expect(_led != undefined ? 1 : 0, 1, "discrete: a 1-demand is fundable");
+    if (_led != undefined) {
+        var _e0 = _led[0];
+        var _usedPurple = variable_struct_exists(_e0.tokens, "purple") ? _e0.tokens.purple : 0;
+        var _usedRock = variable_struct_exists(_e0.tokens, "rock") ? _e0.tokens.rock : 0;
+        _all &= sim_expect(_usedPurple, 0, "discrete: 1-demand takes NO purple (no 5-for-1 waste)");
+        _all &= sim_expect(_usedRock, 1, "discrete: 1-demand takes exactly one rock");
     }
+    // the plateau turn shape: kills of 1 and 5 must BOTH fund - the 1 takes a rock, the 5 takes a purple
+    var _led2 = ai4_fund(_gpb, 0, [{ str: 1, colors: ["purple","white","rock"] }, { str: 5, colors: ["purple","white","rock"] }], {}, true);
+    _all &= sim_expect(_led2 != undefined ? 1 : 0, 1, "discrete: 1-demand + 5-demand jointly fundable (rock for the 1, purple for the 5)");
 
     sim_report(_all ? "=== v4 funding: ALL PASS ===" : "=== v4 funding: FAILURES ABOVE ===");
     return _all;
@@ -2434,6 +2476,134 @@ function sim_test_v4_discard() {
     return _all;
 }
 
+/// ai4_send2 - the physical fielding layer (idle-first, colour-locked-first, in-place, poison sizing).
+function sim_test_v4_send2() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: ai4_send2 (physical fielding) ===");
+    var _all = true;
+
+    // helper: a fully-plain grotto lane 0
+    var _plain = function(_g) { for (var _i = 0; _i <= 6; _i++) _g.board.lanes[0].spaces[_i] = { kind: "plain", hazard: "", enemy: undefined, structure: undefined }; };
+
+    // IDLE FIRST: 5 idle blue at home + 6 blue sitting on a treasure at idx2; demand 5 blue onto idx4.
+    var _g1 = sim_blank("familiargrotto"); _plain(_g1);
+    _g1.treasures = [{ cards: [TW5], lane: 0, idx: 2, boss: undefined }];   // a real treasure at idx2 (game_treasure_at reads _g.treasures)
+    _g1.players[0].tokens = [];
+    repeat (5) array_push(_g1.players[0].tokens, { typeId: "blue", loc: { kind: "home" } });
+    repeat (6) array_push(_g1.players[0].tokens, { typeId: "blue", loc: { kind: "space", lane: 0, idx: 2 } });
+    var _r1 = ai4_send2(_g1, 0, [{ lane: 0, idx: 1, amount: 5, colors: ["blue"] }], false);   // idx1 = near side (not blocked by the idx2 treasure)
+    _all &= sim_expect(_r1.ok ? 1 : 0, 1, "send2: 5-blue demand is fillable");
+    _all &= sim_expect(_r1.delivered[0], 5, "send2: delivers 5");
+    _all &= sim_expect(game_strength_at(_g1, 0, 0, 2), 6, "send2: IDLE taken first - the 6 on the treasure are untouched");
+
+    // COLOUR-LOCKED FIRST (whole plan): 3 yellow + 6 rock; demands [3 yellow] and [6 any] BOTH fill.
+    var _g2 = sim_blank("familiargrotto"); _plain(_g2);
+    _g2.players[0].tokens = [];
+    repeat (3) array_push(_g2.players[0].tokens, { typeId: "yellow", loc: { kind: "home" } });
+    repeat (6) array_push(_g2.players[0].tokens, { typeId: "rock", loc: { kind: "home" } });
+    var _r2 = ai4_send2(_g2, 0, [{ lane: 0, idx: 4, amount: 3, colors: ["yellow"] }, { lane: 0, idx: 3, amount: 6, colors: [] }], true);
+    _all &= sim_expect(_r2.ok ? 1 : 0, 1, "send2: locked {3 yellow} + agnostic {6 any} jointly feasible");
+    _all &= sim_expect(_r2.delivered[0], 3, "send2: the yellow quota is met (agnostic didn't steal them)");
+
+    // IN PLACE: bodies already on the target satisfy the demand at zero move.
+    var _g3 = sim_blank("familiargrotto"); _plain(_g3);
+    _g3.players[0].tokens = [];
+    repeat (4) array_push(_g3.players[0].tokens, { typeId: "rock", loc: { kind: "space", lane: 0, idx: 3 } });
+    var _r3 = ai4_send2(_g3, 0, [{ lane: 0, idx: 3, amount: 4, colors: ["rock"] }], true);
+    _all &= sim_expect(_r3.delivered[0], 4, "send2: in-place bodies satisfy their own demand");
+
+    // TREASURE EXCESS as fallback: 2 idle blue + 6 blue on a treasure; demand 5 -> 2 idle + 3 excess.
+    var _g4 = sim_blank("familiargrotto"); _plain(_g4);
+    _g4.treasures = [{ cards: [TW5], lane: 0, idx: 2, boss: undefined }];
+    _g4.players[0].tokens = [];
+    repeat (2) array_push(_g4.players[0].tokens, { typeId: "blue", loc: { kind: "home" } });
+    repeat (6) array_push(_g4.players[0].tokens, { typeId: "blue", loc: { kind: "space", lane: 0, idx: 2 } });
+    var _r4 = ai4_send2(_g4, 0, [{ lane: 0, idx: 1, amount: 5, colors: ["blue"] }], true);   // idx1 = near side
+    _all &= sim_expect(_r4.delivered[0], 5, "send2: dips into treasure-excess once idle runs out");
+
+    // POISON ATTRITION: target behind 2 poison; 6 rock (carry 1) -> 4 arrive (send 6, 2 die).
+    var _g5 = sim_blank("familiargrotto"); _plain(_g5);
+    _g5.board.lanes[0].spaces[1] = { kind: "hazard", hazard: "poison", enemy: undefined, structure: undefined };
+    _g5.board.lanes[0].spaces[2] = { kind: "hazard", hazard: "poison", enemy: undefined, structure: undefined };
+    _g5.players[0].tokens = [];
+    repeat (6) array_push(_g5.players[0].tokens, { typeId: "rock", loc: { kind: "home" } });
+    var _r5 = ai4_send2(_g5, 0, [{ lane: 0, idx: 3, amount: 4, colors: ["rock"] }], true);
+    _all &= sim_expect(_r5.delivered[0], 4, "send2: 4 arrive through 2 poison (6 committed, 2 die)");
+    var _r5b = ai4_send2(_g5, 0, [{ lane: 0, idx: 3, amount: 5, colors: ["rock"] }], true);
+    _all &= sim_expect(_r5b.ok ? 1 : 0, 0, "send2: can't land 5 through 2 poison with only 6 rock -> infeasible");
+
+    // COLOUR NECESSITY ordering: pool 2 yellow + 2 red. Feed the LOOSER demand first; the function
+    // must reorder so the yellow-only quota claims yellows before the red-or-yellow one takes them.
+    var _g6 = sim_blank("familiargrotto"); _plain(_g6);
+    _g6.players[0].tokens = [];
+    repeat (2) array_push(_g6.players[0].tokens, { typeId: "yellow", loc: { kind: "home" } });
+    repeat (2) array_push(_g6.players[0].tokens, { typeId: "red", loc: { kind: "home" } });
+    var _r6 = ai4_send2(_g6, 0, [{ lane: 0, idx: 1, amount: 2, colors: ["red", "yellow"] }, { lane: 0, idx: 2, amount: 2, colors: ["yellow"] }], true);
+    _all &= sim_expect(_r6.ok ? 1 : 0, 1, "send2: most-constrained-first - both quotas met though fed loosest-first");
+    _all &= sim_expect(_r6.delivered[1], 2, "send2: the yellow-only quota (fed 2nd) still gets its yellows");
+
+    // TIE-BREAK on availability: two 2-colour demands. Pool 1 red + 1 blue + 3 yellow.
+    // [red|blue] has only 2 bodies, [red|yellow] has 4 - so [red|blue] (fewer bodies) must go first,
+    // or it'd lose the red to [red|yellow] and fail. Feed [red|yellow] first to force the reorder.
+    var _g7 = sim_blank("familiargrotto"); _plain(_g7);
+    _g7.players[0].tokens = [];
+    array_push(_g7.players[0].tokens, { typeId: "red", loc: { kind: "home" } });
+    array_push(_g7.players[0].tokens, { typeId: "blue", loc: { kind: "home" } });
+    repeat (3) array_push(_g7.players[0].tokens, { typeId: "yellow", loc: { kind: "home" } });
+    var _r7 = ai4_send2(_g7, 0, [{ lane: 0, idx: 1, amount: 2, colors: ["red", "yellow"] }, { lane: 0, idx: 2, amount: 2, colors: ["red", "blue"] }], true);
+    _all &= sim_expect(_r7.ok ? 1 : 0, 1, "send2: tie-break - fewer-bodies 2-colour demand goes first, both fill");
+    _all &= sim_expect(_r7.delivered[1], 2, "send2: the scarcer [red|blue] quota (fed 2nd) still gets red+blue");
+
+    // QUOTA SPLIT: an enemy that "must be attacked by at least 3 whites" (hp 10) -> demand splits into
+    // [3 white] (locked) + [7 anything] (agnostic), and ai4_send2 fields it from 3 white + 7 red.
+    var _gq = sim_blank("familiargrotto"); _plain(_gq);
+    var _qDef = { id: "quotatest", defenseElement: "", attackElement: "", damage: 0, ability: "must be attacked by at least 3 whites" };
+    var _spl = ai4_body_demands(_gq, 0, 0, 1, "hurt", _qDef, 10);
+    _all &= sim_expect(array_length(_spl), 2, "quota: a 10-hp 3-white-quota kill splits into 2 demands");
+    _all &= sim_expect(array_length(_spl[0].colors) == 1 && _spl[0].colors[0] == "white" ? 1 : 0, 1, "quota: first demand is white-locked");
+    _all &= sim_expect(_spl[0].amount, 3, "quota: the locked part is 3 (the quota)");
+    _gq.players[0].tokens = [];
+    repeat (3) array_push(_gq.players[0].tokens, { typeId: "white", loc: { kind: "home" } });
+    repeat (7) array_push(_gq.players[0].tokens, { typeId: "red", loc: { kind: "home" } });
+    var _dq = [];
+    for (var _i = 0; _i < array_length(_spl); _i++) array_push(_dq, { lane: 0, idx: 1, amount: _spl[_i].amount, colors: _spl[_i].colors });
+    var _rq = ai4_send2(_gq, 0, _dq, true);
+    _all &= sim_expect(_rq.ok ? 1 : 0, 1, "quota: fieldable as 3 white + 7 red (the whites aren't over-demanded)");
+
+    // STRANDED-IN-PLACE (the minefield hold bug): a lifter on a pile that CAN'T path home (enemy behind
+    // it) still holds the pile in place AND can move onto the in-lane enemy in front of it (engine rule).
+    var _gs = sim_blank("familiargrotto"); _plain(_gs);
+    _gs.board.lanes[0].spaces[1] = { kind: "enemy", hazard: "", enemy: { enemyDefId: "albinodwarfbulborb", curHp: 3 }, structure: undefined };  // blocks home->idx2
+    _gs.treasures = [{ cards: [TW5], lane: 0, idx: 2, boss: undefined }];
+    _gs.players[0].tokens = []; sim_put(_gs, 0, 0, 2, 5);                   // 5 red lifters on the pile (stranded - can't reach home)
+    _all &= sim_expect(ai4_send2(_gs, 0, [{ lane: 0, idx: 2, amount: 5, colors: ["red"] }], true).delivered[0], 5, "stranded: in-place lifters HOLD their own pile (funded, no path home needed)");
+    _all &= sim_expect(ai4_send2(_gs, 0, [{ lane: 0, idx: 1, amount: 3, colors: ["red"] }], true).delivered[0] >= 3, true, "stranded: those lifters can move onto the in-lane enemy at idx1 to fight it");
+
+    sim_report(_all ? "=== ai4_send2: ALL PASS ===" : "=== ai4_send2: FAILURES ABOVE ===");
+    return _all;
+}
+
+/// v4 gather reserve rule - and the 6-colour override (no 5-pellets in the die).
+function sim_test_v4_gather() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: v4 gather reserve (ai4_gather_roll) ===");
+    var _all = true;
+    // 5-pellet board (grotto): unchanged rule - a 5-pellet AND >= 4 pellets to DRAW
+    var _g5 = sim_blank("familiargrotto");
+    _g5.players[0].pellets = ["red1", "blue1", "yellow1", "red1"];              // 4 pellets, no 5
+    _all &= sim_expect(ai4_gather_roll(_g5, 0) ? 1 : 0, 1, "5-die board: 4 pellets but no 5 -> ROLL");
+    _g5.players[0].pellets = ["red5", "blue1", "yellow1", "red1"];              // a 5 + 4 total
+    _all &= sim_expect(ai4_gather_roll(_g5, 0) ? 1 : 0, 0, "5-die board: a 5-pellet + >=4 pellets -> DRAW");
+    // 6-colour board (disco): die rolls only "1"s -> body-count reserve (~10), never infinite-roll
+    var _g6 = sim_blank("discodancefloor");
+    _g6.players[0].pellets = ["red1", "blue1", "yellow1"];                      // 3 ones = 6 bodies
+    _all &= sim_expect(ai4_gather_roll(_g6, 0) ? 1 : 0, 1, "6-colour board: 6 pellet-bodies < 10 -> ROLL");
+    _g6.players[0].pellets = ["red1", "blue1", "yellow1", "rock1", "winged1"];  // 5 ones = 10 bodies
+    _all &= sim_expect(ai4_gather_roll(_g6, 0) ? 1 : 0, 0, "6-colour board: 10 pellet-bodies -> DRAW (was infinite-roll pre-fix)");
+    sim_report(_all ? "=== v4 gather: ALL PASS ===" : "=== v4 gather: FAILURES ABOVE ===");
+    return _all;
+}
+
 /// Run all scenario tests (add each node's tests here as it's built).
 function sim_run_scenarios() {
     sim_report("");
@@ -2473,6 +2643,8 @@ function sim_run_scenarios() {
     sim_test_v4_funding();
     sim_test_v4_optimize();
     sim_test_v4_discard();
+    sim_test_v4_send2();
+    sim_test_v4_gather();
 }
 
 // ---------- probe ----------
