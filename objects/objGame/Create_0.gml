@@ -4,7 +4,10 @@
 data_load_all();
 randomize();
 
-mode = "menu";          // "menu" (board select) | "playing"
+mode = "menu";          // "menu" | "playing"
+menuScreen = "main";    // when mode=="menu": "main" (title) | "board" (board select) | "options"
+menuBoardIdx = 0;       // board-select: index of the previewed board in global.boardData.boards
+menuListScroll = 0;     // board-select: top row index of the scrolling board list
 game = undefined;
 board = undefined;
 boardDef = undefined;
@@ -14,7 +17,7 @@ boardDef = undefined;
 // --- UI / selection state ---
 selSrc = undefined;   // undefined | {kind:"home"} | {kind:"space", lane, idx}
 selCounts = {};       // colour -> count chosen to move
-defaultSelectAll = false; // false = new selections start at NONE (easy to move some); true = start at ALL
+defaultSelectAll = global.settings.defaultSelectAll; // false = new selections start at NONE; true = start at ALL
 pelletMenuIdx = -1;   // pellet hand index with an open redeem menu
 posyMenuIdx = -1;     // gather hand index with an open Color Changing Posy menu
 pendingCard = undefined; // {handIdx, cardId, effectId, stage, lane, idx, purples, whites} - gather card targeting
@@ -41,9 +44,21 @@ gameoverHold = 0;     // stillness frames for the game-over settle (own counter 
 
 // --- per-seat controllers: "human" | "v1" | "v2" (AI brains drive through the
 // --- same engine API, so any seat mix works - incl. AI vs AI) ---
-ctl = ["human", "v4"];        // live assignment (resolved brains) for the running game
-menuCtl = ["human", "hard"];  // menu selection: "human" or a difficulty tier (easy/medium/hard)
+ctl = ["human", "v4"];                       // live assignment (resolved brains) for the running game
+menuCtl = variable_clone(global.settings.ctl); // menu selection: "human" or a difficulty tier (easy/medium/hard)
 aiTickTimer = 0;
+
+// apply the saved fullscreen preference at boot (Step's size-change check syncs resolution)
+if (global.settings.fullscreen != window_get_fullscreen()) window_set_fullscreen(global.settings.fullscreen);
+
+// push the current menu-owned option state into global.settings and persist to disk.
+// called after any option change on the menu screens (rule toggles write global.expRules directly).
+save_settings = function() {
+    global.settings.ctl = [menuCtl[0], menuCtl[1]];
+    global.settings.defaultSelectAll = defaultSelectAll;
+    global.settings.fullscreen = window_get_fullscreen();
+    settings_save();
+};
 
 // --- batch runner: N fast AI-vs-AI games back to back, results appended to
 // --- batch_results.txt in the save dir (board,p1ctl,p2ctl,p1score,p2score,winner) ---
@@ -54,6 +69,7 @@ hoverKind = "";       // "" | "space" | "home"
 hoverLane = -1;
 hoverIdx = -1;
 showDebug = false;
+paused = false;         // Esc opens the in-game pause menu (game frozen while up)
 showCollection = false; // V toggles the dual collected-treasure side panels
 logScroll = 0;          // pixels the log is scrolled UP from newest-at-bottom (wheel over the panel)
 
@@ -126,6 +142,7 @@ start_game = function(_boardId, _ctl = undefined) {
     ai_dbg("");
     ai_dbg("### GAME START  board " + _boardId + "  P1=" + _seatLbl(_seats[0], ctl[0]) + "  P2=" + _seatLbl(_seats[1], ctl[1]) + " ###");
     mode = "playing";
+    paused = false;
     selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined; freeBuild = "";
     dayCine = undefined; prevDayNumber = 1;
     fxList = [];
@@ -140,6 +157,7 @@ start_game = function(_boardId, _ctl = undefined) {
 
 return_to_menu = function() {
     mode = "menu";
+    menuScreen = "main";
     if (batchRemaining > 0) { batchRemaining = 0; global.expRules.anims = batchSavedAnims; } // cancel a running batch
     if (tileVB != -1) { vertex_delete_buffer(tileVB); tileVB = -1; }
     vertex_delete_buffer(groundVB);

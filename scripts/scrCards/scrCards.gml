@@ -66,7 +66,10 @@ function card_draw(_alias, _x, _y, _height) {
         draw_rectangle(_x, _y, _x + _w, _y + _height, false);
         draw_set_color(c_white);
         draw_set_halign(fa_center);
-        draw_text(_x + _w * 0.5, _y + _height * 0.5, _alias);
+        var _pf = draw_get_font();
+        draw_set_font(fntMaru);
+        dtext(_x + _w * 0.5, _y + _height * 0.5, _alias);
+        draw_set_font(_pf);
         draw_set_halign(fa_left);
         return _w;
     }

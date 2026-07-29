@@ -22,11 +22,11 @@ if (variable_global_exists("simTourney") && global.simTourney != undefined) {
     draw_set_color(c_white);
     draw_rectangle(_bxT, _byT, _bxT + _bwT, _byT + 28, true);
     draw_set_halign(fa_center);
-    draw_set_font(-1);
+    draw_set_font(fntMaru);
     var _elT = (get_timer() - _stT.t0) / 1000000;
     var _etaT = (_stT.done > 0) ? _elT * (_stT.total - _stT.done) / _stT.done : 0;
-    draw_text(_guiW * 0.5, _byT - 24, "TOURNAMENT  " + string(_stT.boardId) + "   game " + string(_stT.done) + " / " + string(_stT.total) + "  (" + string(floor(_fracT * 100)) + "%)");
-    draw_text(_guiW * 0.5, _byT + 38, "elapsed " + string(floor(_elT)) + "s    eta ~" + string(floor(_etaT)) + "s    Esc = cancel (keeps partial results)");
+    dtext(_guiW * 0.5, _byT - 24, "TOURNAMENT  " + string(_stT.boardId) + "   game " + string(_stT.done) + " / " + string(_stT.total) + "  (" + string(floor(_fracT * 100)) + "%)");
+    dtext(_guiW * 0.5, _byT + 38, "elapsed " + string(floor(_elT)) + "s    eta ~" + string(floor(_etaT)) + "s    Esc = cancel (keeps partial results)");
     draw_set_halign(fa_left);
     exit;
 }
@@ -36,107 +36,437 @@ if (mode == "menu") {
     var _mgx0 = device_mouse_x_to_gui(0);
     var _mgy0 = device_mouse_y_to_gui(0);
 
-    // title
-    draw_set_font(fntPikmin);
-    draw_set_halign(fa_center);
-    draw_set_color(make_color_rgb(255, 224, 120));
-    draw_text_transformed(_guiW * 0.5, 34, "DANDORI BATTLE", 3 * UI_TS, 3 * UI_TS, 0);
-    draw_set_color(make_color_rgb(200, 210, 205));
-    draw_text_transformed(_guiW * 0.5, 82, "Select a board", 1.2 * UI_TS, 1.2 * UI_TS, 0);
-    draw_set_halign(fa_left);
-    draw_set_font(-1);
+    // fullscreen toggle (top-right corner on every menu screen; F11 works everywhere too)
+    draw_set_font(fntMaru);
+    if (ui_button(_guiW - 150, 12, 138, 28, window_get_fullscreen() ? "Windowed" : "Fullscreen")) {
+        window_set_fullscreen(!window_get_fullscreen());
+        save_settings();
+    }
 
-    // per-seat controllers: cycle Human -> COM difficulty tiers (the tier maps to the board's
-    // best-suited brain at game start, from board_ai_difficulty.json)
-    var _togW = 170, _togY = 104;
-    var _ctlName = function(_c) {
+    // ============================= MAIN MENU =============================
+    if (menuScreen == "main") {
+        draw_set_halign(fa_center);
+        draw_set_font(fntPikmin);        // the title keeps the stylised Pikmin font
+        draw_set_color(make_color_rgb(255, 224, 120));
+        draw_text_transformed(_guiW * 0.5, 150, "DANDORI BATTLE", 4 * UI_TS, 4 * UI_TS, 0);
+        draw_set_font(fntMaru);
+        draw_set_color(make_color_rgb(200, 210, 205));
+        draw_text_transformed(_guiW * 0.5, 236, "A Pikmin tug-of-war", 1.2 * UI_TS, 1.2 * UI_TS, 0);
+
+        var _bw = 320, _bh = 56, _bx = _guiW * 0.5 - _bw * 0.5, _by = 330;
+        if (ui_button(_bx, _by,        _bw, _bh, "Play",    fntMaru)) menuScreen = "board";
+        if (ui_button(_bx, _by + 70,   _bw, _bh, "Options", fntMaru)) menuScreen = "options";
+        if (ui_button(_bx, _by + 140,  _bw, _bh, "Quit",    fntMaru)) game_end();
+
+        draw_set_halign(fa_left);
+        draw_set_color(c_white);
+        exit;
+    }
+
+    // ============================== OPTIONS ==============================
+    if (menuScreen == "options") {
+        draw_set_halign(fa_center);
+        draw_set_font(fntMaru);
+        draw_set_color(make_color_rgb(255, 224, 120));
+        draw_text_transformed(_guiW * 0.5, 40, "OPTIONS", 2.4 * UI_TS, 2.4 * UI_TS, 0);
+        draw_set_font(fntMaru);
+        draw_set_halign(fa_left);
+
+        if (ui_button(20, 16, 120, 30, "< Back")) menuScreen = "main";
+
+        // big, comfortable buttons in fntPikmin (there's plenty of vertical room)
+        var _ow = 400, _og = 24, _obh = 52, _orh = 64;
+        var _ox0 = _guiW * 0.5 - _ow - _og * 0.5, _ox1 = _guiW * 0.5 + _og * 0.5;
+
+        // --- experimental rules (2 columns x 3) ---
+        draw_set_halign(fa_center);
+        draw_set_font(fntMaru);
+        draw_set_color(make_color_rgb(200, 210, 205));
+        draw_text_transformed(_guiW * 0.5, 104, "Experimental Rules", 1.5 * UI_TS, 1.5 * UI_TS, 0);
+        draw_set_font(fntMaru);
+        draw_set_halign(fa_left);
+
+        var _oy = 140;
+        if (ui_button(_ox0, _oy,            _ow, _obh, "Reds Strike Twice: "     + (global.expRules.red       ? "ON" : "off"), fntMaru)) { global.expRules.red = !global.expRules.red;             save_settings(); }
+        if (ui_button(_ox1, _oy,            _ow, _obh, "Blues Lifeguard: "       + (global.expRules.blue      ? "ON" : "off"), fntMaru)) { global.expRules.blue = !global.expRules.blue;           save_settings(); }
+        if (ui_button(_ox0, _oy + _orh,     _ow, _obh, "Yellows Cross Chasms: "  + (global.expRules.yellow    ? "ON" : "off"), fntMaru)) { global.expRules.yellow = !global.expRules.yellow;       save_settings(); }
+        if (ui_button(_ox1, _oy + _orh,     _ow, _obh, "2x Weight Rushes: "      + (global.expRules.rush      ? "ON" : "off"), fntMaru)) { global.expRules.rush = !global.expRules.rush;           save_settings(); }
+        if (ui_button(_ox0, _oy + _orh * 2, _ow, _obh, "Enemies Heal At Sunset: "+ (global.expRules.enemyHeal ? "ON" : "off"), fntMaru)) { global.expRules.enemyHeal = !global.expRules.enemyHeal; save_settings(); }
+        if (ui_button(_ox1, _oy + _orh * 2, _ow, _obh, "Animations: "           + (global.expRules.anims     ? "ON" : "off"), fntMaru)) { global.expRules.anims = !global.expRules.anims;         save_settings(); }
+
+        // --- interface ---
+        draw_set_halign(fa_center);
+        draw_set_font(fntMaru);
+        draw_set_color(make_color_rgb(200, 210, 205));
+        draw_text_transformed(_guiW * 0.5, _oy + _orh * 3 + 16, "Interface", 1.5 * UI_TS, 1.5 * UI_TS, 0);
+        draw_set_font(fntMaru);
+        draw_set_halign(fa_left);
+
+        var _iy = _oy + _orh * 3 + 52;
+        if (ui_button(_ox0, _iy, _ow, _obh, "New-pick Default: " + (defaultSelectAll ? "ALL" : "NONE"), fntMaru)) { defaultSelectAll = !defaultSelectAll; save_settings(); }
+        if (ui_button(_ox1, _iy, _ow, _obh, window_get_fullscreen() ? "Display: Fullscreen" : "Display: Windowed", fntMaru)) { window_set_fullscreen(!window_get_fullscreen()); save_settings(); }
+
+        draw_set_halign(fa_center);
+        draw_set_font(fntMaru);
+        draw_set_color(make_color_rgb(160, 170, 165));
+        draw_text_transformed(_guiW * 0.5, _iy + _obh + 22, "Changes are saved automatically", 1.2 * UI_TS, 1.2 * UI_TS, 0);
+        draw_set_font(fntMaru);
+        draw_set_halign(fa_left);
+        draw_set_color(c_white);
+        exit;
+    }
+
+    // =========================== BOARD SELECT ===========================
+    // (menuScreen == "board") - a scrolling board list on the left, a live data preview of the
+    // highlighted board on the right, and a Play button that locks in the seats + board.
+    var _boards = global.boardData.boards;
+    var _nB = array_length(_boards);
+    menuBoardIdx = clamp(menuBoardIdx, 0, _nB - 1);
+
+    // background: the highlighted board's skybox (sprites _1.._16), cover-fit + darkened so
+    // the light UI text stays readable on top of it
+    var _skySpr = asset_get_index("_" + string(_boards[menuBoardIdx].setNumber));
+    if (_skySpr >= 0) {
+        var _skW = sprite_get_width(_skySpr), _skH = sprite_get_height(_skySpr);
+        var _skSc = max(_guiW / _skW, _guiH / _skH);
+        draw_sprite_ext(_skySpr, 0, (_guiW - _skW * _skSc) * 0.5, (_guiH - _skH * _skSc) * 0.5, _skSc, _skSc, 0, c_white, 1);
+    }
+    draw_set_alpha(0.6); draw_set_color(c_black);
+    draw_rectangle(0, 0, _guiW, _guiH, false);
+    draw_set_alpha(1);
+
+    draw_set_halign(fa_center);
+    draw_set_font(fntMaru);
+    draw_set_color(make_color_rgb(255, 224, 120));
+    draw_text_transformed(_guiW * 0.5, 16, "SELECT A BOARD", 2.0 * UI_TS, 2.0 * UI_TS, 0);
+    draw_set_halign(fa_left);
+
+    if (ui_button(20, 12, 110, 30, "< Back")) { menuScreen = "main"; batchArm = false; }
+
+    // ---- bottom control bar: seat toggles + batch + Play ----
+    var _barY = _guiH - 56;
+    var _bsCtlName = function(_c) {
         if (_c == "human")  return "Human";
         if (_c == "easy")   return "COM - EASY";
         if (_c == "medium") return "COM - MED";
         return "COM - HARD";
     };
-    var _cycle = function(_c) {
+    var _bsCycle = function(_c) {
         if (_c == "human")  return "easy";
         if (_c == "easy")   return "medium";
         if (_c == "medium") return "hard";
         return "human";
     };
-    if (ui_button(_guiW * 0.5 - _togW - 90, _togY, _togW, 28, "P1: " + _ctlName(menuCtl[0]))) menuCtl[0] = _cycle(menuCtl[0]);
-    if (ui_button(_guiW * 0.5 - 85, _togY, _togW, 28, "P2: " + _ctlName(menuCtl[1]))) menuCtl[1] = _cycle(menuCtl[1]);
-    // batch: arm it, then click a board - runs N fast AI games back to back
-    if (ui_button(_guiW * 0.5 + 95, _togY, _togW + 30, 28, batchArm ? "BATCH x25 ARMED - pick board" : "Batch: run 25 AI games")) batchArm = !batchArm;
+    if (ui_button(20,  _barY, 188, 40, "P1: " + _bsCtlName(menuCtl[0]), fntMaru)) { menuCtl[0] = _bsCycle(menuCtl[0]); save_settings(); }
+    if (ui_button(214, _barY, 188, 40, "P2: " + _bsCtlName(menuCtl[1]), fntMaru)) { menuCtl[1] = _bsCycle(menuCtl[1]); save_settings(); }
+    if (ui_button(410, _barY, 200, 40, batchArm ? "BATCH x25 ARMED" : "Batch: 25 AI games", fntMaru)) batchArm = !batchArm;
 
-    // fullscreen toggle (top-right corner; F11 works everywhere too)
-    if (ui_button(_guiW - 150, 12, 138, 28, window_get_fullscreen() ? "Windowed" : "Fullscreen")) {
-        window_set_fullscreen(!window_get_fullscreen());
+    var _playW = 230;
+    if (ui_button(_guiW - _playW - 20, _barY, _playW, 44, batchArm ? "PLAY (Batch x25)" : "PLAY", fntMaru)) {
+        var _pb = _boards[menuBoardIdx];
+        if (batchArm) {
+            batchArm = false;
+            batchRemaining = 25;
+            batchSavedAnims = global.expRules.anims;
+            global.expRules.anims = false;
+            start_game(_pb.id, [ (menuCtl[0] == "human") ? "v1" : menuCtl[0], (menuCtl[1] == "human") ? "v1" : menuCtl[1] ]);
+        } else {
+            start_game(_pb.id);
+        }
+        exit;
     }
 
-    // experimental rule toggles (off by default; playtest rules)
-    var _exW = 200, _exGap = 8, _exY = 138;
-    var _exX0 = _guiW * 0.5 - (_exW * 6 + _exGap * 5) * 0.5;
-    if (ui_button(_exX0, _exY, _exW, 26, "Reds Strike Twice: " + (global.expRules.red ? "ON" : "off"))) global.expRules.red = !global.expRules.red;
-    if (ui_button(_exX0 + (_exW + _exGap), _exY, _exW, 26, "Blues Lifeguard: " + (global.expRules.blue ? "ON" : "off"))) global.expRules.blue = !global.expRules.blue;
-    if (ui_button(_exX0 + (_exW + _exGap) * 2, _exY, _exW, 26, "Yellows Cross Chasms: " + (global.expRules.yellow ? "ON" : "off"))) global.expRules.yellow = !global.expRules.yellow;
-    if (ui_button(_exX0 + (_exW + _exGap) * 3, _exY, _exW, 26, "2x Weight Rushes: " + (global.expRules.rush ? "ON" : "off"))) global.expRules.rush = !global.expRules.rush;
-    if (ui_button(_exX0 + (_exW + _exGap) * 4, _exY, _exW, 26, "Enemies Heal At sunset: " + (global.expRules.enemyHeal ? "ON" : "off"))) global.expRules.enemyHeal = !global.expRules.enemyHeal;
-    if (ui_button(_exX0 + (_exW + _exGap) * 5, _exY, _exW, 26, "Animations: " + (global.expRules.anims ? "ON" : "off"))) global.expRules.anims = !global.expRules.anims;
+    // ---- left: scrolling board list (name / difficulty / basic colours) ----
+    var _listX = 20, _listW = 356, _listTop = 50, _entH = 76;
+    var _rows = max(1, floor((_barY - 12 - _listTop) / _entH));
+    var _listBot = _listTop + _rows * _entH;
+    var _maxTop = max(0, _nB - _rows);
+    if (_mgx0 >= _listX && _mgx0 <= _listX + _listW && _mgy0 >= _listTop && _mgy0 <= _listBot) {
+        if (mouse_wheel_up())   menuListScroll -= 1;
+        if (mouse_wheel_down()) menuListScroll += 1;
+    }
+    menuListScroll = clamp(menuListScroll, 0, _maxTop);
 
-    // board grid
-    var _boards = global.boardData.boards;
-    var _cols = 4;
-    var _cardW = 300, _cardH = 92, _gapX = 16, _gapY = 14;
-    var _gridW = _cols * _cardW + (_cols - 1) * _gapX;
-    var _gx0 = (_guiW - _gridW) * 0.5;
-    var _gy0 = 176;
-    for (var _i = 0; _i < array_length(_boards); _i++) {
-        var _bd = _boards[_i];
-        var _cx = _gx0 + (_i mod _cols) * (_cardW + _gapX);
-        var _cy = _gy0 + (_i div _cols) * (_cardH + _gapY);
-        var _hover = (_mgx0 >= _cx && _mgx0 < _cx + _cardW && _mgy0 >= _cy && _mgy0 < _cy + _cardH);
-        if (_hover) global.uiMouseConsumed = true;
+    draw_set_alpha(0.45); draw_set_color(make_color_rgb(18, 22, 26));
+    draw_rectangle(_listX, _listTop, _listX + _listW, _listBot, false);
+    draw_set_alpha(1);
 
-        draw_set_alpha(_hover ? 0.95 : 0.8);
-        draw_set_color(_hover ? make_color_rgb(60, 78, 66) : make_color_rgb(44, 54, 48));
-        draw_rectangle(_cx, _cy, _cx + _cardW, _cy + _cardH, false);
+    for (var _r = 0; _r < _rows; _r++) {
+        var _idx = menuListScroll + _r;
+        if (_idx >= _nB) break;
+        var _lbd = _boards[_idx];
+        var _ey = _listTop + _r * _entH;
+        var _sel = (_idx == menuBoardIdx);
+        var _hov = (_mgx0 >= _listX && _mgx0 < _listX + _listW && _mgy0 >= _ey && _mgy0 < _ey + _entH);
+        if (_hov) global.uiMouseConsumed = true;
+
+        draw_set_alpha(_sel ? 0.95 : (_hov ? 0.8 : 0.5));
+        draw_set_color(_sel ? make_color_rgb(58, 82, 66) : make_color_rgb(38, 46, 52));
+        draw_rectangle(_listX + 4, _ey + 3, _listX + _listW - 4, _ey + _entH - 3, false);
         draw_set_alpha(1);
-        draw_set_color(_hover ? make_color_rgb(255, 224, 120) : make_color_rgb(110, 124, 116));
-        draw_rectangle(_cx, _cy, _cx + _cardW, _cy + _cardH, true);
+        draw_set_color(_sel ? make_color_rgb(255, 224, 120) : (_hov ? make_color_rgb(150, 165, 175) : make_color_rgb(66, 76, 84)));
+        draw_rectangle(_listX + 4, _ey + 3, _listX + _listW - 4, _ey + _entH - 3, true);
 
-        draw_set_font(fntPikmin);
+        draw_set_font(fntMaru);
         draw_set_color(c_white);
-        dtext(_cx + 12, _cy + 8, _bd.name);
-        draw_set_font(-1);
-        draw_set_color(make_color_rgb(180, 190, 184));
-        draw_text(_cx + 12, _cy + 34, "Board " + string(_bd.setNumber) + "  -  " + _bd.difficulty);
-
-        // basic-colour swatches
-        var _sw = _cx + 12;
-        for (var _c = 0; _c < array_length(_bd.basicColors); _c++) {
-            draw_set_color(pikmin_tint(_bd.basicColors[_c]));
-            draw_circle(_sw + 8, _cy + _cardH - 16, 7, false);
+        dtext(_listX + 16, _ey + 10, _lbd.name);
+        draw_set_color(make_color_rgb(175, 185, 180));
+        dtext(_listX + 16, _ey + 34, _lbd.difficulty);
+        var _sw = _listX + 16;
+        for (var _c = 0; _c < array_length(_lbd.basicColors); _c++) {
+            draw_set_color(pikmin_tint(_lbd.basicColors[_c]));
+            draw_circle(_sw + 7, _ey + _entH - 15, 6, false);
             draw_set_color(make_color_rgb(20, 24, 20));
-            draw_circle(_sw + 8, _cy + _cardH - 16, 7, true);
-            _sw += 20;
+            draw_circle(_sw + 7, _ey + _entH - 15, 6, true);
+            _sw += 18;
         }
         draw_set_color(c_white);
-
-        if (_hover && mouse_check_button_pressed(mb_left)) {
-            if (batchArm) {
-                // batch: force both seats to AI (human seats become v1), kill anims, go
-                batchArm = false;
-                batchRemaining = 25;
-                batchSavedAnims = global.expRules.anims;
-                global.expRules.anims = false;
-                var _bc = [
-                    (menuCtl[0] == "human") ? "v1" : menuCtl[0],
-                    (menuCtl[1] == "human") ? "v1" : menuCtl[1]
-                ];
-                start_game(_bd.id, _bc);
-            } else {
-                start_game(_bd.id);
-            }
-        }
+        if (_hov && mouse_check_button_pressed(mb_left)) menuBoardIdx = _idx;
     }
+    // scroll hints
+    draw_set_halign(fa_center);
+    draw_set_color(make_color_rgb(255, 224, 120));
+    if (menuListScroll > 0)       dtext(_listX + _listW * 0.5, _listTop + 1, "^");
+    if (menuListScroll < _maxTop) dtext(_listX + _listW * 0.5, _listBot - 15, "v");
+    draw_set_halign(fa_left);
+    draw_set_color(c_white);
+
+    // ---- right: live preview of the highlighted board ----
+    // structures get their own tall column down the far right; the rest of the preview
+    // (name / hazards / die / gather) fills the space between the list and that column.
+    var _stColW = 200;
+    var _stColX = _guiW - 20 - _stColW;
+    var _pvX = _listX + _listW + 26;
+    var _pvR = _stColX - 24;
+    var _pbd = _boards[menuBoardIdx];
+
+    draw_set_font(fntMaru);
+    draw_set_color(make_color_rgb(255, 236, 190));
+    draw_text_transformed(_pvX, 50, _pbd.name, 1.9 * UI_TS, 1.9 * UI_TS, 0);
+    draw_set_color(make_color_rgb(180, 190, 185));
+    draw_text_transformed(_pvX, 90, _pbd.difficulty, 1.1 * UI_TS, 1.1 * UI_TS, 0);
+    var _bcx = _pvX + dtext_width(_pbd.difficulty) * 1.1 + 26;
+    for (var _c = 0; _c < array_length(_pbd.basicColors); _c++) {
+        draw_set_color(pikmin_tint(_pbd.basicColors[_c]));
+        draw_circle(_bcx + 8, 99, 8, false);
+        draw_set_color(make_color_rgb(20, 24, 20));
+        draw_circle(_bcx + 8, 99, 8, true);
+        _bcx += 22;
+    }
+    draw_set_color(c_white);
+
+    // HAZARDS - icon chips for each terrain hazard present on the board
+    var _hazY = 138;
+    draw_set_color(make_color_rgb(140, 200, 235));
+    draw_text_transformed(_pvX, _hazY, "HAZARDS", 1.15 * UI_TS, 1.15 * UI_TS, 0);
+    draw_set_color(c_white);
+    var _haz = board_hazards(_pbd);
+    var _hx = _pvX, _hy = _hazY + 26;
+    for (var _i = 0; _i < array_length(_haz); _i++) {
+        var _lbl = hazard_display_name(_haz[_i]);
+        var _cw = 32 + dtext_width(_lbl) + 12;
+        if (_hx + _cw > _pvR) { _hx = _pvX; _hy += 36; }
+        draw_set_alpha(0.85); draw_set_color(make_color_rgb(34, 40, 46));
+        draw_rectangle(_hx, _hy, _hx + _cw, _hy + 30, false);
+        draw_set_alpha(1); draw_set_color(make_color_rgb(70, 80, 88));
+        draw_rectangle(_hx, _hy, _hx + _cw, _hy + 30, true);
+        var _spr = element_sprite(_haz[_i]);
+        if (_spr != -1) {
+            var _is = 22 / max(sprite_get_width(_spr), sprite_get_height(_spr));
+            draw_sprite_ext(_spr, 0, _hx + 17 - sprite_get_width(_spr) * _is * 0.5, _hy + 15 - sprite_get_height(_spr) * _is * 0.5, _is, _is, 0, c_white, 1);
+        } else {
+            draw_set_color(make_color_rgb(96, 84, 60)); // chasm etc - no element icon
+            draw_rectangle(_hx + 8, _hy + 8, _hx + 26, _hy + 22, false);
+        }
+        draw_set_color(c_white);
+        dtext(_hx + 32, _hy + 8, _lbl);
+        _hx += _cw + 8;
+    }
+
+    // PELLET DIE - the six faces (colour + value)
+    var _dieY = _hy + 48;
+    draw_set_color(make_color_rgb(245, 214, 120));
+    draw_text_transformed(_pvX, _dieY, "PELLET DIE", 1.15 * UI_TS, 1.15 * UI_TS, 0);
+    draw_set_color(c_white);
+    var _dfy = _dieY + 50;      // extra breathing room between the header and the faces
+    for (var _i = 0; _i < array_length(_pbd.pelletDie); _i++) {
+        var _f = _pbd.pelletDie[_i];
+        var _fcx = _pvX + 18 + _i * 48;
+        draw_set_color(pikmin_tint(_f.color));
+        draw_circle(_fcx, _dfy, 17, false);
+        draw_set_color(make_color_rgb(20, 24, 20));
+        draw_circle(_fcx, _dfy, 17, true);
+        draw_set_halign(fa_center); draw_set_valign(fa_middle);
+        var _dark = (_f.color == "white" || _f.color == "yellow" || _f.color == "ice");
+        draw_set_color(_dark ? c_black : c_white);
+        draw_text_transformed(_fcx, _dfy, string(_f.value), 1.2 * UI_TS, 1.2 * UI_TS, 0);
+        draw_set_halign(fa_left); draw_set_valign(fa_top);
+    }
+    draw_set_color(c_white);
+
+    // GATHER CARDS - vertically-overlapping stack across the preview's full width (hover pops)
+    var _gids = board_gather_types(_pbd);
+    var _headY = _dfy + 42;
+    var _cardsTop = _headY + 26;
+    var _cardsBot = _barY - 12;
+    draw_set_color(make_color_rgb(200, 235, 170));
+    draw_text_transformed(_pvX, _headY, "GATHER CARDS (" + string(array_length(_gids)) + ")", 1.15 * UI_TS, 1.15 * UI_TS, 0);
+    draw_set_color(c_white);
+    var _hovCard = draw_card_stack(_gids, _pvX, _cardsTop, _pvR - _pvX, _cardsBot - _cardsTop, _mgx0, _mgy0);
+
+    // STRUCTURES - a bottom-anchored pile down the far right (landscape cards); its bottom lines
+    // up with the gather cards and it grows up as tall as it needs. The label rides the TOP of
+    // the pile, so it moves with the pile's size. Sorted by class (hazards -> walls -> bridges).
+    var _sids = board_structures(_pbd);
+    var _ss = draw_structure_stack(_sids, _stColX, _stColW, _cardsBot, 78, _mgx0, _mgy0);
+    var _hovStruct = _ss.hover;
+    draw_set_halign(fa_center);
+    draw_set_color(make_color_rgb(235, 200, 170));
+    draw_text_transformed(_stColX + _stColW * 0.5, _ss.top - 26, "STRUCTURES (" + string(array_length(_sids)) + ")", 1.15 * UI_TS, 1.15 * UI_TS, 0);
+    draw_set_halign(fa_left);
+    draw_set_color(c_white);
+
+    // pop whichever card is hovered, enlarged, on top of everything - keeps the card's real
+    // aspect (structures are landscape) and stays on screen
+    var _pop = (_hovCard != undefined) ? _hovCard : _hovStruct;
+    if (_pop != undefined) {
+        global.uiMouseConsumed = true;
+        var _aspP = _pop.cw / _pop.ch;
+        var _pch = min(_pop.ch * 1.8, _guiH - 120, (_guiW - 40) / _aspP);
+        var _pcw = _pch * _aspP;
+        var _px = clamp(_pop.x + _pop.cw * 0.5 - _pcw * 0.5, 20, _guiW - 20 - _pcw);
+        var _py = clamp(_pop.y + _pop.ch * 0.5 - _pch * 0.5, 40, _barY - _pch - 6);
+        card_draw(_pop.id, _px, _py, _pch);
+    }
+
+    draw_set_halign(fa_left);
+    draw_set_color(c_white);
+    exit;
+}
+
+// ==================== PAUSE MENU ====================
+// Esc opens this (Step freezes the game meanwhile); shows the current map's reference info.
+if (paused) {
+    draw_set_alpha(0.72); draw_set_color(c_black);
+    draw_rectangle(0, 0, _guiW, _guiH, false);
+    draw_set_alpha(1);
+
+    var _pw = min(1020, _guiW - 80);
+    var _ph = min(700, _guiH - 36);
+    var _px = (_guiW - _pw) * 0.5;
+    var _py = (_guiH - _ph) * 0.5;
+    draw_set_alpha(0.97); draw_set_color(make_color_rgb(26, 30, 36));
+    draw_rectangle(_px, _py, _px + _pw, _py + _ph, false);
+    draw_set_alpha(1); draw_set_color(make_color_rgb(255, 224, 120));
+    draw_rectangle(_px, _py, _px + _pw, _py + _ph, true);
+
+    draw_set_font(fntMaru);
+    draw_set_halign(fa_center);
+    draw_set_color(make_color_rgb(255, 224, 120));
+    draw_text_transformed(_px + _pw * 0.5, _py + 14, "PAUSED", 2.2 * UI_TS, 2.2 * UI_TS, 0);
+    draw_set_color(make_color_rgb(200, 210, 205));
+    draw_text_transformed(_px + _pw * 0.5, _py + 50,
+        boardDef.name + "    -    Day " + string(game.dayNumber) + " (" + string(game.dayTrack) + "/" + string(global.rules.dayTrackLength) + ")"
+        + "    -    P1 " + string(game_realized_score(game, 0)) + "p  vs  P2 " + string(game_realized_score(game, 1)) + "p",
+        1.1 * UI_TS, 1.1 * UI_TS, 0);
+    draw_set_halign(fa_left);
+    draw_set_color(c_white);
+
+    var _cTop = _py + 86;
+    var _btnY = _py + _ph - 52;
+
+    // ---- left column: PIKMIN (this map's colours + purple/white) ----
+    var _lx = _px + 28;
+    draw_set_color(make_color_rgb(150, 220, 150));
+    draw_text_transformed(_lx, _cTop, "PIKMIN", 1.2 * UI_TS, 1.2 * UI_TS, 0);
+    draw_set_color(c_white);
+    var _shown = [];
+    for (var _i = 0; _i < array_length(boardDef.basicColors); _i++) array_push(_shown, boardDef.basicColors[_i]);
+    if (!arr_has(_shown, "purple")) array_push(_shown, "purple");
+    if (!arr_has(_shown, "white"))  array_push(_shown, "white");
+    var _lw = _pw * 0.5 - 44;   // left column width (immunity/trait tags wrap within it)
+    var _ry = _cTop + 34;
+    for (var _i = 0; _i < array_length(_shown); _i++) {
+        var _pdef = pikmin_type_get(_shown[_i]);
+        draw_set_color(pikmin_tint(_shown[_i]));
+        draw_circle(_lx + 8, _ry + 8, 7, false);
+        draw_set_color(make_color_rgb(20, 24, 20));
+        draw_circle(_lx + 8, _ry + 8, 7, true);
+        draw_set_color(c_white);
+        dtext(_lx + 24, _ry, _pdef.name);
+        var _info = pikmin_display_tags(_shown[_i]);
+        var _yc = _ry + 18;
+        // element/space tags as chips
+        if (array_length(_info.chips) > 0) _yc = draw_tag_row(_info.chips, _lx + 24, _yc, _lx + _lw);
+        // plain-text note (pikmin properties), if any
+        if (_info.note != "") {
+            draw_set_color(make_color_rgb(178, 188, 194));
+            dtext(_lx + 24, _yc, _info.note);
+            draw_set_color(c_white);
+            _yc += 18;
+        }
+        _ry = (_yc > _ry + 18) ? (_yc + 6) : (_ry + 24);
+    }
+
+    // ---- right column: GATHER CARDS + HAZARDS + STRUCTURES ----
+    var _rx = _px + _pw * 0.5 + 16;
+    var _rw = _pw * 0.5 - 44;
+    draw_set_color(make_color_rgb(200, 235, 170));
+    draw_text_transformed(_rx, _cTop, "GATHER CARDS", 1.2 * UI_TS, 1.2 * UI_TS, 0);
+    draw_set_color(c_white);
+    var _gids = board_gather_types(boardDef);
+    var _nGa = array_length(_gids);
+    var _half = ceil(_nGa / 2);
+    var _gy = _cTop + 34;
+    for (var _i = 0; _i < _nGa; _i++) {
+        var _cxx = (_i < _half) ? _rx : (_rx + _rw * 0.5);
+        var _cyy = _gy + ((_i < _half) ? _i : (_i - _half)) * 19;
+        dtext(_cxx, _cyy, "- " + gather_def_get(_gids[_i]).name);
+    }
+
+    var _hazY = _gy + _half * 19 + 22;
+    draw_set_color(make_color_rgb(140, 200, 235));
+    draw_text_transformed(_rx, _hazY, "HAZARDS", 1.2 * UI_TS, 1.2 * UI_TS, 0);
+    draw_set_color(c_white);
+    var _haz = board_hazards(boardDef);
+    var _hx = _rx, _hy = _hazY + 28;
+    for (var _i = 0; _i < array_length(_haz); _i++) {
+        var _lbl = hazard_display_name(_haz[_i]);
+        var _wchip = tag_chip_width(_haz[_i], _lbl);
+        if (_hx > _rx && _hx + _wchip > _rx + _rw) { _hx = _rx; _hy += 32; }
+        draw_tag_chip(_hx, _hy, _haz[_i], _lbl);
+        _hx += _wchip + 8;
+    }
+
+    var _stY = _hy + 44;
+    draw_set_color(make_color_rgb(235, 200, 170));
+    draw_text_transformed(_rx, _stY, "STRUCTURES", 1.2 * UI_TS, 1.2 * UI_TS, 0);
+    draw_set_color(c_white);
+    var _st = boardDef.structures;
+    var _stCats = [
+        ["WALLS",   variable_struct_exists(_st, "walls")    ? _st.walls    : []],
+        ["BRIDGES", variable_struct_exists(_st, "bridges")  ? _st.bridges  : []],
+        ["HAZARDS", variable_struct_exists(_st, "emitters") ? _st.emitters : []]
+    ];
+    var _stCW = _rw / 3 - 16;   // pack the columns tighter so the last one clears the edge
+    for (var _c = 0; _c < 3; _c++) {
+        var _cx = _rx + _c * _stCW;
+        draw_set_color(make_color_rgb(205, 213, 220));
+        dtext(_cx, _stY + 28, _stCats[_c][0]);
+        draw_set_color(c_white);   // bullets white, matching the gather-card list
+        var _items = _stCats[_c][1];
+        for (var _k = 0; _k < array_length(_items); _k++)
+            dtext(_cx, _stY + 48 + _k * 18, "- " + hazard_def_get(_items[_k]).name);
+    }
+
+    // ---- buttons ----
+    var _bw2 = 190, _bg2 = 18;
+    var _btot = 3 * _bw2 + 2 * _bg2;
+    var _bx0 = _px + (_pw - _btot) * 0.5;
+    if (ui_button(_bx0, _btnY, _bw2, 40, "Resume", fntMaru)) paused = false;
+    if (ui_button(_bx0 + (_bw2 + _bg2), _btnY, _bw2, 40, "Main Menu", fntMaru)) { paused = false; return_to_menu(); exit; }
+    if (ui_button(_bx0 + (_bw2 + _bg2) * 2, _btnY, _bw2, 40, "Quit", fntMaru)) game_end();
+
     draw_set_halign(fa_left);
     draw_set_color(c_white);
     exit;
@@ -204,7 +534,7 @@ if (hoverKind == "space" && game.phase != "gameover") {
             draw_set_color(c_black);
             draw_rectangle(_fx - 26, _fy - 26, _fx + (_hasW ? 62 : 26), _fy + 26, false);
             draw_set_alpha(1);
-            draw_set_font(fntPikmin);
+            draw_set_font(fntMaru);
             draw_set_halign(fa_center);
             draw_set_valign(fa_middle);
             draw_set_color(player_marker(_viewP));
@@ -217,7 +547,7 @@ if (hoverKind == "space" && game.phase != "gameover") {
                 draw_set_color(make_color_rgb(255, 224, 120));
                 dtext(_fx + 42, _fy, "w" + string(treasure_def_get(_fT.cards[array_length(_fT.cards) - 1]).weight));
             }
-            draw_set_font(-1);
+            draw_set_font(fntMaru);
             draw_set_halign(fa_left);
             draw_set_valign(fa_top);
             draw_set_color(c_white);
@@ -227,12 +557,12 @@ if (hoverKind == "space" && game.phase != "gameover") {
 
 // ---------- Onion hover hint ----------
 if (hoverKind == "onion" && game.phase == "orders" && !_aiTurn && !_locked) {
-    draw_set_font(-1);
+    draw_set_font(fntMaru);
     var _otTxt = (selSrc != undefined)
         ? "Onion: Click to DISCARD the selected pikmin"
         : "Onion: Send Pikmin here to DISCARD them";
-    var _otW = string_width(_otTxt);
-    var _otH = string_height(_otTxt);
+    var _otW = dtext_width(_otTxt);
+    var _otH = dtext_height(_otTxt);
     var _otX = _mgx + 14;
     var _otY = _mgy - _otH * 0.5;
     draw_set_alpha(0.78);
@@ -240,7 +570,7 @@ if (hoverKind == "onion" && game.phase == "orders" && !_aiTurn && !_locked) {
     draw_rectangle(_otX, _otY - 4, _otX + _otW + 16, _otY + _otH + 4, false);
     draw_set_alpha(1);
     draw_set_color(make_color_rgb(255, 224, 120));
-    draw_text(_otX + 8, _otY, _otTxt);
+    dtext(_otX + 8, _otY, _otTxt);
     draw_set_color(c_white);
 }
 
@@ -252,27 +582,40 @@ draw_set_alpha(0.9);
 draw_set_color(player_tint(_p));
 draw_rectangle(0, 0, _guiW, _barH, false);
 draw_set_alpha(1);
-draw_set_font(-1);
+draw_set_font(fntMaru);
 draw_set_valign(fa_middle);
 draw_set_halign(fa_left);
 
 // left: board + day
 draw_set_color(c_white);
-draw_text(10, _midY, boardDef.name + "    Day " + string(game.dayNumber) + " (" + string(game.dayTrack) + "/" + string(global.rules.dayTrackLength) + ")");
+dtext(10, _midY, boardDef.name + "    Day " + string(game.dayNumber) + " (" + string(game.dayTrack) + "/" + string(global.rules.dayTrackLength) + ")");
 if (batchRemaining > 0) {
     draw_set_halign(fa_center);
     draw_set_color(make_color_rgb(255, 224, 120));
-    draw_text(_guiW * 0.5, 44, "[BATCH: " + string(batchRemaining) + " games left]"); // below the top bar
+    dtext(_guiW * 0.5, 44, "[BATCH: " + string(batchRemaining) + " games left]"); // below the top bar
     draw_set_color(c_white);
     draw_set_halign(fa_left);
 }
 
 // middle: current player's detailed pikmin breakdown (token icons + counts + total)
 var _bx = 320;
-var _youLbl = "YOU " + string(game_realized_score(game, _p)) + "p";
+// difficulty word for an AI seat: prefer the saved menu tier (persisted in the ini via
+// global.settings), falling back to the live brain id for F1/rematch/batch swaps where the
+// menu tier no longer describes the seat.
+var _seatAiWord = function(_seat) {
+    var _tier = menuCtl[_seat];
+    // use the tier's nice name only while the LIVE brain is still the one that tier resolves
+    // to; F1/rematch/batch can swap ctl out from under the menu tier - then show the brain.
+    if ((_tier == "easy" || _tier == "medium" || _tier == "hard")
+        && ctl[_seat] == seat_brain(boardDef.id, _tier)) return seat_ai_label(_tier);
+    return seat_ai_label(ctl[_seat]);
+};
+// the active seat's label: "YOU" for a human, "P<n> (<Difficulty> AI)" for a computer
+var _meLbl = (ctl[_p] == "human") ? "YOU" : ("P" + string(_p + 1) + " (" + _seatAiWord(_p) + ")");
+var _youLbl = _meLbl + " " + string(game_realized_score(game, _p)) + "p";
 draw_set_color(make_color_rgb(255, 236, 180));
-draw_text(_bx, _midY, _youLbl);
-_bx += string_width(_youLbl) + 18;
+dtext(_bx, _midY, _youLbl);
+_bx += dtext_width(_youLbl) + 18;
 draw_set_color(c_white);
 var _typeOrder = ["red", "blue", "yellow", "purple", "white", "rock", "ice", "winged", "bulbmin"];
 var _typeCounts = {};
@@ -293,14 +636,14 @@ for (var _oi = 0; _oi < array_length(_typeOrder); _oi++) {
         draw_set_color(make_color_rgb(120, 200, 110)); // bulbmin: green dot fallback
         draw_circle(_bx + 10, _midY, 9, false);
         draw_set_color(c_white);
-        _bx += 20;
+        _bx += 24; // the round dot needs a touch more gap before its count than the sprites do
     }
-    draw_text(_bx, _midY, string(_typeCounts[$ _tid]));
-    _bx += string_width(string(_typeCounts[$ _tid])) + 12;
+    dtext(_bx, _midY, string(_typeCounts[$ _tid]));
+    _bx += dtext_width(string(_typeCounts[$ _tid])) + 12;
 }
 var _youB = game_bulbmin_count(game, _p);
 draw_set_color(make_color_rgb(200, 210, 222));
-draw_text(_bx + 2, _midY, "= " + string(game_capped_count(game, _p)) + "/" + string(_capMax) + ((_youB > 0) ? ("  +" + string(_youB) + "b") : ""));
+dtext(_bx + 2, _midY, "= " + string(game_capped_count(game, _p)) + "/" + string(_capMax) + ((_youB > 0) ? ("  +" + string(_youB) + "b") : ""));
 
 // right: opponent compact ("player <poko> [x/25]") + phase
 var _opp = 1 - _p;
@@ -309,14 +652,15 @@ var _oppCap = string(game_capped_count(game, _opp)) + "/" + string(_capMax) + ((
 var _phaseName = game.phase == "gather" ? "GATHER" : (game.phase == "orders" ? "ORDERS" : (game.phase == "move" ? "MOVE" : "GAME OVER"));
 draw_set_color(c_white);
 draw_set_halign(fa_right);
-draw_text(_guiW - 10, _midY, "vs P" + string(_opp + 1) + " " + string(game_realized_score(game, _opp)) + "p [" + _oppCap + "]        " + (_aiTurn ? "AI" : "YOU") + " - " + _phaseName);
+var _oppLbl = "vs P" + string(_opp + 1) + ((ctl[_opp] != "human") ? (" (" + _seatAiWord(_opp) + ")") : "");
+dtext(_guiW - 10, _midY, _oppLbl + " " + string(game_realized_score(game, _opp)) + "p [" + _oppCap + "]        " + _meLbl + " - " + _phaseName);
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 ui_block_rect(0, 0, _guiW, _barH);
 
 // controls hint
 draw_set_color(make_color_rgb(200, 205, 215));
-draw_text(8, _guiH - 20, "Left: Select   Middle: Send All   Right-drag: Orbit Camera   WASD: Pan   Wheel: Zoom/Scroll   Alt: Inspect   V: Treasure   F2: Return to Menu");
+dtext(8, _guiH - 20, "Left: Select   Middle: Send All   Right-drag: Orbit Camera   WASD: Pan   Wheel: Zoom/Scroll   Alt: Inspect   V: Treasure   F2: Return to Menu");
 draw_set_color(c_white);
 
 // ---------- log panel (right) ----------
@@ -326,34 +670,43 @@ draw_set_alpha(0.55);
 draw_set_color(c_black);
 draw_rectangle(_logX, 40, _guiW - 8, 40 + _logH, false);
 draw_set_alpha(1);
+draw_set_font(fntMaru);
 draw_set_color(make_color_rgb(220, 220, 220));
 var _logN = array_length(game.log);
 var _logMaxW = (_guiW - 8) - (_logX + 8) - 4; // inner width
 var _logTop = 40, _logBot = 40 + _logH;
-// total wrapped content height, so we can clamp the scroll to what's actually there
-var _logContentH = 0;
-for (var _i = 0; _i < _logN; _i++) _logContentH += string_height_ext(game.log[_i], 14, _logMaxW) + 2;
-logScroll = clamp(logScroll, 0, max(0, _logContentH - (_logH - 6)));
-// word-wrap entries, newest anchored at the bottom, stacking upward. logScroll pushes
-// the anchor DOWN (newest off the bottom) so older entries scroll into the panel.
-var _ly = _logBot - 6 + logScroll;
-for (var _i = _logN - 1; _i >= 0; _i--) {
-    var _line = game.log[_i];
-    var _lh = string_height_ext(_line, 14, _logMaxW);
-    _ly -= _lh + 2;
-    if (_ly + _lh < _logTop + 4) break;   // fully above the panel - older ones are too
-    if (_ly > _logBot - 2) continue;      // scrolled below the panel bottom - skip drawing
-    draw_text_ext(_logX + 8, _ly, _line, 14, _logMaxW);
+
+// flatten every entry into its wrapped visual ROWS (oldest first, newest last) so layout
+// and clipping happen per row - a 2-row entry no longer vanishes or overflows as one block.
+var _rows = [];
+for (var _i = 0; _i < _logN; _i++) {
+    var _wrapped = dtext_wrap(game.log[_i], _logMaxW);
+    for (var _wj = 0; _wj < array_length(_wrapped); _wj++) array_push(_rows, _wrapped[_wj]);
+}
+var _rowN = array_length(_rows);
+var _rowH = dtext_height("Ag") + 3;            // uniform per-row advance
+var _contentH = _rowN * _rowH;
+var _maxScroll = max(0, _contentH - (_logH - 8));
+logScroll = clamp(logScroll, 0, _maxScroll);
+
+// newest row anchored at the bottom, stacking upward. logScroll pushes the anchor DOWN
+// (newest off the bottom) so older rows scroll in. Only FULLY-visible rows are drawn, so
+// nothing ever spills past the top (into the bar) or below the panel.
+var _ly = _logBot - 4 - _rowH + logScroll;
+for (var _i = _rowN - 1; _i >= 0; _i--) {
+    if (_ly + _rowH < _logTop) break;          // fully above the panel - older rows are higher still
+    if (_ly >= _logTop + 2 && _ly + _rowH <= _logBot - 2) dtext(_logX + 8, _ly, _rows[_i]);
+    _ly -= _rowH;
 }
 draw_set_color(c_white);
-// scroll affordances: a hint when more log sits above/below the visible window
-if (logScroll < max(0, _logContentH - (_logH - 6))) {
+// scroll affordances: a hint when more log sits above (older) / below (newer)
+if (logScroll < _maxScroll) {
     draw_set_color(make_color_rgb(255, 224, 120));
-    draw_text(_guiW - 22, _logTop + 2, "^");
+    dtext(_guiW - 22, _logTop + 2, "^");
 }
 if (logScroll > 0) {
     draw_set_color(make_color_rgb(255, 224, 120));
-    draw_text(_guiW - 22, _logBot - 16, "v");
+    dtext(_guiW - 22, _logBot - 16, "v");
 }
 draw_set_color(c_white);
 ui_block_rect(_logX, 40, _guiW - 8 - _logX, _logH);
@@ -362,25 +715,25 @@ ui_block_rect(_logX, 40, _guiW - 8 - _logX, _logH);
 var _cy = 44;
 if (_cine) {
     draw_set_color(make_color_rgb(255, 224, 120));
-    draw_text(12, _cy, "Sunset - Time to return home!");
+    dtext(12, _cy, "Sunset - Time to return home!");
     draw_set_color(c_white);
 } else if (_locked) {
     draw_set_color(make_color_rgb(200, 210, 220));
-    draw_text(12, _cy, (game.pendingDiscard != undefined)
+    dtext(12, _cy, (game.pendingDiscard != undefined)
         ? ("P" + string(game.pendingDiscard.playerIdx + 1) + " discards to the hand limit...")
         : (turnSettling ? "..." : "Resolving..."));
     draw_set_color(c_white);
 } else if (_freePending) {
     var _fpEntry = game.pendingFree[0];
     draw_set_color(c_yellow);
-    draw_text(12, _cy, "BOSS BOUNTY: P" + string(_fpEntry.playerIdx + 1) + " places " + string(_fpEntry.count) + " free hazard(s)");
+    dtext(12, _cy, "BOSS BOUNTY: P" + string(_fpEntry.playerIdx + 1) + " places " + string(_fpEntry.count) + " free hazard(s)");
     draw_set_color(c_white);
     _cy += 22;
-    draw_text(12, _cy, _freeHuman ? "Pick a hazard type, then click an empty basic space." : "The AI is choosing its spot" + string_repeat(".", 1 + (frameTick div 20) mod 3));
+    dtext(12, _cy, _freeHuman ? "Pick a hazard type, then click an empty basic space." : "The AI is choosing its spot" + string_repeat(".", 1 + (frameTick div 20) mod 3));
 } else if (_aiTurn) {
-    draw_text(12, _cy, "AI is taking its turn" + string_repeat(".", 1 + (frameTick div 20) mod 3));
+    dtext(12, _cy, "AI is taking its turn" + string_repeat(".", 1 + (frameTick div 20) mod 3));
 } else if (game.phase == "gather") {
-    draw_text(12, _cy, "Gather actions left: " + string(game.gatherActionsLeft));
+    dtext(12, _cy, "Gather actions left: " + string(game.gatherActionsLeft));
     _cy += 22;
     if (ui_button(12, _cy, 220, 34, "Draw Gather Card (" + string(array_length(game.decks.gather)) + ")")) game_gather_draw(game);
     _cy += 42;
@@ -388,17 +741,17 @@ if (_cine) {
 } else if (game.phase == "orders") {
     if (ui_button(12, _cy, 220, 34, "End Orders")) { game_orders_done(game); selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; }
     _cy += 42;
-    draw_text(12, _cy, selSrc == undefined ? "Left-click pikmin to pick some; middle-click a space to send all there." : "Click a destination (or middle-click to send all).");
+    dtext(12, _cy, selSrc == undefined ? "Left-click pikmin to pick some; middle-click a space to send all there." : "Click a destination (or middle-click to send all).");
     _cy += 24;
     draw_set_color(make_color_rgb(170, 180, 190));
-    draw_text(12, _cy, "Send Pikmin to Onion to DISCARD");
+    dtext(12, _cy, "Send Pikmin to Onion to DISCARD");
     draw_set_color(c_white);
     _cy += 24;
 } else if (game.phase == "move") {
     if (pendingCard == undefined) {
         if (ui_button(12, _cy, 260, 40, "Resolve Moves & End Turn")) { game_resolve_moves(game); selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; }
         _cy += 48;
-        draw_text(12, _cy, "Play gather cards now by clicking them in your hand.");
+        dtext(12, _cy, "Play gather cards now by clicking them in your hand.");
     } else {
         var _prompt = "";
         switch (pendingCard.stage) {
@@ -429,24 +782,27 @@ if (_cine) {
             case "build":    _prompt = "Build what?"; break;
             case "trade":    _prompt = "Trade which Pikmin?"; break;
         }
-        draw_text(12, _cy, _prompt);
+        dtext(12, _cy, _prompt);
         _cy += 26;
         if (ui_button(12, _cy, 150, 30, "Cancel")) pendingCard = undefined;
     }
 } else if (game.phase == "gameover" && gameoverSettled) {
+    var _goY = _guiH * 0.32;
     draw_set_halign(fa_center);
+    draw_set_font(fntMaru);
     draw_set_color(c_yellow);
     var _msg = (game.winner == -1) ? "DRAW!" : ("PLAYER " + string(game.winner + 1) + " WINS!");
-    draw_text_transformed(_guiW * 0.5, _guiH * 0.35, _msg, 3 * UI_TS, 3 * UI_TS, 0);
+    draw_text_transformed(_guiW * 0.5, _goY, _msg, 4 * UI_TS, 4 * UI_TS, 0);
     draw_set_color(c_white);
-    draw_text_transformed(_guiW * 0.5, _guiH * 0.35 + 50, "P1 " + string(game_realized_score(game, 0)) + "p  vs  P2 " + string(game_realized_score(game, 1)) + "p", 1.5 * UI_TS, 1.5 * UI_TS, 0);
+    draw_text_transformed(_guiW * 0.5, _goY + 66, "P1 " + string(game_realized_score(game, 0)) + "p  vs  P2 " + string(game_realized_score(game, 1)) + "p", 2.6 * UI_TS, 2.6 * UI_TS, 0);
+    draw_set_font(fntMaru);
     draw_set_halign(fa_left);
-    if (ui_button(_guiW * 0.5 - 200, _guiH * 0.35 + 90, 190, 40, "Rematch (same board/players)")) {
+    if (ui_button(_guiW * 0.5 - 210, _goY + 130, 200, 46, "Rematch (same board/players)")) {
         showCollection = false; // the auto-opened sidebars don't follow into the next game
         start_game(boardDef.id, ctl);
         exit;
     }
-    if (ui_button(_guiW * 0.5 + 10, _guiH * 0.35 + 90, 190, 40, "Main Menu")) {
+    if (ui_button(_guiW * 0.5 + 10, _goY + 130, 200, 46, "Main Menu")) {
         showCollection = false;
         return_to_menu();
         exit;
@@ -474,7 +830,7 @@ if (game.phase == "orders" && selSrc != undefined) {
             var _have = _avail[$ _colId];
             var _cur = variable_struct_exists(selCounts, _colId) ? min(selCounts[$ _colId], _have) : 0;
             selCounts[$ _colId] = _cur;
-            draw_text(16, _rowY + 3, _colId + ": " + string(_cur) + "/" + string(_have));
+            dtext(16, _rowY + 3, _colId + ": " + string(_cur) + "/" + string(_have));
             if (ui_button(160, _rowY, 26, 24, "-")) selCounts[$ _colId] = max(0, _cur - 1);
             if (ui_button(192, _rowY, 26, 24, "+")) selCounts[$ _colId] = min(_have, _cur + 1);
             _rowY += 30;
@@ -537,7 +893,7 @@ if (_numCards > 0 && game.phase != "gameover" && _viewer >= 0) {
             }
             draw_set_halign(fa_center);
             draw_set_color(c_yellow);
-            draw_text(_bigX + _bigW * 0.5, _guiH - _bigH - 26, _copyTxt);
+            dtext(_bigX + _bigW * 0.5, _guiH - _bigH - 26, _copyTxt);
             draw_set_color(c_white);
             draw_set_halign(fa_left);
         }
@@ -592,7 +948,7 @@ if (pelletMenuIdx >= 0) {
         draw_set_color(c_white);
         ui_block_rect(_menuX, _menuY, _menuW, _menuH);
         draw_set_halign(fa_center);
-        draw_text(_menuX + _menuW * 0.5, _menuY + 8, _pDef.name);
+        dtext(_menuX + _menuW * 0.5, _menuY + 8, _pDef.name);
         draw_set_halign(fa_left);
         var _by = _menuY + 30;
         for (var _c = 0; _c < array_length(_cols); _c++) {
@@ -625,7 +981,7 @@ if (posyMenuIdx >= 0) {
         draw_set_color(c_white);
         ui_block_rect(_menuX, _menuY, _menuW, _menuH);
         draw_set_halign(fa_center);
-        draw_text(_menuX + _menuW * 0.5, _menuY + 8, "Color Changing Posy");
+        dtext(_menuX + _menuW * 0.5, _menuY + 8, "Color Changing Posy");
         draw_set_halign(fa_left);
         var _by = _menuY + 30;
         for (var _c = 0; _c < array_length(_cols); _c++) {
@@ -654,7 +1010,7 @@ if (_freeHuman) {
     draw_set_color(c_white);
     ui_block_rect(_menuX, _menuY, _menuW, _menuH);
     draw_set_halign(fa_center);
-    draw_text(_menuX + _menuW * 0.5, _menuY + 8, "Free hazard - Select a space");
+    dtext(_menuX + _menuW * 0.5, _menuY + 8, "Free hazard - Select a space");
     draw_set_halign(fa_left);
     var _by = _menuY + 30;
     for (var _e = 0; _e < array_length(_fEmits); _e++) {
@@ -684,7 +1040,7 @@ if (pendingCard != undefined && pendingCard.stage == "pilePick") {
         draw_set_color(c_white);
         ui_block_rect(_menuX, _menuY, _menuW, _menuH);
         draw_set_halign(fa_center);
-        draw_text(_menuX + _menuW * 0.5, _menuY + 8, "Ship Signal: choose the new TOP card");
+        dtext(_menuX + _menuW * 0.5, _menuY + 8, "Ship Signal: choose the new TOP card");
         draw_set_halign(fa_left);
         var _by = _menuY + 30;
         for (var _pc = array_length(_psT.cards) - 1; _pc >= 0; _pc--) {
@@ -731,7 +1087,7 @@ if (pendingCard != undefined && (pendingCard.stage == "color" || pendingCard.sta
     draw_set_color(c_white);
     ui_block_rect(_menuX, _menuY, _menuW, _menuH);
     draw_set_halign(fa_center);
-    draw_text(_menuX + _menuW * 0.5, _menuY + 8, gather_def_get(pendingCard.effectId).name);
+    dtext(_menuX + _menuW * 0.5, _menuY + 8, gather_def_get(pendingCard.effectId).name);
     draw_set_halign(fa_left);
     var _by = _menuY + 30;
 
@@ -741,13 +1097,13 @@ if (pendingCard != undefined && (pendingCard.stage == "color" || pendingCard.sta
         var _tCols = variable_struct_get_names(_tCounts);
         var _have = array_length(game_tokens_at(game, _p, _tradeLoc));
         var _cost = pendingCard.purples * 5 + pendingCard.whites * 2;
-        draw_text(_menuX + 12, _by, "Cost: " + string(_cost) + " / " + string(_have) + " pikmin there");
+        dtext(_menuX + 12, _by, "Cost: " + string(_cost) + " / " + string(_have) + " pikmin there");
         _by += 24;
-        draw_text(_menuX + 12, _by + 4, "Purple x" + string(pendingCard.purples));
+        dtext(_menuX + 12, _by + 4, "Purple x" + string(pendingCard.purples));
         if (ui_button(_menuX + 130, _by, 26, 24, "-")) pendingCard.purples = max(0, pendingCard.purples - 1);
         if (ui_button(_menuX + 162, _by, 26, 24, "+")) { if (_cost + 5 <= _have) pendingCard.purples += 1; }
         _by += 30;
-        draw_text(_menuX + 12, _by + 4, "White x" + string(pendingCard.whites));
+        dtext(_menuX + 12, _by + 4, "White x" + string(pendingCard.whites));
         if (ui_button(_menuX + 130, _by, 26, 24, "-")) pendingCard.whites = max(0, pendingCard.whites - 1);
         if (ui_button(_menuX + 162, _by, 26, 24, "+")) { if (_cost + 2 <= _have) pendingCard.whites += 1; }
         _by += 30;
@@ -755,7 +1111,7 @@ if (pendingCard != undefined && (pendingCard.stage == "color" || pendingCard.sta
         // cheapest-first; otherwise the mix must add up to the cost exactly.
         if (!variable_struct_exists(pendingCard, "pay")) pendingCard.pay = {};
         draw_set_color(make_color_rgb(180, 190, 200));
-        draw_text(_menuX + 12, _by, "Pay with (blank = cheapest first):");
+        dtext(_menuX + 12, _by, "Pay with (blank = cheapest first):");
         draw_set_color(c_white);
         _by += 22;
         var _paySum = 0;
@@ -768,7 +1124,7 @@ if (pendingCard != undefined && (pendingCard.stage == "color" || pendingCard.sta
             draw_set_color(pikmin_tint(_colId));
             draw_circle(_menuX + 18, _by + 11, 6, false);
             draw_set_color(c_white);
-            draw_text(_menuX + 30, _by + 2, _colId + ": " + string(_curP) + "/" + string(_availC));
+            dtext(_menuX + 30, _by + 2, _colId + ": " + string(_curP) + "/" + string(_availC));
             if (ui_button(_menuX + 158, _by, 26, 22, "-")) pendingCard.pay[$ _colId] = max(0, _curP - 1);
             if (ui_button(_menuX + 190, _by, 26, 22, "+")) pendingCard.pay[$ _colId] = min(_availC, _curP + 1);
             _by += 26;
@@ -777,7 +1133,7 @@ if (pendingCard != undefined && (pendingCard.stage == "color" || pendingCard.sta
         var _payOk = (_paySum == 0 || _paySum == _cost);
         if (!_payOk) {
             draw_set_color(make_color_rgb(255, 140, 120));
-            draw_text(_menuX + 12, _by + 6, "payment " + string(_paySum) + "/" + string(_cost) + " - match the cost");
+            dtext(_menuX + 12, _by + 6, "payment " + string(_paySum) + "/" + string(_cost) + " - match the cost");
             draw_set_color(c_white);
         } else if (ui_button(_menuX + 12, _by, 100, 30, "Confirm")) {
             game_play_gather(game, pendingCard.handIdx, { lane: pendingCard.lane, idx: pendingCard.idx, atHome: pendingCard.atHome,
@@ -823,13 +1179,13 @@ if (game.pendingDiscard != undefined && game.phase != "gameover" && ctl[game.pen
     draw_set_color(c_black);
     draw_rectangle(0, _pdY - 70, _guiW, _pdY + _pdCardH + 30, false);
     draw_set_alpha(1);
-    draw_set_font(fntPikmin);
+    draw_set_font(fntMaru);
     draw_set_halign(fa_center);
     draw_set_color(make_color_rgb(255, 224, 120));
     draw_text_transformed(_guiW * 0.5, _pdY - 60, "HAND LIMIT", 1.6 * UI_TS, 1.6 * UI_TS, 0);
-    draw_set_font(-1);
+    draw_set_font(fntMaru);
     draw_set_color(c_white);
-    draw_text(_guiW * 0.5, _pdY - 26, "Click " + string(game.pendingDiscard.need) + " card" + ((game.pendingDiscard.need > 1) ? "s" : "") + " to discard");
+    dtext(_guiW * 0.5, _pdY - 26, "Click " + string(game.pendingDiscard.need) + " card" + ((game.pendingDiscard.need > 1) ? "s" : "") + " to discard");
     draw_set_halign(fa_left);
     ui_block_rect(0, _pdY - 70, _guiW, _pdCardH + 100);
     // the whole hand fanned out; hovered card lifts and gets a frame
@@ -875,7 +1231,7 @@ if (showDebug) {
             else if (_space.kind == "hazard")      _lineText += "[h" + string_char_at(_space.hazard, 1) + "] ";
             else                                   _lineText += "[] ";
         }
-        draw_text(16, _dbgY + _laneIdx * 20, _lineText);
+        dtext(16, _dbgY + _laneIdx * 20, _lineText);
     }
     // F-key / shortcut reference (only while the Tab debug overlay is up)
     var _keys = [
@@ -895,7 +1251,7 @@ if (showDebug) {
     draw_set_alpha(0.5); draw_set_color(c_black);
     draw_rectangle(_kx - 4, _ky - 4, _kx + 372, _ky + array_length(_keys) * 18 + 4, false);
     draw_set_alpha(1); draw_set_color(make_color_rgb(200, 220, 240));
-    for (var _ki = 0; _ki < array_length(_keys); _ki++) draw_text(_kx, _ky + _ki * 18, _keys[_ki]);
+    for (var _ki = 0; _ki < array_length(_keys); _ki++) dtext(_kx, _ky + _ki * 18, _keys[_ki]);
     draw_set_color(c_white);
 }
 
@@ -906,8 +1262,8 @@ if (showCollection) {
     var _panW = 336;
     var _panY = 40;
     var _panH = _guiH - 84;
-    var _hovL = draw_collection_panel(game, 0, 8, _panY, _panW, _panH, _mgxC, _mgyC);
-    var _hovR = draw_collection_panel(game, 1, _guiW - 8 - _panW, _panY, _panW, _panH, _mgxC, _mgyC);
+    var _hovL = draw_collection_panel(game, 0, 8, _panY, _panW, _panH, _mgxC, _mgyC, (ctl[0] != "human") ? ctl[0] : "");
+    var _hovR = draw_collection_panel(game, 1, _guiW - 8 - _panW, _panY, _panW, _panH, _mgxC, _mgyC, (ctl[1] != "human") ? ctl[1] : "");
     if (_hovL != "") _altZoomAlias = _hovL;
     if (_hovR != "") _altZoomAlias = _hovR;
 }
@@ -971,12 +1327,12 @@ if (keyboard_check(vk_alt)) {
         draw_set_color(c_black);
         draw_rectangle(_rx0 - 14, _ry0 - 40, _rx0 + _rowW + 14, _ry0 + _pileH + 46, false);
         draw_set_alpha(1);
-        draw_set_font(fntPikmin);
+        draw_set_font(fntMaru);
         draw_set_halign(fa_center);
         draw_set_valign(fa_top);
         draw_set_color(make_color_rgb(255, 224, 120));
         dtext(_guiW * 0.5, _ry0 - 34, _zoomCaption);
-        draw_set_font(-1);
+        draw_set_font(fntMaru);
         for (var _i = 0; _i < _n; _i++) {
             var _cx = _rx0 + _i * (_pileW + _gap);
             var _isTop = (_i == _n - 1);
@@ -988,14 +1344,14 @@ if (keyboard_check(vk_alt)) {
                 draw_rectangle(_cx - 2, _ry0 - 2, _cx + _pileW + 2, _ry0 + _pileH + 2, true);
             }
             draw_set_color(c_white);
-            draw_text(_cx + _pileW * 0.5, _ry0 + _pileH + 4, string(_tdef.value) + "p" + (_isTop ? " (top)" : ""));
+            dtext(_cx + _pileW * 0.5, _ry0 + _pileH + 4, string(_tdef.value) + "p" + (_isTop ? " (top)" : ""));
             // series tag so buried set pieces are easy to spot
             if (_tdef.effectType == "Set") {
                 draw_set_color(make_color_rgb(150, 200, 255));
-                draw_text(_cx + _pileW * 0.5, _ry0 + _pileH + 20, _tdef.effect);
+                dtext(_cx + _pileW * 0.5, _ry0 + _pileH + 20, _tdef.effect);
             } else {
                 draw_set_color(make_color_rgb(150, 155, 160));
-                draw_text(_cx + _pileW * 0.5, _ry0 + _pileH + 20, "loose");
+                dtext(_cx + _pileW * 0.5, _ry0 + _pileH + 20, "loose");
             }
         }
         draw_set_halign(fa_left);
@@ -1017,7 +1373,7 @@ if (keyboard_check(vk_alt)) {
             card_draw(_zoomAlias, _zX, _zY, _zH);
             if (_zoomCaption != "") {
                 draw_set_halign(fa_center);
-                draw_text(_zX + _zW * 0.5, _zY + _zH + 8, _zoomCaption);
+                dtext(_zX + _zW * 0.5, _zY + _zH + 8, _zoomCaption);
                 draw_set_halign(fa_left);
             }
         } else {
@@ -1031,16 +1387,16 @@ if (keyboard_check(vk_alt)) {
             draw_set_alpha(1);
             draw_set_color(make_color_rgb(150, 162, 178));
             draw_rectangle(_zX2, _zY2, _zX2 + _zW2, _zY2 + _zH2, true);
-            draw_set_font(fntPikmin);
+            draw_set_font(fntMaru);
             draw_set_halign(fa_center);
             draw_set_color(make_color_rgb(255, 236, 170));
             dtext_ext(_zX2 + _zW2 * 0.5, _zY2 + 20, (_zoomTitle != "") ? _zoomTitle : _zoomAlias, 26, _zW2 - 28);
             draw_set_halign(fa_left);
-            draw_set_font(-1);
+            draw_set_font(fntMaru);
             draw_set_color(make_color_rgb(214, 220, 230));
-            draw_text_ext(_zX2 + 18, _zY2 + 96, (_zoomText != "") ? _zoomText : "(no card art exported)", 20, _zW2 - 36);
+            dtext_ext(_zX2 + 18, _zY2 + 96, (_zoomText != "") ? _zoomText : "(no card art exported)", 20, _zW2 - 36);
             draw_set_color(make_color_rgb(150, 160, 175));
-            draw_text(_zX2 + 18, _zY2 + _zH2 - 26, "art: CARD" + _zoomAlias + ".png (missing)");
+            dtext(_zX2 + 18, _zY2 + _zH2 - 26, "art: CARD" + _zoomAlias + ".png (missing)");
             draw_set_color(c_white);
         }
     }
@@ -1061,12 +1417,12 @@ if (keyboard_check(vk_alt)) {
         draw_set_color(make_color_rgb(180, 190, 200));
         draw_rectangle(_dlX, _dlY, _dlX + _dlW, _dlY + _dlH, true);
         draw_set_color(c_yellow);
-        draw_text(_dlX + 10, _dlY + 8, "DISCARD (" + string(_discNn) + ") - Newest first");
+        dtext(_dlX + 10, _dlY + 8, "DISCARD (" + string(_discNn) + ") - Newest first");
         draw_set_color(c_white);
         for (var _dli = 0; _dli < _dlShow; _dli++) {
-            draw_text(_dlX + 10, _dlY + 30 + _dli * 18, gather_def_get(_discList[_discNn - 1 - _dli]).name);
+            dtext(_dlX + 10, _dlY + 30 + _dli * 18, gather_def_get(_discList[_discNn - 1 - _dli]).name);
         }
-        if (_discNn > _dlShow) draw_text(_dlX + 10, _dlY + 30 + _dlShow * 18, "...and " + string(_discNn - _dlShow) + " more");
+        if (_discNn > _dlShow) dtext(_dlX + 10, _dlY + 30 + _dlShow * 18, "...and " + string(_discNn - _dlShow) + " more");
     }
 }
 
@@ -1194,7 +1550,7 @@ if (dayCine != undefined && dayCine.phase == "flash") {
     draw_set_color(c_black);
     draw_rectangle(0, 0, _guiW, _guiH, false);
     draw_set_alpha(1);
-    draw_set_font(fntPikmin);
+    draw_set_font(fntPikmin);        // the day-transition banner keeps the stylised Pikmin font
     draw_set_halign(fa_center);
     draw_set_valign(fa_middle);
     draw_set_color(make_color_rgb(255, 224, 120));
@@ -1205,5 +1561,5 @@ if (dayCine != undefined && dayCine.phase == "flash") {
     draw_set_color(c_white);
     draw_set_halign(fa_left);
     draw_set_valign(fa_top);
-    draw_set_font(-1);
+    draw_set_font(fntMaru);
 }

@@ -84,7 +84,10 @@
       "Bash(python \"C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-polyc-GameMakerProjects-DandoriBattle\\\\27356a72-0a60-4e45-a5e4-8c680b522c74\\\\scratchpad\\\\patch_quota.py\")",
       "Bash(awk '/######## TOURNAMENT/{b=$4} /^  base .*winRate/{split\\($0,a,\" \"\\);bw=a[4]} /^  cascade .*winRate/{split\\($0,a,\" \"\\);cw=a[4]} /^  v4 .*winRate/{split\\($0,a,\" \"\\);printf \"%-26s v4 %.2f  casc %.2f  base %.2f\\\\n\", b, a[4], cw, bw}' /c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt)",
       "Bash(SIM_BENCH=\"/c/Users/polyc/AppData/Local/DandoriBattle/sim_bench.txt\" python tools/derive_board_ai.py)",
-      "Bash(python -c \"import json; d=json.load\\(open\\('datafiles/data/board_ai_difficulty.json'\\)\\); print\\(json.dumps\\(d['theminefield'], indent=2\\)\\); print\\(\\); print\\(json.dumps\\(d['thedoghouse'], indent=2\\)\\)\")"
+      "Bash(python -c \"import json; d=json.load\\(open\\('datafiles/data/board_ai_difficulty.json'\\)\\); print\\(json.dumps\\(d['theminefield'], indent=2\\)\\); print\\(\\); print\\(json.dumps\\(d['thedoghouse'], indent=2\\)\\)\")",
+      "Bash(python -c \"import json; b=json.load\\(open\\('datafiles/data/boards.json'\\)\\); bs=b['boards'] if isinstance\\(b,dict\\) else b; print\\(json.dumps\\(bs[0], indent=1\\)[:1400]\\)\")",
+      "Bash(python -c \"import json; d=json.load\\(open\\('datafiles/data/dice.json'\\)\\); print\\(list\\(d.keys\\(\\)\\) if isinstance\\(d,dict\\) else '[list]'\\); import sys; v=d if isinstance\\(d,list\\) else d.get\\('dice',d\\); print\\(json.dumps\\(\\(v[0] if isinstance\\(v,list\\) else list\\(v.values\\(\\)\\)[0]\\), indent=1\\)[:600]\\)\")",
+      "Bash(python -c \"import json; p=json.load\\(open\\('datafiles/data/pikmin.json'\\)\\); print\\('top keys:', list\\(p.keys\\(\\)\\)\\)\")"
     ]
   }
 }

@@ -1451,6 +1451,7 @@
   },
   "name":"DandoriBattle",
   "resources":[
+    {"id":{"name":"fntMaru","path":"fonts/fntMaru/fntMaru.yy",},},
     {"id":{"name":"fntPikmin","path":"fonts/fntPikmin/fntPikmin.yy",},},
     {"id":{"name":"objGame","path":"objects/objGame/objGame.yy",},},
     {"id":{"name":"DandoriField","path":"rooms/DandoriField/DandoriField.yy",},},

@@ -8,6 +8,19 @@ if (window_get_width() != lastWinW || window_get_height() != lastWinH) sync_reso
 // menu mode: nothing to simulate (board select is click-driven in the GUI event)
 if (mode != "playing") exit;
 
+// Esc: cancel active targeting first; otherwise open/close the pause menu. While paused the
+// whole game is frozen here (only the pause-menu buttons, drawn in the GUI event, respond).
+if (keyboard_check_pressed(vk_escape)) {
+    if (paused) {
+        paused = false;
+    } else if (selSrc != undefined || pelletMenuIdx >= 0 || posyMenuIdx >= 0 || pendingCard != undefined) {
+        selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined;
+    } else {
+        paused = true;
+    }
+}
+if (paused) exit;
+
 // --- toggles ---
 if (keyboard_check_pressed(vk_space)) autoOrbit = !autoOrbit;
 if (keyboard_check_pressed(vk_f11)) window_set_fullscreen(!window_get_fullscreen());
@@ -18,7 +31,6 @@ if (keyboard_check_pressed(vk_f1)) { // cycle P2's controller mid-game
     game_log(game, "P2 controller: " + ctl[1]);
     ai_dbg("### F1: P2 controller -> " + ctl[1] + " ###");   // diagnostic brain swap, logged to ai_debug.txt
 }
-if (keyboard_check_pressed(vk_escape)) { selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined; }
 if (keyboard_check_pressed(vk_f2))    { return_to_menu(); exit; }
 // F3: headless sim diagnostics on THIS board (scrSim). Runs its own games via
 // game_new - never touches the live one - but blocks the frame for a few seconds.

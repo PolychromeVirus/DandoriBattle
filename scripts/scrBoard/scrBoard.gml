@@ -138,6 +138,61 @@ function element_sprite(_element) {
     }
 }
 
+/// Distinct terrain hazards present in a board's lanes, in a stable display order.
+function board_hazards(_boardDef) {
+    var _order = ["water", "fire", "ice", "poison", "height", "chasm"];
+    var _seen = {};
+    for (var _l = 0; _l < array_length(_boardDef.lanes); _l++) {
+        var _sp = _boardDef.lanes[_l].spaces;
+        for (var _s = 0; _s < array_length(_sp); _s++) {
+            if (_sp[_s].kind == "hazard") _seen[$ _sp[_s].hazard] = true;
+        }
+    }
+    var _out = [];
+    for (var _i = 0; _i < array_length(_order); _i++)
+        if (variable_struct_exists(_seen, _order[_i])) array_push(_out, _order[_i]);
+    return _out;
+}
+
+/// Display name for a terrain hazard id.
+function hazard_display_name(_h) {
+    switch (_h) {
+        case "water":  return "Water";
+        case "fire":   return "Fire";
+        case "ice":    return "Ice";
+        case "poison": return "Poison";
+        case "height": return "Height";
+        case "chasm":  return "Chasm";
+        default:       return _h;
+    }
+}
+
+/// Flat list of the structure/emitter cards a board can build (emitters first, then walls,
+/// then bridges) - the "hazard cards available on the map". All have CARD<id>.png art.
+function board_structures(_boardDef) {
+    var _st = _boardDef.structures;
+    var _out = [];
+    var _cats = ["emitters", "walls", "bridges"];
+    for (var _c = 0; _c < array_length(_cats); _c++) {
+        if (!variable_struct_exists(_st, _cats[_c])) continue;
+        var _arr = _st[$ _cats[_c]];
+        for (var _i = 0; _i < array_length(_arr); _i++) array_push(_out, _arr[_i]);
+    }
+    return _out;
+}
+
+/// Distinct gather-card TYPE ids available to a board (setsCopies keyed by board number).
+function board_gather_types(_boardDef) {
+    var _defs = global.gatherData.gather;
+    var _key = string(_boardDef.setNumber);
+    var _out = [];
+    for (var _i = 0; _i < array_length(_defs); _i++) {
+        var _sc = _defs[_i].setsCopies;
+        if (variable_struct_exists(_sc, _key) && _sc[$ _key] > 0) array_push(_out, _defs[_i].id);
+    }
+    return _out;
+}
+
 /// Flat board-game token sprite for a pikmin type (-1 for bulbmin, which has none).
 function pikmin_token_sprite(_typeId) {
     switch (_typeId) {

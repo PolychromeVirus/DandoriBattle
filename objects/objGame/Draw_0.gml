@@ -681,7 +681,7 @@ gpu_set_alphatestenable(true);
 // --- enemy HUDs: card-style stat circles (damage red, HP green / gold for bosses),
 // --- element icons flanking them, name above. Drawn as billboarded 2D primitives.
 if (array_length(_displayEnemies) > 0 || array_length(_displayStructs) > 0) {
-    draw_set_font(fntPikmin);
+    draw_set_font(fntPikmin); // enemy damage/HP numbers stay stylised (Pikmin font)
     // Fixed LAYOUT scale for the circles/offsets (was 16/string_height back when the
     // font was 12pt ~= 0.89). The TEXT gets its OWN scale so the 36pt font still lands
     // at ~16 world units instead of shrinking the whole matrix (and the circles with it).
@@ -747,7 +747,7 @@ if (array_length(_displayEnemies) > 0 || array_length(_displayStructs) > 0) {
         }
     }
     matrix_set(matrix_world, matrix_build_identity());
-    draw_set_font(-1);
+    draw_set_font(fntMaru);
     draw_set_halign(fa_left);
     draw_set_valign(fa_top);
 }
@@ -755,7 +755,7 @@ if (array_length(_displayEnemies) > 0 || array_length(_displayStructs) > 0) {
 // --- name/value labels (in-game text uses fntPikmin) ---
 var _numLabels = array_length(_labels);
 if (_numLabels > 0) {
-    draw_set_font(fntPikmin);
+    draw_set_font(fntMaru);
     draw_set_halign(fa_center);
     draw_set_valign(fa_bottom);
     draw_set_color(c_white);
@@ -764,13 +764,13 @@ if (_numLabels > 0) {
         var _lbl = _labels[_i];
         draw_text_billboard(_lbl.labelX, _lbl.labelY, _lbl.labelZ, _lbl.labelText, _labelScale, _camRight, _camUp, _camFwd);
     }
-    draw_set_font(-1);
+    draw_set_font(fntMaru);
 }
 
 // --- deck counts: printed FLAT on the deck/discard stacks like part of the texture
 // --- (negative x scale compensates the projection's x-mirror, like vb_tile_sprite) ---
 if (array_length(_deckCounts) > 0) {
-    draw_set_font(fntPikmin);
+    draw_set_font(fntMaru);
     draw_set_halign(fa_center);
     draw_set_valign(fa_middle);
     var _dcScale = 0.55;
@@ -781,7 +781,7 @@ if (array_length(_deckCounts) > 0) {
         draw_text(0, 0, string(_dc.n));
     }
     matrix_set(matrix_world, matrix_build_identity());
-    draw_set_font(-1);
+    draw_set_font(fntMaru);
     draw_set_halign(fa_left);
     draw_set_valign(fa_top);
     draw_set_halign(fa_left);

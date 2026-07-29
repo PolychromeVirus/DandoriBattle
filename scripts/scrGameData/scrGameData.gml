@@ -41,6 +41,18 @@ function seat_brain(_boardId, _token) {
     return _token;
 }
 
+/// Human-readable AI label for a seat's difficulty/brain token: "Easy AI" / "Medium AI" /
+/// "Hard AI" for the menu tiers, or the raw brain id as-is (e.g. "v4") for an F1/batch/sim
+/// swap where no tier applies.
+function seat_ai_label(_token) {
+    switch (_token) {
+        case "easy":   return "Easy AI";
+        case "medium": return "Medium AI";
+        case "hard":   return "Hard AI";
+        default:       return _token;
+    }
+}
+
 function data_load_all() {
     global.rules        = json_load_included("data/rules.json");
     global.pikminData   = json_load_included("data/pikmin.json");
@@ -63,6 +75,53 @@ function data_load_all() {
     //  anims = beat pacing/settles/cinematics; OFF = instant resolution (fast games)
     //  (AI brains are picked per-seat on the menu, not here)
     global.expRules = { red: true, blue: true, yellow: true, rush: true, enemyHeal: false, anims: true };
+
+    // Persisted menu/options (seat choices + selection default + fullscreen). Defaults here;
+    // settings_load() overlays whatever's saved in settings.ini from a previous run.
+    global.settings = { ctl: ["human", "hard"], defaultSelectAll: false, fullscreen: false };
+    settings_load();
+}
+
+#macro SETTINGS_FILE "settings.ini"
+
+/// Overlay saved options from settings.ini onto the in-memory defaults (global.expRules +
+/// global.settings). First run (no file) leaves the defaults untouched. Booleans are stored
+/// as 1/0 reals; each read falls back to the current default so a partial/old file is safe.
+function settings_load() {
+    if (!file_exists(SETTINGS_FILE)) return;
+    ini_open(SETTINGS_FILE);
+    var _r = global.expRules;
+    _r.red       = ini_read_real("rules", "red",       _r.red       ? 1 : 0) != 0;
+    _r.blue      = ini_read_real("rules", "blue",      _r.blue      ? 1 : 0) != 0;
+    _r.yellow    = ini_read_real("rules", "yellow",    _r.yellow    ? 1 : 0) != 0;
+    _r.rush      = ini_read_real("rules", "rush",      _r.rush      ? 1 : 0) != 0;
+    _r.enemyHeal = ini_read_real("rules", "enemyHeal", _r.enemyHeal ? 1 : 0) != 0;
+    _r.anims     = ini_read_real("rules", "anims",     _r.anims     ? 1 : 0) != 0;
+    var _s = global.settings;
+    _s.ctl[0]           = ini_read_string("game", "p1", _s.ctl[0]);
+    _s.ctl[1]           = ini_read_string("game", "p2", _s.ctl[1]);
+    _s.defaultSelectAll = ini_read_real("game", "defaultSelectAll", _s.defaultSelectAll ? 1 : 0) != 0;
+    _s.fullscreen       = ini_read_real("game", "fullscreen", _s.fullscreen ? 1 : 0) != 0;
+    ini_close();
+}
+
+/// Write the current options (global.expRules + global.settings) back to settings.ini.
+/// Called by objGame whenever the player changes an option on the menu.
+function settings_save() {
+    ini_open(SETTINGS_FILE);
+    var _r = global.expRules;
+    ini_write_real("rules", "red",       _r.red       ? 1 : 0);
+    ini_write_real("rules", "blue",      _r.blue      ? 1 : 0);
+    ini_write_real("rules", "yellow",    _r.yellow    ? 1 : 0);
+    ini_write_real("rules", "rush",      _r.rush      ? 1 : 0);
+    ini_write_real("rules", "enemyHeal", _r.enemyHeal ? 1 : 0);
+    ini_write_real("rules", "anims",     _r.anims     ? 1 : 0);
+    var _s = global.settings;
+    ini_write_string("game", "p1", _s.ctl[0]);
+    ini_write_string("game", "p2", _s.ctl[1]);
+    ini_write_real("game", "defaultSelectAll", _s.defaultSelectAll ? 1 : 0);
+    ini_write_real("game", "fullscreen", _s.fullscreen ? 1 : 0);
+    ini_close();
 }
 
 /// Sprite index for a data record's "sprite" field, or _fallback when missing/unmatched.
@@ -110,6 +169,25 @@ function pellet_def_get(_pelletId) {
         if (_defs[_i].id == _pelletId) return _defs[_i];
     }
     show_error("Unknown pellet: " + string(_pelletId), true);
+}
+
+/// Curated pause-menu info for a pikmin type: `chips` = element/space tags shown as boxed
+/// chips (each {label, el}; el drives the icon - a sprite, or the brownish square for "chasm"
+/// which has none), and `note` = a plain-text line of pikmin properties drawn under the chips
+/// (or "" for none). Hand-written because the wording isn't in the data. [[dandori-battle-project]]
+function pikmin_display_tags(_id) {
+    switch (_id) {
+        case "red":     return { chips: [{label:"Fire", el:"fire"}], note: "" };
+        case "blue":    return { chips: [{label:"Water", el:"water"}], note: "" };
+        case "yellow":  return { chips: [{label:"Electric", el:"electric"}, {label:"Height", el:"height"}], note: "" };
+        case "purple":  return { chips: [], note: "Has 5 strength" };
+        case "white":   return { chips: [{label:"Poison", el:"poison"}], note: "Moves fast and damages enemies when eaten" };
+        case "rock":    return { chips: [{label:"Crush", el:"crush"}, {label:"Stab", el:"stab"}], note: "" };
+        case "ice":     return { chips: [{label:"Ice", el:"ice"}], note: "" };
+        case "winged":  return { chips: [{label:"Chasm", el:"chasm"}, {label:"Height", el:"height"}], note: "Not affected by ground hazards, blocked by walls." };
+        case "bulbmin": return { chips: [{label:"Fire",el:"fire"},{label:"Water",el:"water"},{label:"Electric",el:"electric"},{label:"Ice",el:"ice"},{label:"Poison",el:"poison"},{label:"Control",el:"control"}], note: "" };
+        default:        return { chips: [], note: "" };
+    }
 }
 
 function pikmin_type_get(_typeId) {
