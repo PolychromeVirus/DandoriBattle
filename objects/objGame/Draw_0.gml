@@ -1,6 +1,30 @@
-// menu mode: no 3D scene, just a backdrop (menu itself draws in the GUI event)
+// menu mode: the main title screen shows a living 3D checker field (camera set in Step);
+// every other menu screen keeps the plain backdrop. The menu GUI draws over both.
 if (mode != "playing") {
-    draw_clear(make_color_rgb(38, 46, 40));
+    if (menuScreen == "main") {
+        // sky: the board set's background sprite drawn full-screen behind the field, so the
+        // checker recedes to a real horizon (same screen-space 2D pass the playing scene uses).
+        draw_clear(make_color_rgb(150, 200, 235)); // fallback sky if the sprite is missing
+        var _tbg = asset_get_index("_" + string(titleScene.setNumber));
+        if (sprite_exists(_tbg)) {
+            var _tsw = window_get_width(), _tsh = window_get_height();
+            var _tiw = sprite_get_width(_tbg), _tih = sprite_get_height(_tbg);
+            var _tcov = max(_tsw / _tiw, _tsh / _tih);        // COVER fit: fill, preserve aspect, crop overflow
+            var _tdw = _tiw * _tcov, _tdh = _tih * _tcov;
+            var _tdx = (_tsw - _tdw) * 0.5, _tdy = (_tsh - _tdh) * 0.5;
+            gpu_set_ztestenable(false);
+            gpu_set_zwriteenable(false);
+            gpu_set_alphatestenable(false);
+            matrix_set(matrix_world, matrix_build_identity());
+            matrix_set(matrix_view, matrix_build_lookat(_tsw * 0.5, _tsh * 0.5, -10, _tsw * 0.5, _tsh * 0.5, 0, 0, 1, 0));
+            matrix_set(matrix_projection, matrix_build_projection_ortho(_tsw, -_tsh, 1, 100)); // -h flips y to pixel space
+            draw_sprite_stretched_ext(_tbg, 0, _tdx, _tdy, _tdw, _tdh, c_white, 1);
+            camera_apply(camera); // restore the 3D title camera EXACTLY (matrix_set drops GM's surface y-flip)
+        }
+        title_scene_draw(titleScene, viewMat, frameTick);
+    } else {
+        draw_clear(make_color_rgb(38, 46, 40));
+    }
     exit;
 }
 
@@ -26,6 +50,11 @@ if (sprite_exists(_bgSpr)) {
     camera_apply(camera); // restore the 3D camera EXACTLY (matrix_set drops GM's surface y-flip -> tilted board)
 }
 
+// the tutorial's clean lesson board strips ALL table dressing (onions, decks, hordes, hands). Keyed
+// on the STABLE `compactBoard` flag - NOT (tutorial != undefined), which flips off the instant the
+// tutorial ends and pops the dressing in. This is a tutorial-only clean view, NOT a solo thing:
+// adventure/co-op keep their own onion + gather deck (only P2's onion is a real 2-player artifact).
+var _stripDressing = compactBoard;
 presMoving = false; // set true below while any pikmin or homing pile is still sliding
 // enemies hold their feeding crouch through the bite, easing back up while ghosts fade
 if (game.jumpCue == "enemy" || game.jumpCue == "swift") { biteT = 1; biteKind = game.jumpCue; }
@@ -90,7 +119,8 @@ for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
         var _spacePos = board_space_xy(board, _laneIdx, _spaceIdx);
         var _hazSpr = element_sprite(_space.hazard);
         if (_hazSpr != -1) {
-            vb_tile_sprite(sprite_batches_vb(_spriteBatches, _hazSpr), _hazSpr, 0, _spacePos[0], _spacePos[1], 1.6, 52, c_white, 1);
+            // opponent's half (space idx > 3): rotate the decal 180deg so it faces them
+            vb_tile_sprite(sprite_batches_vb(_spriteBatches, _hazSpr), _hazSpr, 0, _spacePos[0], _spacePos[1], 1.6, 52, c_white, 1, _spaceIdx > 3);
         }
     }
 }
@@ -186,7 +216,7 @@ for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
         } else { // emitter: its element decal IS the visual
             if (_sDef.element != "") {
                 var _eSpr = element_sprite(_sDef.element);
-                if (_eSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _eSpr), _eSpr, 0, _sPos[0], _sPos[1], 1.62, 44, c_white, 1);
+                if (_eSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _eSpr), _eSpr, 0, _sPos[0], _sPos[1], 1.62, 44, c_white, 1, _spaceIdx > 3);
             }
             array_push(_displayStructs, { sx: _sPos[0], sy: _sPos[1], sz: 28, hp: _struct.curHp });
         }
@@ -251,7 +281,7 @@ for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
         }
         var _ePos = board_space_xy(board, _laneIdx, _spaceIdx);
         var _cardSpr = card_sprite_get(card_enemy_alias(_enemy.enemyDefId, boardDef.setNumber));
-        if (_cardSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _cardSpr), _cardSpr, 0, _ePos[0], _ePos[1], 1.55, TILE_W, c_white, 1);
+        if (_cardSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _cardSpr), _cardSpr, 0, _ePos[0], _ePos[1], 1.55, TILE_W, enemy_card_tint(_enemy), 1, _spaceIdx > 3);
         array_push(_displayEnemies, { inst: _enemy, ex: _ePos[0], ey: _ePos[1], el: _laneIdx, eidx: _spaceIdx, hasCard: (_cardSpr != -1) });
     }
 }
@@ -260,7 +290,7 @@ for (var _ti = 0; _ti < array_length(game.treasures); _ti++) {
     if (_t.boss == undefined) continue;
     var _bPos = board_space_xy(board, _t.lane, _t.idx);
     var _cardSpr = card_sprite_get(card_enemy_alias(_t.boss.enemyDefId, boardDef.setNumber));
-    if (_cardSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _cardSpr), _cardSpr, 0, _bPos[0], _bPos[1], 1.55, TILE_W, c_white, 1);
+    if (_cardSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _cardSpr), _cardSpr, 0, _bPos[0], _bPos[1], 1.55, TILE_W, enemy_card_tint(_t.boss), 1, _t.idx > 3);
     array_push(_displayEnemies, { inst: _t.boss, ex: _bPos[0], ey: _bPos[1] + 16, el: _t.lane, eidx: _t.idx, hasCard: (_cardSpr != -1) });
 }
 for (var _ei = 0; _ei < array_length(_displayEnemies); _ei++) {
@@ -332,10 +362,18 @@ for (var _ei = 0; _ei < array_length(_displayEnemies); _ei++) {
 
 // --- pikmin tokens from game state (team ring + sprite, small hop) ---
 var _clusterSlots = {};
+// home cluster stays INSIDE the home strip: as many columns as fit its width (36px each),
+// but never more than the count present, so a small group (e.g. the tutorial's 3) sits centred
+// rather than spread to a full-board width.
+var _homeStripW = board.laneCount * (TILE_W + LANE_GAP);
+var _homeMaxCols = max(1, floor(_homeStripW / 36));
 for (var _p = 0; _p < 2; _p++) {
     // player-tinted shadow disc under each token (dark, semi-transparent)
     var _shadowCol = player_shadow(_p);
     var _tokens = game.players[_p].tokens;
+    var _homeN = 0;
+    for (var _hc = 0; _hc < array_length(_tokens); _hc++) if (_tokens[_hc].loc.kind == "home") _homeN += 1;
+    var _homeCols = clamp(_homeN, 1, _homeMaxCols);
     for (var _i = 0; _i < array_length(_tokens); _i++) {
         var _tok = _tokens[_i];
         var _key, _baseX, _baseY, _dx, _dy, _slot;
@@ -343,8 +381,8 @@ for (var _p = 0; _p < 2; _p++) {
             _key = string(_p) + "_home";
             _slot = variable_struct_exists(_clusterSlots, _key) ? _clusterSlots[$ _key] : 0;
             _clusterSlots[$ _key] = _slot + 1;
-            _baseX = ((_slot mod 14) - 6.5) * 36;
-            _baseY = board_home_y(_p) + ((_slot div 14) * 22 - 11);
+            _baseX = ((_slot mod _homeCols) - (_homeCols - 1) * 0.5) * 36;
+            _baseY = board_home_y(_p) + ((_slot div _homeCols) * 22 - 11);
             _dx = 0; _dy = 0;
         } else {
             _key = string(_p) + "_" + string(_tok.loc.lane) + "_" + string(_tok.loc.idx);
@@ -479,6 +517,11 @@ for (var _p = 0; _p < 2; _p++) {
     }
 }
 
+// deck/onion count labels, filled by the dressing blocks below (empty -> no labels drawn)
+var _deckCounts = [];
+// --- table dressing: hordes, opponent hand, the two deck stacks, and the onion discard zones.
+// --- The tutorial strips ALL of it (just spaces + pikmin) - so this whole region is gated. ---
+if (!_stripDressing) {
 // --- banked-treasure hordes: each player's collected piles heaped off to THEIR RIGHT,
 // --- near their home. Deliberately uneven - a stable per-item pseudo-random scatter
 // --- (hash of its index) makes a rough mound, as if shoved together. Grows as piles
@@ -559,7 +602,6 @@ var _deckBackSpr = card_back_sprite_get("gather");
 if (_deckBackSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _deckBackSpr), _deckBackSpr, 0, _ddX, _ddY - 96, 1.63, 84, c_white, 1);
 else vb_tile(_overlayVB, _ddX, _ddY - 96, 1.62, 58, 84, make_color_rgb(30, 42, 58), 0.9);
 // counts printed flat ON the stacks (no billboarded labels) - drawn in a pass below
-var _deckCounts = [];
 array_push(_deckCounts, { cx: _ddX, cy: _ddY - 96, n: _deckN });
 if (_discN > 0) array_push(_deckCounts, { cx: _ddX, cy: _ddY, n: _discN });
 
@@ -584,6 +626,7 @@ for (var _op = 0; _op < 2; _op++) {
     vb_disc(_overlayVB, _oX, _oY, 2.4, 76, player_tint(_op), _oHover ? 0.42 : 0.16, 22);
     array_push(_deckCounts, { cx: _oX, cy: _oY, n: "ONION" });
 }
+} // end table-dressing (if !_stripDressing)
 
 // --- death FX: drain new death events (game.fx) into animated instances, then play
 // --- them all in parallel. Pikmin release a type-coloured spirit that floats up and
@@ -764,6 +807,7 @@ if (_numLabels > 0) {
         var _lbl = _labels[_i];
         draw_text_billboard(_lbl.labelX, _lbl.labelY, _lbl.labelZ, _lbl.labelText, _labelScale, _camRight, _camUp, _camFwd);
     }
+    draw_set_valign(fa_top);   // labels draw fa_bottom - reset so it can't leak into a later pass (e.g. the pause menu when deck counts are gated off)
     draw_set_font(fntMaru);
 }
 

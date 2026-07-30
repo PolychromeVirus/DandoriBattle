@@ -74,12 +74,20 @@ function data_load_all() {
     //  enemyHeal = survivors heal to full each sunset (harder); off = they stay hurt
     //  anims = beat pacing/settles/cinematics; OFF = instant resolution (fast games)
     //  (AI brains are picked per-seat on the menu, not here)
-    global.expRules = { red: true, blue: true, yellow: true, rush: true, enemyHeal: false, anims: true };
+    //  iceFreeze = ice pikmin >= ceil(hp/2) freeze an enemy (skip a turn); off = ice just damages
+    //  bossCap = max bosses per spawn instance: -1 no cap, 0 none, 1..5 that many
+    //  explodeEnemies = an explosive enemy's + blast also damages OTHER enemies (no reward)
+    global.expRules = { red: true, blue: true, yellow: true, rush: true, enemyHeal: false, anims: true, iceFreeze: true, bossCap: -1, explodeEnemies: false };
 
     // Persisted menu/options (seat choices + selection default + fullscreen). Defaults here;
     // settings_load() overlays whatever's saved in settings.ini from a previous run.
     global.settings = { ctl: ["human", "hard"], defaultSelectAll: false, fullscreen: false };
     settings_load();
+
+    // procedural "random" board as the last entry of the board list (regenerated on demand
+    // from the board-select screen; board_def_get / preview / game_new all resolve it by id)
+    array_push(global.boardData.boards, board_generate_random());
+    // the tutorial is a full scenario (scenario_tutorial), not a listed board - nothing to register.
 }
 
 #macro SETTINGS_FILE "settings.ini"
@@ -97,6 +105,9 @@ function settings_load() {
     _r.rush      = ini_read_real("rules", "rush",      _r.rush      ? 1 : 0) != 0;
     _r.enemyHeal = ini_read_real("rules", "enemyHeal", _r.enemyHeal ? 1 : 0) != 0;
     _r.anims     = ini_read_real("rules", "anims",     _r.anims     ? 1 : 0) != 0;
+    _r.iceFreeze = ini_read_real("rules", "iceFreeze", _r.iceFreeze ? 1 : 0) != 0;
+    _r.bossCap   = ini_read_real("rules", "bossCap",   _r.bossCap);
+    _r.explodeEnemies = ini_read_real("rules", "explodeEnemies", _r.explodeEnemies ? 1 : 0) != 0;
     var _s = global.settings;
     _s.ctl[0]           = ini_read_string("game", "p1", _s.ctl[0]);
     _s.ctl[1]           = ini_read_string("game", "p2", _s.ctl[1]);
@@ -116,6 +127,9 @@ function settings_save() {
     ini_write_real("rules", "rush",      _r.rush      ? 1 : 0);
     ini_write_real("rules", "enemyHeal", _r.enemyHeal ? 1 : 0);
     ini_write_real("rules", "anims",     _r.anims     ? 1 : 0);
+    ini_write_real("rules", "iceFreeze", _r.iceFreeze ? 1 : 0);
+    ini_write_real("rules", "bossCap",   _r.bossCap);
+    ini_write_real("rules", "explodeEnemies", _r.explodeEnemies ? 1 : 0);
     var _s = global.settings;
     ini_write_string("game", "p1", _s.ctl[0]);
     ini_write_string("game", "p2", _s.ctl[1]);
@@ -145,6 +159,16 @@ function treasure_def_get(_treasureId) {
         if (_defs[_i].id == _treasureId) return _defs[_i];
     }
     show_error("Unknown treasure: " + string(_treasureId), true);
+}
+
+/// Display name for a gather card - differentiates the two Candypop Buds by their colour set
+/// (classic RBY vs candypopbud2's rock/ice/winged = CMK); everything else uses the def name.
+function gather_display_name(_gatherId) {
+    switch (_gatherId) {
+        case "candypopbud":  return "Candypop Bud (RBY)";
+        case "candypopbud2": return "Candypop Bud (CMK)";
+        default:             return gather_def_get(_gatherId).name;
+    }
 }
 
 function gather_def_get(_gatherId) {

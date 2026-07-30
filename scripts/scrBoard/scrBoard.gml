@@ -138,6 +138,16 @@ function element_sprite(_element) {
     }
 }
 
+/// Card-decal tint for an enemy: light blue while ice-frozen (so it reads as frozen until it
+/// thaws), else plain white. Bitter/shock stuns keep their own indicators; only ice tints here.
+function enemy_card_tint(_enemy) {
+    if (_enemy != undefined
+        && variable_struct_exists(_enemy, "stunned") && _enemy.stunned > 0
+        && variable_struct_exists(_enemy, "stunnedBy") && _enemy.stunnedBy == "ice")
+        return make_color_rgb(150, 205, 255);
+    return c_white;
+}
+
 /// Distinct terrain hazards present in a board's lanes, in a stable display order.
 function board_hazards(_boardDef) {
     var _order = ["water", "fire", "ice", "poison", "height", "chasm"];
@@ -182,7 +192,9 @@ function board_structures(_boardDef) {
 }
 
 /// Distinct gather-card TYPE ids available to a board (setsCopies keyed by board number).
+/// A generated board carries its own `gatherTypes` list, so honour that when present.
 function board_gather_types(_boardDef) {
+    if (variable_struct_exists(_boardDef, "gatherTypes")) return _boardDef.gatherTypes;
     var _defs = global.gatherData.gather;
     var _key = string(_boardDef.setNumber);
     var _out = [];
@@ -191,6 +203,265 @@ function board_gather_types(_boardDef) {
         if (variable_struct_exists(_sc, _key) && _sc[$ _key] > 0) array_push(_out, _defs[_i].id);
     }
     return _out;
+}
+
+/// The fixed TUTORIAL board DEF: compact - 3 lanes x 4 spaces, each lane gated by its own hazard
+/// (space 0: water / fire / height, crossed by blue / red / yellow), an enemy space (1), an empty
+/// space (2), and a treasure at the lane end (3). Consumed by scenario_tutorial().
+function board_tutorial() {
+    var _hazByLane = ["water", "fire", "height"];   // lane 0/1/2 -> crossed by blue/red/yellow
+    var _lanes = [];
+    for (var _l = 0; _l < 3; _l++) {
+        var _hz = _hazByLane[_l];
+        array_push(_lanes, { name: "Lane " + string(_l + 1), spaces: [
+            { kind: "hazard", hazard: _hz },   // 0: hazard gates the lane (matching Pikmin only)
+            { kind: "enemy" },                 // 1: enemy space - bare until day 2 spawns Bulborbs
+            { kind: "plain" },                 // 2: empty space
+            { kind: "treasure" },              // 3: treasure (lane end)
+        ] });
+    }
+    var _basics = ["red", "blue", "yellow"];
+    var _die = [];
+    for (var _i = 0; _i < 3; _i++) { array_push(_die, { color: _basics[_i], value: 1 }); array_push(_die, { color: _basics[_i], value: 5 }); }
+    return {
+        id: "tutorial", name: "Tutorial", setNumber: 1, difficulty: "Tutorial",
+        treasureSet: 1, basicColors: _basics, killedIfThrownOut: false,
+        pelletDie: _die, structures: { bridges: ["bridge"], walls: ["wall"], emitters: [] },
+        lanes: _lanes,
+    };
+}
+
+/// Tutorial chapter 2 (item / double-move scene). 3 lanes, each just [plain, treasure] so the
+/// treasure sits at idx 1 - exactly TWO carry-steps from banking. No hazards, no enemy spaces.
+/// setNumber 3 = Underground Plateau (dark-stone / cave look). See scenario_tutorial2 (scrScenarios).
+function board_tutorial2() {
+    var _lanes = [];
+    for (var _l = 0; _l < 3; _l++) {
+        array_push(_lanes, { name: "Lane " + string(_l + 1), spaces: [
+            { kind: "plain" },      // 0: the one space between the treasure and home
+            { kind: "treasure" },   // 1: treasure, pre-advanced to 2 spaces from home
+        ] });
+    }
+    var _basics = ["red", "blue", "yellow"];
+    var _die = [];
+    for (var _i = 0; _i < 3; _i++) { array_push(_die, { color: _basics[_i], value: 1 }); array_push(_die, { color: _basics[_i], value: 5 }); }
+    return {
+        id: "tutorial2", name: "Tutorial", setNumber: 3, difficulty: "Tutorial",
+        treasureSet: 1, basicColors: _basics, killedIfThrownOut: false,
+        pelletDie: _die, structures: { bridges: ["bridge"], walls: ["wall"], emitters: [] },
+        lanes: _lanes,
+    };
+}
+
+/// Tutorial chapter 3 (treasure-pile scene). Middle lane all-empty with a two-card pile at idx 0
+/// (right in front of home); the two flanking lanes are all chasm with an unreachable treasure at
+/// the end (context: piles live across the board, some you can't reach). setNumber 13 = Tricky
+/// Staircase (golden-wood/steps look). See scenario_tutorial3 (scrScenarios).
+function board_tutorial3() {
+    var _lanes = [
+        { name: "Lane 1", spaces: [ {kind:"hazard",hazard:"chasm"}, {kind:"hazard",hazard:"chasm"}, {kind:"hazard",hazard:"chasm"}, {kind:"treasure"} ] },
+        { name: "Lane 2", spaces: [ {kind:"plain"}, {kind:"plain"}, {kind:"plain"}, {kind:"plain"} ] },  // pile placed at idx 0 by the scenario
+        { name: "Lane 3", spaces: [ {kind:"hazard",hazard:"chasm"}, {kind:"hazard",hazard:"chasm"}, {kind:"hazard",hazard:"chasm"}, {kind:"treasure"} ] },
+    ];
+    var _basics = ["red", "blue", "yellow"];
+    var _die = [];
+    for (var _i = 0; _i < 3; _i++) { array_push(_die, { color: _basics[_i], value: 1 }); array_push(_die, { color: _basics[_i], value: 5 }); }
+    return {
+        id: "tutorial3", name: "Tutorial", setNumber: 13, difficulty: "Tutorial",
+        treasureSet: 1, basicColors: _basics, killedIfThrownOut: false,
+        pelletDie: _die, structures: { bridges: ["bridge"], walls: ["wall"], emitters: [] },
+        lanes: _lanes,
+    };
+}
+
+// ============================ RANDOM BOARD GENERATOR ============================
+
+/// Re-roll the board list's "random" entry in place (same index, so the preview stays on it).
+function regenerate_random_board() {
+    var _boards = global.boardData.boards;
+    for (var _i = 0; _i < array_length(_boards); _i++) {
+        if (_boards[_i].id == "random") { _boards[_i] = board_generate_random(); return; }
+    }
+    array_push(_boards, board_generate_random());   // wasn't present (shouldn't happen)
+}
+
+/// Up to _k distinct random elements from _arr (partial Fisher-Yates on a copy).
+function rnd_subset(_arr, _k) {
+    var _n = array_length(_arr);
+    var _copy = array_create(_n);
+    array_copy(_copy, 0, _arr, 0, _n);
+    var _take = min(_k, _n);
+    for (var _i = 0; _i < _take; _i++) {
+        var _j = _i + irandom(_n - 1 - _i);
+        var _t = _copy[_i]; _copy[_i] = _copy[_j]; _copy[_j] = _t;
+    }
+    var _out = [];
+    for (var _i = 0; _i < _take; _i++) array_push(_out, _copy[_i]);
+    return _out;
+}
+
+/// Hazard-space count in a half-lane (array of {kind,...}).
+function rndlane_haz(_lane) {
+    var _c = 0;
+    for (var _i = 0; _i < array_length(_lane); _i++) if (_lane[_i].kind == "hazard") _c++;
+    return _c;
+}
+
+/// How many more of hazard _hz a half-lane may take: cap 2, or 3 if all its hazards are _hz.
+function rndlane_room(_lane, _hz) {
+    var _h = 0, _allSame = true;
+    for (var _i = 0; _i < array_length(_lane); _i++) {
+        if (_lane[_i].kind == "hazard") { _h++; if (_lane[_i].hazard != _hz) _allSame = false; }
+    }
+    return max(0, (_allSame ? 3 : 2) - _h);
+}
+
+/// Build a fresh procedural board def (id "random"). Mirror-symmetric 5x7; only places terrain
+/// hazards the kit can actually cross; custom decks (gather w/ rawmaterial guaranteed, random
+/// treasure subset sized like a normal deck, random enemy deck matching size + boss ratio).
+function board_generate_random() {
+    // --- 3 basic colours; pellet die built from them ---
+    var _basics = rnd_subset(["red", "blue", "yellow", "rock", "ice", "winged"], 3);
+
+    // --- gather pool: rawmaterial guaranteed + a random assortment of the rest ---
+    var _gTypes = ["rawmaterial"];
+    var _allG = global.gatherData.gather;
+    for (var _i = 0; _i < array_length(_allG); _i++) {
+        if (_allG[_i].id != "rawmaterial" && random(1) < 0.5) array_push(_gTypes, _allG[_i].id);
+    }
+
+    // --- accessible pikmin types (basics + candypop conversions) ---
+    var _acc = [];
+    for (var _i = 0; _i < array_length(_basics); _i++) array_push(_acc, _basics[_i]);
+    if (arr_has(_gTypes, "candypopbud"))  { array_push(_acc, "red");  array_push(_acc, "blue"); array_push(_acc, "yellow"); }
+    if (arr_has(_gTypes, "candypopbud2")) { array_push(_acc, "rock"); array_push(_acc, "ice");  array_push(_acc, "winged"); }
+
+    // --- placeable terrain hazards (crossability rules: only poison [DOT] + height are off-colour) ---
+    var _placeable = ["poison"];
+    if (arr_has(_acc, "blue"))                              array_push(_placeable, "water");
+    if (arr_has(_acc, "red"))                               array_push(_placeable, "fire");
+    if (arr_has(_acc, "ice"))                               array_push(_placeable, "ice");
+    if (arr_has(_acc, "winged"))                            array_push(_placeable, "chasm");
+    if (arr_has(_acc, "yellow") || arr_has(_acc, "winged")) array_push(_placeable, "height");
+    var _chosen = rnd_subset(_placeable, irandom_range(min(2, array_length(_placeable)), min(3, array_length(_placeable))));
+
+    // --- half-grid: 5 lanes x 3 spaces, all plain ---
+    var _half = [];
+    for (var _l = 0; _l < 5; _l++) _half[_l] = [{kind:"plain"}, {kind:"plain"}, {kind:"plain"}];
+
+    // --- place each chosen hazard type ---
+    var _cntW = [1, 1, 1, 1, 1, 2, 2, 3]; // per-lane count weights: heavily 1, sometimes 2, rarely 3
+    var _used3 = false;               // at most ONE lane on the whole board may hold 3 of a kind
+    var _n2 = 0;                      // lanes that received a 2-of-a-kind (cap 3)
+    for (var _c = 0; _c < array_length(_chosen); _c++) {
+        var _hz = _chosen[_c];
+        var _cand = [];
+        for (var _l = 0; _l < 5; _l++) {
+            if (rndlane_room(_half[_l], _hz) <= 0) continue;
+            var _hasPlain = false;
+            for (var _s = 0; _s < 3; _s++) if (_half[_l][_s].kind == "plain") _hasPlain = true;
+            if (_hasPlain) array_push(_cand, _l);
+        }
+        if (array_length(_cand) == 0) {          // fallback: wipe fewest-hazard lane's non-hazards
+            var _best = 0, _bestH = 99;
+            for (var _l = 0; _l < 5; _l++) { var _h = rndlane_haz(_half[_l]); if (_h < _bestH) { _bestH = _h; _best = _l; } }
+            for (var _s = 0; _s < 3; _s++) if (_half[_best][_s].kind != "hazard") _half[_best][_s] = {kind:"plain"};
+            _cand = [_best];
+        }
+        var _lns = rnd_subset(_cand, irandom_range(min(2, array_length(_cand)), min(3, array_length(_cand))));
+        for (var _li = 0; _li < array_length(_lns); _li++) {
+            var _l = _lns[_li];
+            var _plain = [];
+            for (var _s = 0; _s < 3; _s++) if (_half[_l][_s].kind == "plain") array_push(_plain, _s);
+            var _want = _cntW[irandom(array_length(_cntW) - 1)];
+            if (_want >= 3 && _used3) _want = 2;   // keep 3-of-a-kind to a single lane per board
+            if (_want == 2 && _n2 >= 3) _want = 1; // and no more than 3 lanes with a 2-of-a-kind
+            var _put = min(_want, rndlane_room(_half[_l], _hz), array_length(_plain));
+            if (_put >= 3) _used3 = true; else if (_put == 2) _n2++;
+            var _slots = rnd_subset(_plain, _put);
+            for (var _pi = 0; _pi < array_length(_slots); _pi++) _half[_l][_slots[_pi]] = {kind:"hazard", hazard:_hz};
+        }
+    }
+
+    // --- enemies on the leftover plains (~65%), with a floor so a board is never empty ---
+    var _plains = [];
+    for (var _l = 0; _l < 5; _l++)
+        for (var _s = 0; _s < 3; _s++)
+            if (_half[_l][_s].kind == "plain") array_push(_plains, {l: _l, s: _s});
+    var _eCount = 0;
+    for (var _i = 0; _i < array_length(_plains); _i++)
+        if (random(1) < 0.65) { _half[_plains[_i].l][_plains[_i].s] = {kind:"enemy"}; _eCount++; }
+    // guarantee a handful of enemy spaces even if the roll was stingy (promote leftover plains)
+    var _floor = min(4, array_length(_plains));
+    if (_eCount < _floor) {
+        var _left = [];
+        for (var _i = 0; _i < array_length(_plains); _i++)
+            if (_half[_plains[_i].l][_plains[_i].s].kind == "plain") array_push(_left, _plains[_i]);
+        var _promote = rnd_subset(_left, _floor - _eCount);
+        for (var _i = 0; _i < array_length(_promote); _i++) _half[_promote[_i].l][_promote[_i].s] = {kind:"enemy"};
+    }
+
+    // --- mirror into full 7-space lanes (space 3 = centre treasure) ---
+    var _lanes = [];
+    for (var _l = 0; _l < 5; _l++) {
+        var _sp = [];
+        _sp[0] = _half[_l][0]; _sp[1] = _half[_l][1]; _sp[2] = _half[_l][2];
+        _sp[3] = {kind:"treasure"};
+        _sp[4] = variable_clone(_half[_l][2]);
+        _sp[5] = variable_clone(_half[_l][1]);
+        _sp[6] = variable_clone(_half[_l][0]);
+        array_push(_lanes, {name: "Lane " + string(_l + 1), spaces: _sp});
+    }
+
+    // --- structures: basic wall + bridge always, plus random extras ---
+    var _walls = ["wall"];
+    var _ew = rnd_subset(["arachnodeweb", "crystalwall", "electricwall", "icewall"], irandom_range(0, 3));
+    for (var _i = 0; _i < array_length(_ew); _i++) array_push(_walls, _ew[_i]);
+    var _bridges = ["bridge"];
+    var _sb = rnd_subset(["climbingstick", "tunnel"], irandom_range(0, 2));
+    for (var _i = 0; _i < array_length(_sb); _i++) array_push(_bridges, _sb[_i]);
+    var _emitters = rnd_subset(["poisonemitter", "firegeyser", "waterspout", "electricitygenerator", "icevent"], irandom_range(1, 4));
+
+    // --- decks ---
+    var _gDeck = [];
+    for (var _i = 0; _i < array_length(_gTypes); _i++) {
+        repeat (max(1, gather_def_get(_gTypes[_i]).copies)) array_push(_gDeck, _gTypes[_i]);
+    }
+    var _allTIds = [];
+    for (var _i = 0; _i < array_length(global.treasureData.treasures); _i++) array_push(_allTIds, global.treasureData.treasures[_i].id);
+    var _tDeck = rnd_subset(_allTIds, array_length(deck_build_treasure(1)));   // same size as a normal deck
+    var _eRef = enemy_deck_build(1);                                          // reference for size + boss ratio
+    var _eTot = array_length(_eRef), _eBoss = 0;
+    for (var _i = 0; _i < _eTot; _i++) if (enemy_def_get(_eRef[_i]).boss) _eBoss++;
+    var _bossIds = [], _normIds = [];
+    var _allE = global.enemyData.enemies;
+    for (var _i = 0; _i < array_length(_allE); _i++) {
+        if (_allE[_i].boss) array_push(_bossIds, _allE[_i].id); else array_push(_normIds, _allE[_i].id);
+    }
+    var _eDeck = [];
+    for (var _i = 0; _i < _eBoss; _i++)         array_push(_eDeck, _bossIds[irandom(array_length(_bossIds) - 1)]);
+    for (var _i = 0; _i < _eTot - _eBoss; _i++) array_push(_eDeck, _normIds[irandom(array_length(_normIds) - 1)]);
+
+    var _die = [];
+    for (var _i = 0; _i < array_length(_basics); _i++) {
+        array_push(_die, {color: _basics[_i], value: 1});
+        array_push(_die, {color: _basics[_i], value: 5});
+    }
+
+    return {
+        id: "random",
+        name: "Random Board",
+        setNumber: irandom_range(1, 16),   // theme (sky + ground palette) only; decks are custom
+        difficulty: "Random",
+        treasureSet: 1,                    // unused - randomDecks override deck building
+        basicColors: _basics,
+        killedIfThrownOut: false,
+        pelletDie: _die,
+        structures: {bridges: _bridges, walls: _walls, emitters: _emitters},
+        lanes: _lanes,
+        gatherTypes: _gTypes,
+        randomDecks: {gather: _gDeck, treasure: _tDeck, enemy: _eDeck},
+    };
 }
 
 /// Flat board-game token sprite for a pikmin type (-1 for bulbmin, which has none).
@@ -239,13 +510,14 @@ function pikmin_tint(_typeId) {
 }
 
 /// Build the frozen vertex buffer for the board tiles + both home strips.
-function board_build_tile_vb(_boardState) {
+function board_build_tile_vb(_boardState, _solo = false) {
     var _vb = vertex_create_buffer();
     vertex_begin(_vb, vformat_3d());
     var _stripW  = _boardState.laneCount * (TILE_W + LANE_GAP);
     var _homeCol = make_color_rgb(222, 205, 160);
     vb_tile(_vb, 0, board_home_y(0), 0.5, _stripW, TILE_H, merge_color(_homeCol, player_tint(0), 0.35));
-    vb_tile(_vb, 0, board_home_y(1), 0.5, _stripW, TILE_H, merge_color(_homeCol, player_tint(1), 0.35));
+    // solo / co-op: only one player, no opponent home strip on the far side
+    if (!_solo) vb_tile(_vb, 0, board_home_y(1), 0.5, _stripW, TILE_H, merge_color(_homeCol, player_tint(1), 0.35));
     for (var _laneIdx = 0; _laneIdx < _boardState.laneCount; _laneIdx++) {
         var _spaces = _boardState.lanes[_laneIdx].spaces;
         for (var _spaceIdx = 0; _spaceIdx < array_length(_spaces); _spaceIdx++) {

@@ -30,6 +30,19 @@ function dtext_height(_str) {
     return string_height(_str) * UI_TS;
 }
 
+/// dtext with a dark semi-transparent backing strip, so a bare HUD hint stays legible over the
+/// busy 3D board (buttons already have a background; these loose lines did not). _col = text colour.
+function dtext_bg(_x, _y, _str, _col = c_white) {
+    var _w = dtext_width(_str), _h = dtext_height(_str), _pad = 5;
+    draw_set_alpha(0.6);
+    draw_set_color(make_color_rgb(14, 18, 24));
+    draw_rectangle(_x - _pad, _y - 2, _x + _w + _pad, _y + _h + 2, false);
+    draw_set_alpha(1);
+    draw_set_color(_col);
+    dtext(_x, _y, _str);
+    draw_set_color(c_white);
+}
+
 /// On-screen height of wrapped GUI-space text drawn via dtext_ext (_sep, _w in on-screen px).
 function dtext_height_ext(_str, _sep, _w) {
     return string_height_ext(_str, _sep / UI_TS, _w / UI_TS) * UI_TS;

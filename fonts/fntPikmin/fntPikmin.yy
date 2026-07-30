@@ -119,8 +119,8 @@
   "maintainGms1Font":false,
   "name":"fntPikmin",
   "parent":{
-    "name":"DandoriBattle",
-    "path":"DandoriBattle.yyp",
+    "name":"Fonts",
+    "path":"folders/Fonts.yy",
   },
   "pointRounding":0,
   "ranges":[

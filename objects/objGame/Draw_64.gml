@@ -36,6 +36,10 @@ if (mode == "menu") {
     var _mgx0 = device_mouse_x_to_gui(0);
     var _mgy0 = device_mouse_y_to_gui(0);
 
+    // screensaver: F1 on the main title (toggled in Step) hides the ENTIRE menu HUD -
+    // title, buttons, fullscreen toggle, everything - so you just watch the field. F1 restores it.
+    if (menuScreen == "main" && titleHideHud) exit;
+
     // fullscreen toggle (top-right corner on every menu screen; F11 works everywhere too)
     draw_set_font(fntMaru);
     if (ui_button(_guiW - 150, 12, 138, 28, window_get_fullscreen() ? "Windowed" : "Fullscreen")) {
@@ -47,16 +51,29 @@ if (mode == "menu") {
     if (menuScreen == "main") {
         draw_set_halign(fa_center);
         draw_set_font(fntPikmin);        // the title keeps the stylised Pikmin font
+        // PIKMIN, big - with a dark drop-shadow so it reads over the busy living background
+        draw_set_color(make_color_rgb(22, 30, 24));
+        draw_text_transformed(_guiW * 0.5 + 5, 138 + 5, "PIKMIN", 5.2 * UI_TS, 5.2 * UI_TS, 0);
         draw_set_color(make_color_rgb(255, 224, 120));
-        draw_text_transformed(_guiW * 0.5, 150, "DANDORI BATTLE", 4 * UI_TS, 4 * UI_TS, 0);
+        draw_text_transformed(_guiW * 0.5, 138, "PIKMIN", 5.2 * UI_TS, 5.2 * UI_TS, 0);
+        // "Dandori Battle!" as the subtitle (no subtitles-that-aren't-titles here)
+        draw_set_color(make_color_rgb(22, 30, 24));
+        draw_text_transformed(_guiW * 0.5 + 3, 250 + 3, "Dandori Battle!", 1.9 * UI_TS, 1.9 * UI_TS, 0);
+        draw_set_color(make_color_rgb(235, 245, 240));
+        draw_text_transformed(_guiW * 0.5, 250, "Dandori Battle!", 1.9 * UI_TS, 1.9 * UI_TS, 0);
         draw_set_font(fntMaru);
-        draw_set_color(make_color_rgb(200, 210, 205));
-        draw_text_transformed(_guiW * 0.5, 236, "A Pikmin tug-of-war", 1.2 * UI_TS, 1.2 * UI_TS, 0);
 
-        var _bw = 320, _bh = 56, _bx = _guiW * 0.5 - _bw * 0.5, _by = 330;
-        if (ui_button(_bx, _by,        _bw, _bh, "Play",    fntMaru)) menuScreen = "board";
-        if (ui_button(_bx, _by + 70,   _bw, _bh, "Options", fntMaru)) menuScreen = "options";
-        if (ui_button(_bx, _by + 140,  _bw, _bh, "Quit",    fntMaru)) game_end();
+        var _bw = 320, _bh = 54, _bx = _guiW * 0.5 - _bw * 0.5, _by = 312;
+        if (ui_button(_bx, _by,        _bw, _bh, "Play",        fntMaru)) menuScreen = "board";
+        if (ui_button(_bx, _by + 66,   _bw, _bh, "How to Play", fntMaru)) { start_tutorial(); exit; }
+        // TESTING: square numbered buttons jump straight to a specific tutorial scene (skip ahead).
+        // Final ship: gate these (locked until reached) and reuse for replaying a specific lesson.
+        var _tsN = array_length(tutorial_scenes());
+        for (var _ts = 0; _ts < _tsN; _ts++) {
+            if (ui_button(_bx + _bw + 10 + _ts * (_bh + 8), _by + 66, _bh, _bh, string(_ts + 1), fntMaru)) { start_tutorial(_ts); exit; }
+        }
+        if (ui_button(_bx, _by + 132,  _bw, _bh, "Options",     fntMaru)) menuScreen = "options";
+        if (ui_button(_bx, _by + 198,  _bw, _bh, "Quit",        fntMaru)) game_end();
 
         draw_set_halign(fa_left);
         draw_set_color(c_white);
@@ -74,43 +91,57 @@ if (mode == "menu") {
 
         if (ui_button(20, 16, 120, 30, "< Back")) menuScreen = "main";
 
-        // big, comfortable buttons in fntPikmin (there's plenty of vertical room)
-        var _ow = 400, _og = 24, _obh = 52, _orh = 64;
+        // big, comfortable buttons in fntMaru
+        var _ow = 400, _og = 24, _obh = 46, _orh = 56;
         var _ox0 = _guiW * 0.5 - _ow - _og * 0.5, _ox1 = _guiW * 0.5 + _og * 0.5;
 
-        // --- experimental rules (2 columns x 3) ---
+        // --- Gameplay (2 columns x 4) ---
         draw_set_halign(fa_center);
         draw_set_font(fntMaru);
         draw_set_color(make_color_rgb(200, 210, 205));
-        draw_text_transformed(_guiW * 0.5, 104, "Experimental Rules", 1.5 * UI_TS, 1.5 * UI_TS, 0);
-        draw_set_font(fntMaru);
+        draw_text_transformed(_guiW * 0.5, 96, "Gameplay", 1.5 * UI_TS, 1.5 * UI_TS, 0);
         draw_set_halign(fa_left);
 
-        var _oy = 140;
+        var _oy = 128;
         if (ui_button(_ox0, _oy,            _ow, _obh, "Reds Strike Twice: "     + (global.expRules.red       ? "ON" : "off"), fntMaru)) { global.expRules.red = !global.expRules.red;             save_settings(); }
         if (ui_button(_ox1, _oy,            _ow, _obh, "Blues Lifeguard: "       + (global.expRules.blue      ? "ON" : "off"), fntMaru)) { global.expRules.blue = !global.expRules.blue;           save_settings(); }
         if (ui_button(_ox0, _oy + _orh,     _ow, _obh, "Yellows Cross Chasms: "  + (global.expRules.yellow    ? "ON" : "off"), fntMaru)) { global.expRules.yellow = !global.expRules.yellow;       save_settings(); }
         if (ui_button(_ox1, _oy + _orh,     _ow, _obh, "2x Weight Rushes: "      + (global.expRules.rush      ? "ON" : "off"), fntMaru)) { global.expRules.rush = !global.expRules.rush;           save_settings(); }
         if (ui_button(_ox0, _oy + _orh * 2, _ow, _obh, "Enemies Heal At Sunset: "+ (global.expRules.enemyHeal ? "ON" : "off"), fntMaru)) { global.expRules.enemyHeal = !global.expRules.enemyHeal; save_settings(); }
-        if (ui_button(_ox1, _oy + _orh * 2, _ow, _obh, "Animations: "           + (global.expRules.anims     ? "ON" : "off"), fntMaru)) { global.expRules.anims = !global.expRules.anims;         save_settings(); }
+        if (ui_button(_ox1, _oy + _orh * 2, _ow, _obh, "Ice Pikmin Freeze Enemies: " + (global.expRules.iceFreeze ? "ON" : "off"), fntMaru)) { global.expRules.iceFreeze = !global.expRules.iceFreeze; save_settings(); }
+        var _capLbl = (global.expRules.bossCap == -1) ? "No Cap" : ((global.expRules.bossCap == 0) ? "No Bosses" : string(global.expRules.bossCap));
+        if (ui_button(_ox0, _oy + _orh * 3, _ow, _obh, "Cap Boss Spawns: " + _capLbl, fntMaru)) {
+            var _bc = global.expRules.bossCap;   // cycle 1..5 -> No Cap(-1) -> No Bosses(0) -> 1
+            global.expRules.bossCap = (_bc >= 1 && _bc < 5) ? (_bc + 1) : ((_bc == 5) ? -1 : ((_bc == -1) ? 0 : 1));
+            save_settings();
+        }
+        if (ui_button(_ox1, _oy + _orh * 3, _ow, _obh, "Explosions Damage Enemies: " + (global.expRules.explodeEnemies ? "ON" : "off"), fntMaru)) { global.expRules.explodeEnemies = !global.expRules.explodeEnemies; save_settings(); }
 
-        // --- interface ---
+        // --- Graphics ---
+        var _gfxHeadY = _oy + _orh * 4 + 18;
         draw_set_halign(fa_center);
         draw_set_font(fntMaru);
         draw_set_color(make_color_rgb(200, 210, 205));
-        draw_text_transformed(_guiW * 0.5, _oy + _orh * 3 + 16, "Interface", 1.5 * UI_TS, 1.5 * UI_TS, 0);
-        draw_set_font(fntMaru);
+        draw_text_transformed(_guiW * 0.5, _gfxHeadY, "Graphics", 1.5 * UI_TS, 1.5 * UI_TS, 0);
         draw_set_halign(fa_left);
+        var _gfxY = _gfxHeadY + 30;
+        if (ui_button(_ox0, _gfxY, _ow, _obh, "Animations: " + (global.expRules.anims ? "ON" : "off"), fntMaru)) { global.expRules.anims = !global.expRules.anims; save_settings(); }
+        if (ui_button(_ox1, _gfxY, _ow, _obh, window_get_fullscreen() ? "Display: Fullscreen" : "Display: Windowed", fntMaru)) { window_set_fullscreen(!window_get_fullscreen()); save_settings(); }
 
-        var _iy = _oy + _orh * 3 + 52;
+        // --- Interface ---
+        var _ifHeadY = _gfxY + _obh + 18;
+        draw_set_halign(fa_center);
+        draw_set_font(fntMaru);
+        draw_set_color(make_color_rgb(200, 210, 205));
+        draw_text_transformed(_guiW * 0.5, _ifHeadY, "Interface", 1.5 * UI_TS, 1.5 * UI_TS, 0);
+        draw_set_halign(fa_left);
+        var _iy = _ifHeadY + 30;
         if (ui_button(_ox0, _iy, _ow, _obh, "New-pick Default: " + (defaultSelectAll ? "ALL" : "NONE"), fntMaru)) { defaultSelectAll = !defaultSelectAll; save_settings(); }
-        if (ui_button(_ox1, _iy, _ow, _obh, window_get_fullscreen() ? "Display: Fullscreen" : "Display: Windowed", fntMaru)) { window_set_fullscreen(!window_get_fullscreen()); save_settings(); }
 
         draw_set_halign(fa_center);
         draw_set_font(fntMaru);
         draw_set_color(make_color_rgb(160, 170, 165));
-        draw_text_transformed(_guiW * 0.5, _iy + _obh + 22, "Changes are saved automatically", 1.2 * UI_TS, 1.2 * UI_TS, 0);
-        draw_set_font(fntMaru);
+        draw_text_transformed(_guiW * 0.5, _iy + _obh + 18, "Changes are saved automatically", 1.2 * UI_TS, 1.2 * UI_TS, 0);
         draw_set_halign(fa_left);
         draw_set_color(c_white);
         exit;
@@ -255,6 +286,12 @@ if (mode == "menu") {
     }
     draw_set_color(c_white);
 
+    // the procedural board gets a Regenerate button to re-roll its parameters
+    if (_pbd.id == "random" && ui_button(_pvR - 170, 48, 170, 32, "Regenerate", fntMaru)) {
+        regenerate_random_board();
+        exit;   // def just changed under us - bail this frame; next frame previews the new roll
+    }
+
     // HAZARDS - icon chips for each terrain hazard present on the board
     var _hazY = 138;
     draw_set_color(make_color_rgb(140, 200, 235));
@@ -362,13 +399,13 @@ if (paused) {
 
     draw_set_font(fntMaru);
     draw_set_halign(fa_center);
+    draw_set_valign(fa_top);   // establish our own text baseline - don't inherit a leaked valign from the 3D pass
     draw_set_color(make_color_rgb(255, 224, 120));
     draw_text_transformed(_px + _pw * 0.5, _py + 14, "PAUSED", 2.2 * UI_TS, 2.2 * UI_TS, 0);
     draw_set_color(make_color_rgb(200, 210, 205));
-    draw_text_transformed(_px + _pw * 0.5, _py + 50,
-        boardDef.name + "    -    Day " + string(game.dayNumber) + " (" + string(game.dayTrack) + "/" + string(global.rules.dayTrackLength) + ")"
-        + "    -    P1 " + string(game_realized_score(game, 0)) + "p  vs  P2 " + string(game_realized_score(game, 1)) + "p",
-        1.1 * UI_TS, 1.1 * UI_TS, 0);
+    var _pHdr = boardDef.name + "    -    Day " + string(game.dayNumber) + " (" + string(game.dayTrack) + "/" + string(global.rules.dayTrackLength) + ")";
+    if (!game.solo) _pHdr += "    -    P1 " + string(game_realized_score(game, 0)) + "p  vs  P2 " + string(game_realized_score(game, 1)) + "p"; // solo/co-op has no opponent to compare
+    draw_text_transformed(_px + _pw * 0.5, _py + 50, _pHdr, 1.1 * UI_TS, 1.1 * UI_TS, 0);
     draw_set_halign(fa_left);
     draw_set_color(c_white);
 
@@ -421,7 +458,7 @@ if (paused) {
     for (var _i = 0; _i < _nGa; _i++) {
         var _cxx = (_i < _half) ? _rx : (_rx + _rw * 0.5);
         var _cyy = _gy + ((_i < _half) ? _i : (_i - _half)) * 19;
-        dtext(_cxx, _cyy, "- " + gather_def_get(_gids[_i]).name);
+        dtext(_cxx, _cyy, "- " + gather_display_name(_gids[_i]));
     }
 
     var _hazY = _gy + _half * 19 + 22;
@@ -467,7 +504,10 @@ if (paused) {
     if (ui_button(_bx0 + (_bw2 + _bg2), _btnY, _bw2, 40, "Main Menu", fntMaru)) { paused = false; return_to_menu(); exit; }
     if (ui_button(_bx0 + (_bw2 + _bg2) * 2, _btnY, _bw2, 40, "Quit", fntMaru)) game_end();
 
+    // controls readout - only shown while paused (same bottom-of-screen spot it used to occupy)
     draw_set_halign(fa_left);
+    draw_set_color(make_color_rgb(200, 205, 215));
+    dtext(8, _guiH - 20, "Left: Select   Middle: Send All   Right-drag: Orbit Camera   WASD: Pan   Wheel: Zoom/Scroll   Alt: Inspect   V: Treasure   F2: Return to Menu");
     draw_set_color(c_white);
     exit;
 }
@@ -489,7 +529,7 @@ var _mgx = device_mouse_x_to_gui(0);
 var _mgy = device_mouse_y_to_gui(0);
 var _bestDist = 46;
 for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
-    for (var _spaceIdx = 0; _spaceIdx <= 6; _spaceIdx++) {
+    for (var _spaceIdx = 0; _spaceIdx < array_length(board.lanes[_laneIdx].spaces); _spaceIdx++) {
         var _wPos = board_space_xy(board, _laneIdx, _spaceIdx);
         var _scr = world_to_gui(_vp, _wPos[0], _wPos[1], 1);
         if (_scr == undefined) continue;
@@ -645,23 +685,23 @@ var _youB = game_bulbmin_count(game, _p);
 draw_set_color(make_color_rgb(200, 210, 222));
 dtext(_bx + 2, _midY, "= " + string(game_capped_count(game, _p)) + "/" + string(_capMax) + ((_youB > 0) ? ("  +" + string(_youB) + "b") : ""));
 
-// right: opponent compact ("player <poko> [x/25]") + phase
-var _opp = 1 - _p;
-var _oppB = game_bulbmin_count(game, _opp);
-var _oppCap = string(game_capped_count(game, _opp)) + "/" + string(_capMax) + ((_oppB > 0) ? ("+" + string(_oppB) + "b") : "");
+// right: opponent compact ("player <poko> [x/25]") + phase. Solo/co-op has no opponent - just phase.
 var _phaseName = game.phase == "gather" ? "GATHER" : (game.phase == "orders" ? "ORDERS" : (game.phase == "move" ? "MOVE" : "GAME OVER"));
 draw_set_color(c_white);
 draw_set_halign(fa_right);
-var _oppLbl = "vs P" + string(_opp + 1) + ((ctl[_opp] != "human") ? (" (" + _seatAiWord(_opp) + ")") : "");
-dtext(_guiW - 10, _midY, _oppLbl + " " + string(game_realized_score(game, _opp)) + "p [" + _oppCap + "]        " + _meLbl + " - " + _phaseName);
+if (game.solo) {
+    dtext(_guiW - 10, _midY, _meLbl + " - " + _phaseName);
+} else {
+    var _opp = 1 - _p;
+    var _oppB = game_bulbmin_count(game, _opp);
+    var _oppCap = string(game_capped_count(game, _opp)) + "/" + string(_capMax) + ((_oppB > 0) ? ("+" + string(_oppB) + "b") : "");
+    var _oppLbl = "vs P" + string(_opp + 1) + ((ctl[_opp] != "human") ? (" (" + _seatAiWord(_opp) + ")") : "");
+    dtext(_guiW - 10, _midY, _oppLbl + " " + string(game_realized_score(game, _opp)) + "p [" + _oppCap + "]        " + _meLbl + " - " + _phaseName);
+}
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 ui_block_rect(0, 0, _guiW, _barH);
-
-// controls hint
-draw_set_color(make_color_rgb(200, 205, 215));
-dtext(8, _guiH - 20, "Left: Select   Middle: Send All   Right-drag: Orbit Camera   WASD: Pan   Wheel: Zoom/Scroll   Alt: Inspect   V: Treasure   F2: Return to Menu");
-draw_set_color(c_white);
+// (the full controls readout now lives on the pause screen only - see the paused block above)
 
 // ---------- log panel (right) ----------
 var _logX = _guiW - 330;
@@ -711,47 +751,70 @@ if (logScroll > 0) {
 draw_set_color(c_white);
 ui_block_rect(_logX, 40, _guiW - 8 - _logX, _logH);
 
+// ---------- tutorial instruction banner (nine-sliced Pikmin text box, top-centre) ----------
+var _tStep = (tutorial != undefined) ? tutorial_step() : undefined;
+if (_tStep != undefined) {
+    var _isIntro = (_tStep.kind == "intro");   // intro = read + Continue; action = auto-advance
+    var _tbW = min(700, _guiW - 300);
+    var _tbX = (_guiW - _tbW) * 0.5;
+    var _tbY = 40;
+    // TUNING KNOBS for fitting the message inside the bubble art: frame insets, line spacing, scale,
+    // ink colour, and a min height so the nine-slice corners don't compress on short messages.
+    // bottom inset is larger than the top - the bubble's bottom frame/highlight is thicker (nine-slice 71 vs 61).
+    var _padX = 52, _padTop = 40, _padBot = 54, _sep = 26, _dsc = 1.45 * UI_TS;
+    draw_set_font(fntDialog);
+    draw_set_halign(fa_left); draw_set_valign(fa_top);
+    var _txtW = _tbW - _padX * 2;
+    var _txtH = string_height_ext(_tStep.text, _sep / _dsc, _txtW / _dsc) * _dsc;   // on-screen wrapped height
+    var _tbH  = max(120, _padTop + _txtH + (_isIntro ? 44 : 0) + _padBot);
+    draw_sprite_stretched(sprTextBox, 0, _tbX, _tbY, _tbW, _tbH);   // nine-slice: corners fixed, middle stretches
+    draw_set_color(c_white);   // white text - the bubble is mostly transparent
+    draw_text_ext_transformed(_tbX + _padX, _tbY + _padTop, _tStep.text, _sep / _dsc, _txtW / _dsc, _dsc, _dsc, 0);
+    draw_set_color(c_white);
+    if (_isIntro && ui_button(_tbX + _tbW - _padX - 130, _tbY + _padTop + _txtH + 8, 130, 30, "Continue", fntDialog)) {
+        tutorial_advance();   // steps within a scene, then scene-to-scene, then ends the tutorial
+    }
+    ui_block_rect(_tbX, _tbY, _tbW, _tbH);
+    draw_set_font(fntMaru);   // restore the body UI font - fntDialog would otherwise leak into later buttons/text
+}
+
 // ---------- phase controls (left column) ----------
 var _cy = 44;
 if (_cine) {
-    draw_set_color(make_color_rgb(255, 224, 120));
-    dtext(12, _cy, "Sunset - Time to return home!");
-    draw_set_color(c_white);
+    dtext_bg(12, _cy, "Sunset - Time to return home!", make_color_rgb(255, 224, 120));
 } else if (_locked) {
-    draw_set_color(make_color_rgb(200, 210, 220));
-    dtext(12, _cy, (game.pendingDiscard != undefined)
+    dtext_bg(12, _cy, (game.pendingDiscard != undefined)
         ? ("P" + string(game.pendingDiscard.playerIdx + 1) + " discards to the hand limit...")
-        : (turnSettling ? "..." : "Resolving..."));
-    draw_set_color(c_white);
+        : (turnSettling ? "..." : "Resolving..."), make_color_rgb(200, 210, 220));
 } else if (_freePending) {
     var _fpEntry = game.pendingFree[0];
-    draw_set_color(c_yellow);
-    dtext(12, _cy, "BOSS BOUNTY: P" + string(_fpEntry.playerIdx + 1) + " places " + string(_fpEntry.count) + " free hazard(s)");
-    draw_set_color(c_white);
+    dtext_bg(12, _cy, "BOSS BOUNTY: P" + string(_fpEntry.playerIdx + 1) + " places " + string(_fpEntry.count) + " free hazard(s)", c_yellow);
     _cy += 22;
-    dtext(12, _cy, _freeHuman ? "Pick a hazard type, then click an empty basic space." : "The AI is choosing its spot" + string_repeat(".", 1 + (frameTick div 20) mod 3));
+    dtext_bg(12, _cy, _freeHuman ? "Pick a hazard type, then click an empty basic space." : "The AI is choosing its spot" + string_repeat(".", 1 + (frameTick div 20) mod 3));
 } else if (_aiTurn) {
-    dtext(12, _cy, "AI is taking its turn" + string_repeat(".", 1 + (frameTick div 20) mod 3));
+    dtext_bg(12, _cy, "AI is taking its turn" + string_repeat(".", 1 + (frameTick div 20) mod 3));
 } else if (game.phase == "gather") {
-    dtext(12, _cy, "Gather actions left: " + string(game.gatherActionsLeft));
+    dtext_bg(12, _cy, "Gather actions left: " + string(game.gatherActionsLeft));
     _cy += 22;
-    if (ui_button(12, _cy, 220, 34, "Draw Gather Card (" + string(array_length(game.decks.gather)) + ")")) game_gather_draw(game);
-    _cy += 42;
-    if (ui_button(12, _cy, 220, 34, "Roll Pellet Die")) game_gather_roll(game);
+    // during the tutorial, hide Draw until a step opts in (showDraw:true) - gather cards aren't
+    // taught until later, and the early lesson is about rolling for Pellets.
+    if (tutorial_draw_shown()) {
+        if (ui_button(12, _cy, 220, 34, "Draw Gather Card (" + string(array_length(game.decks.gather)) + ")")) game_gather_draw(game);
+        _cy += 42;
+    }
+    if (tutorial_roll_shown()) {
+        if (ui_button(12, _cy, 220, 34, "Roll Pellet Die")) game_gather_roll(game);
+    }
 } else if (game.phase == "orders") {
     if (ui_button(12, _cy, 220, 34, "End Orders")) { game_orders_done(game); selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; }
     _cy += 42;
-    dtext(12, _cy, selSrc == undefined ? "Left-click pikmin to pick some; middle-click a space to send all there." : "Click a destination (or middle-click to send all).");
-    _cy += 24;
-    draw_set_color(make_color_rgb(170, 180, 190));
-    dtext(12, _cy, "Send Pikmin to Onion to DISCARD");
-    draw_set_color(c_white);
+    dtext_bg(12, _cy, "Send Pikmin to Onion to DISCARD", make_color_rgb(170, 180, 190));
     _cy += 24;
 } else if (game.phase == "move") {
     if (pendingCard == undefined) {
         if (ui_button(12, _cy, 260, 40, "Resolve Moves & End Turn")) { game_resolve_moves(game); selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; }
         _cy += 48;
-        dtext(12, _cy, "Play gather cards now by clicking them in your hand.");
+        dtext_bg(12, _cy, "Play gather cards now by clicking them in your hand.");
     } else {
         var _prompt = "";
         switch (pendingCard.stage) {
@@ -782,7 +845,7 @@ if (_cine) {
             case "build":    _prompt = "Build what?"; break;
             case "trade":    _prompt = "Trade which Pikmin?"; break;
         }
-        dtext(12, _cy, _prompt);
+        dtext_bg(12, _cy, _prompt);
         _cy += 26;
         if (ui_button(12, _cy, 150, 30, "Cancel")) pendingCard = undefined;
     }

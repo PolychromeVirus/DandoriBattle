@@ -87,7 +87,10 @@
       "Bash(python -c \"import json; d=json.load\\(open\\('datafiles/data/board_ai_difficulty.json'\\)\\); print\\(json.dumps\\(d['theminefield'], indent=2\\)\\); print\\(\\); print\\(json.dumps\\(d['thedoghouse'], indent=2\\)\\)\")",
       "Bash(python -c \"import json; b=json.load\\(open\\('datafiles/data/boards.json'\\)\\); bs=b['boards'] if isinstance\\(b,dict\\) else b; print\\(json.dumps\\(bs[0], indent=1\\)[:1400]\\)\")",
       "Bash(python -c \"import json; d=json.load\\(open\\('datafiles/data/dice.json'\\)\\); print\\(list\\(d.keys\\(\\)\\) if isinstance\\(d,dict\\) else '[list]'\\); import sys; v=d if isinstance\\(d,list\\) else d.get\\('dice',d\\); print\\(json.dumps\\(\\(v[0] if isinstance\\(v,list\\) else list\\(v.values\\(\\)\\)[0]\\), indent=1\\)[:600]\\)\")",
-      "Bash(python -c \"import json; p=json.load\\(open\\('datafiles/data/pikmin.json'\\)\\); print\\('top keys:', list\\(p.keys\\(\\)\\)\\)\")"
+      "Bash(python -c \"import json; p=json.load\\(open\\('datafiles/data/pikmin.json'\\)\\); print\\('top keys:', list\\(p.keys\\(\\)\\)\\)\")",
+      "Bash(sed -n '/function board_space_xy/,/^}/p' scripts/scrBoard/scrBoard.gml)",
+      "Bash(sed -n '/function board_home_y/,/^}/p' scripts/scrBoard/scrBoard.gml)",
+      "PowerShell(Select-String -Path \"DandoriBattle.yyp\" -Pattern \"sprTextBox|fntDialog\" | ForEach-Object { $_.Line.Trim\\(\\) })"
     ]
   }
 }

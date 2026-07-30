@@ -7,57 +7,32 @@
 
 // ---------- construction & setup ----------
 
-function game_new(_boardId) {
-    var _boardDef = board_def_get(_boardId);
-    var _g = {
-        boardDef: _boardDef,
-        board: board_create(_boardDef),
-        treasures: [],       // {cards:[treasureIds], lane, idx, boss:undefined|{enemyDefId, curHp, dead}}
-        players: [],
-        firstPlayer: 0,
-        activePlayer: 0,
-        phase: "gather",     // gather | orders | move | gameover
-        gatherActionsLeft: 0,
-        dayNumber: 1,
-        dayTrack: 1,
-        decks: {
-            gather: deck_build_gather(_boardDef.setNumber),
-            gatherDiscard: [],
-            treasure: deck_build_treasure(_boardDef.treasureSet),
-            enemy: enemy_deck_build(_boardDef.setNumber),
-            enemyDiscard: [],
-        },
-        sprays: [],          // {playerIdx, lane, idx} - ultra-spicy tokens
-        mines: [],           // {lane, idx, dmg} - arm at 10 pass-damage, then kill enders
-        decoys: [],          // {playerIdx, lane, idx, hp} - pikpik carrots soak enemy damage
-        pendingFree: [],     // {playerIdx, count} - boss bounty free hazard placements, killer first
-        pendingDiscard: undefined, // {playerIdx, need} - hand-limit overflow, owner picks; handoff waits
-        departing: [],       // {cards, playerIdx, lane, fromIdx, total} - piles animating home, scored on arrival
-        fx: [],              // presentation death events, drained by the controller (cosmetic; rules ignore it)
-        resolveQueue: [],    // pending resolution beats (controller pumps game_resolve_step)
-        jumpCue: "",         // "" | "pik" | "enemy" - renderer makes that side's fighters wind up
-        bombCue: undefined,  // {lane, idx} - Bomb Rock/Boulder telegraph target (strobe + ring)
-        sprayCue: false,     // spicy ignition beat - sprayed friendlies glow red
-        trace: [false, false], // per-seat human decision tracing (controller sets from ctl)
-        combatFights: undefined, // fights list persisted across staged combat beats
-        log: [],
-        winner: -1,
-    };
-    for (var _p = 0; _p < 2; _p++) {
-        array_push(_g.players, {
-            playerIdx: _p,
-            hand: [],        // gather card ids
-            pellets: [],     // pellet card ids
-            tokens: [],      // {typeId, loc}
-            score: 0,
-            collected: [],
-            turnsTaken: 0,
-        });
+/// _scenario (optional) IS a complete game struct (JSON-able) describing an EXACT starting state -
+/// solo flag, day, per-player Pikmin, placed treasures, decks, etc. When given, it's variable_cloned
+/// and the generative game_setup is skipped entirely. Built by scenario_* factories (scrBoard);
+/// reused by the tutorial + a future challenge mode.
+function game_new(_boardId, _scenario = undefined) {
+    // a scenario IS a complete game struct (JSON-able; defined in the scenarios script). Clone it
+    // so the template isn't mutated during play, init the turn, and skip all generative setup.
+    if (_scenario != undefined) {
+        var _g = variable_clone(_scenario);
+        game_begin_turn(_g);
+        return _g;
     }
+    var _boardDef = board_def_get(_boardId);
+    // start from the shared blank skeleton (scenario_base - the single source of truth for the _g
+    // schema, in scrScenarios), then apply the generative overrides a normal game needs.
+    var _g = scenario_base(_boardDef);
+    // a generated board carries its own decks; clone them so shuffling/consuming during play
+    // doesn't mutate the stored def (which persists on the board list)
+    var _rand = variable_struct_exists(_boardDef, "randomDecks");
+    _g.decks.gather   = _rand ? variable_clone(_boardDef.randomDecks.gather)   : deck_build_gather(_boardDef.setNumber);
+    _g.decks.treasure = _rand ? variable_clone(_boardDef.randomDecks.treasure) : deck_build_treasure(_boardDef.treasureSet);
+    _g.decks.enemy    = _rand ? variable_clone(_boardDef.randomDecks.enemy)    : enemy_deck_build(_boardDef.setNumber);
     deck_shuffle(_g.decks.gather);
     deck_shuffle(_g.decks.treasure);
     deck_shuffle(_g.decks.enemy);
-    game_setup(_g);
+    game_setup(_g);          // deals treasure piles, spawns enemies, grants starting Pikmin
     game_begin_turn(_g);
     return _g;
 }
@@ -124,10 +99,21 @@ function game_fx_spicy(_g, _lane, _idx) {
     array_push(_g.fx, { kind: "spicy", lane: _lane, idx: _idx });
 }
 
+/// Index of a lane's treasure space, or -1 if it has none. Lanes vary in length (the tutorial's
+/// short lanes, future adventure boards), so never assume the treasure sits at idx 3.
+function game_lane_treasure_idx(_g, _laneIdx) {
+    var _spaces = _g.board.lanes[_laneIdx].spaces;
+    for (var _i = 0; _i < array_length(_spaces); _i++) {
+        if (_spaces[_i].kind == "treasure") return _i;
+    }
+    return -1;
+}
+
 function game_setup(_g) {
     // treasure piles: deal face up until each pile is worth >= 500p
     for (var _laneIdx = 0; _laneIdx < _g.board.laneCount; _laneIdx++) {
-        if (_g.board.lanes[_laneIdx].spaces[3].kind != "treasure") continue;
+        var _trIdx = game_lane_treasure_idx(_g, _laneIdx);   // boards vary in length - not always idx 3
+        if (_trIdx < 0) continue;
         var _pile = [];
         var _pileVal = 0;
         while (_pileVal < global.rules.treasurePileMinValue && array_length(_g.decks.treasure) > 0) {
@@ -135,7 +121,7 @@ function game_setup(_g) {
             array_push(_pile, _cardId);
             _pileVal += treasure_def_get(_cardId).value;
         }
-        array_push(_g.treasures, { cards: _pile, lane: _laneIdx, idx: 3, boss: undefined });
+        array_push(_g.treasures, { cards: _pile, lane: _laneIdx, idx: _trIdx, boss: undefined });
     }
     game_fill_enemy_spaces(_g);
     // starting pikmin: 1 of each basic colour per HOME
@@ -175,6 +161,8 @@ function game_enemy_deck_ensure(_g) {
 /// _markNew flags freshly-spawned LANE enemies (`justSpawned`) so the day cinematic
 /// can pop in only the new arrivals, leaving survivors + bosses on screen.
 function game_fill_enemy_spaces(_g, _markNew = false) {
+    var _bossCap = global.expRules.bossCap;   // -1 no cap, 0 none, N = at most N this spawn
+    var _bossesPlaced = 0;
     for (var _laneIdx = 0; _laneIdx < _g.board.laneCount; _laneIdx++) {
         var _spaces = _g.board.lanes[_laneIdx].spaces;
         for (var _spaceIdx = 0; _spaceIdx < array_length(_spaces); _spaceIdx++) {
@@ -192,11 +180,15 @@ function game_fill_enemy_spaces(_g, _markNew = false) {
                 var _enemyId = array_pop(_g.decks.enemy);
                 var _enemyDef = enemy_def_get(_enemyId);
                 if (_enemyDef.boss) {
-                    var _pile = game_richest_bossless_pile(_g);
+                    // cap bosses per spawn instance: <0 no cap, 0 none, N = at most N
+                    var _capOk = (_bossCap < 0) || (_bossesPlaced < _bossCap);
+                    var _pile = _capOk ? game_richest_bossless_pile(_g) : undefined;
                     if (_pile != undefined) {
                         _pile.boss = { enemyDefId: _enemyId, curHp: _enemyDef.hp, dead: false };
+                        _bossesPlaced += 1;
                         game_log(_g, "BOSS " + _enemyDef.name + " guards the " + treasure_def_get(_pile.cards[array_length(_pile.cards) - 1]).name + " pile!");
                     } else {
+                        // no room (or capped): shuffle the boss back and keep drawing
                         array_insert(_g.decks.enemy, irandom(max(0, array_length(_g.decks.enemy) - 1)), _enemyId);
                     }
                     continue;
@@ -908,10 +900,17 @@ function game_discard_tokens_pay(_g, _p, _loc, _pay) {
 function game_spawn_enemy_at(_g, _lane, _idx) {
     var _space = _g.board.lanes[_lane].spaces[_idx];
     game_enemy_deck_ensure(_g);
+    var _noBosses = (global.expRules.bossCap == 0);
+    if (_noBosses) {   // guard: if bosses are disabled and only bosses remain, don't loop forever
+        var _anyNon = false;
+        for (var _d = 0; _d < array_length(_g.decks.enemy); _d++) if (!enemy_def_get(_g.decks.enemy[_d]).boss) { _anyNon = true; break; }
+        if (!_anyNon) return false;
+    }
     while (array_length(_g.decks.enemy) > 0) {
         var _enemyId = array_pop(_g.decks.enemy);
         var _enemyDef = enemy_def_get(_enemyId);
         if (_enemyDef.boss) {
+            if (_noBosses) { array_insert(_g.decks.enemy, irandom(max(0, array_length(_g.decks.enemy) - 1)), _enemyId); continue; }
             var _pile = game_richest_bossless_pile(_g);
             if (_pile != undefined) {
                 _pile.boss = { enemyDefId: _enemyId, curHp: _enemyDef.hp, dead: false };
@@ -1294,7 +1293,7 @@ function game_resolve_moves(_g) {
     // the beats when an engaged swift actually exists
     var _hasSwift = false;
     for (var _li = 0; _li < _g.board.laneCount && !_hasSwift; _li++) {
-        for (var _si2 = 0; _si2 <= 6 && !_hasSwift; _si2++) {
+        for (var _si2 = 0; _si2 < array_length(_g.board.lanes[_li].spaces) && !_hasSwift; _si2++) {
             var _se = _g.board.lanes[_li].spaces[_si2].enemy;
             if (_se != undefined && !_se.dead && enemy_def_get(_se.enemyDefId).attackElement == "swift"
                 && array_length(game_tokens_at(_g, _p, { kind: "space", lane: _li, idx: _si2 })) > 0) _hasSwift = true;
@@ -1904,6 +1903,30 @@ function game_toss_lane_tokens(_g, _p, _lane, _idx, _n, _dir) {
     return _tossed;
 }
 
+/// Explosive-enemy blast (option: explodeEnemies) damaging OTHER enemies on a space: the lane
+/// enemy + any boss there, minus the source. Killed enemies die WITHOUT reward or death
+/// abilities - the blast is the enemy's ATTACK, so there's no chain reaction.
+function game_blast_hit_enemies(_g, _lane, _idx, _dmg, _src) {
+    if (_lane < 0 || _lane >= _g.board.laneCount || _idx < 0 || _idx > 6) return;
+    var _hits = [];
+    var _space = _g.board.lanes[_lane].spaces[_idx];
+    if (_space.enemy != undefined && _space.enemy != _src && !_space.enemy.dead) array_push(_hits, { e: _space.enemy, boss: false });
+    var _t = game_treasure_at(_g, _lane, _idx);
+    if (_t != undefined && _t.boss != undefined && _t.boss != _src && !_t.boss.dead) array_push(_hits, { e: _t.boss, boss: true });
+    for (var _i = 0; _i < array_length(_hits); _i++) {
+        var _e = _hits[_i].e;
+        _e.curHp -= _dmg;
+        if (_e.curHp <= 0 && !_e.dead) {
+            _e.dead = true;
+            game_fx_enemy(_g, _e.enemyDefId, _lane, _idx, _hits[_i].boss);
+            array_push(_g.decks.enemyDiscard, _e.enemyDefId);
+            game_log(_g, enemy_def_get(_e.enemyDefId).name + " is caught in the blast!");
+        } else {
+            game_log(_g, enemy_def_get(_e.enemyDefId).name + " takes " + string(_dmg) + " blast damage (" + string(max(0, _e.curHp)) + " hp left).");
+        }
+    }
+}
+
 function game_enemy_attack(_g, _p, _f) {
     var _def = enemy_def_get(_f.enemy.enemyDefId);
     // bittered / frozen enemies skip their next action entirely
@@ -1937,6 +1960,7 @@ function game_enemy_attack(_g, _p, _f) {
                 if (_bl < 0 || _bl >= _g.board.laneCount || _bi < 0 || _bi > 6) continue;
                 game_fx_boom(_g, _bl, _bi);
                 for (var _q = 0; _q < 2; _q++) game_kill_tokens(_g, _q, _bl, _bi, game_decoy_absorb(_g, _q, _bl, _bi, _def.damage), _def, undefined);
+                if (global.expRules.explodeEnemies) game_blast_hit_enemies(_g, _bl, _bi, _def.damage, _f.enemy);
             }
         } else {
             game_kill_tokens(_g, _p, _f.lane, _f.idx, game_decoy_absorb(_g, _p, _f.lane, _f.idx, _def.damage), _def, _f);
@@ -2148,13 +2172,14 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
             if (_attackers[_a].typeId == "ice") _iceCount += 1;
         }
         var _alreadyStunned = variable_struct_exists(_f.enemy, "stunned") && _f.enemy.stunned > 0;
-        if (_iceCount > 0 && !_alreadyStunned) {
+        if (_iceCount > 0 && !_alreadyStunned && global.expRules.iceFreeze) {
             var _need = ceil(_f.enemy.curHp / 2);
             if (_iceCount >= _need) {
                 _iceQuota = _need;
-                _f.enemy.stunned = 1;
-                _f.enemy.stunnedBy = "ice";
-                game_log(_g, string(_need) + " ice pikmin freeze " + _def.name + " solid - it skips its turn!");
+                // freeze takes hold AFTER this combat: the enemy still retaliates now, then
+                // skips its NEXT action (stunned is applied at the end of the enemy pass below)
+                _f.enemy.iceFreezeNext = true;
+                game_log(_g, string(_need) + " ice pikmin freeze " + _def.name + " solid - it'll skip its next turn!");
             }
         }
 
@@ -2237,6 +2262,16 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
             var _def = enemy_def_get(_f.enemy.enemyDefId);
             if (!_f.enemy.dead) game_enemy_attack(_g, _p, _f);
             else if (_def.attackElement == "crush") game_enemy_attack(_g, _p, _f); // crushes even in death
+        }
+        // ice freeze now takes hold: iced enemies retaliated above, and are now frozen so they
+        // skip their NEXT action (rendered light-blue meanwhile)
+        for (var _fi = 0; _fi < array_length(_fights); _fi++) {
+            var _f = _fights[_fi];
+            if (!_f.enemy.dead && variable_struct_exists(_f.enemy, "iceFreezeNext") && _f.enemy.iceFreezeNext) {
+                _f.enemy.stunned = 1;
+                _f.enemy.stunnedBy = "ice";
+                _f.enemy.iceFreezeNext = false;
+            }
         }
     }
 
@@ -2387,7 +2422,8 @@ function game_end_turn(_g) {
     }
     // refill claimed treasure spaces - a lane should never sit empty
     for (var _laneIdx = 0; _laneIdx < _g.board.laneCount; _laneIdx++) {
-        if (_g.board.lanes[_laneIdx].spaces[3].kind != "treasure") continue;
+        var _trIdx = game_lane_treasure_idx(_g, _laneIdx);   // boards vary in length - not always idx 3
+        if (_trIdx < 0) continue;
         var _laneHasTreasure = false;
         for (var _ti = 0; _ti < array_length(_g.treasures); _ti++) {
             if (_g.treasures[_ti].lane == _laneIdx) { _laneHasTreasure = true; break; }
@@ -2401,7 +2437,7 @@ function game_end_turn(_g) {
             array_push(_pile, _cardId);
             _pileVal += treasure_def_get(_cardId).value;
         }
-        array_push(_g.treasures, { cards: _pile, lane: _laneIdx, idx: 3, boss: undefined });
+        array_push(_g.treasures, { cards: _pile, lane: _laneIdx, idx: _trIdx, boss: undefined });
         game_log(_g, "A new treasure pile surfaces in lane " + string(_laneIdx + 1) + " (" + string(_pileVal) + "p).");
     }
     // hand limit: the OWNER chooses what to toss (tabletop rule). The turn is
@@ -2419,6 +2455,13 @@ function game_end_turn(_g) {
 /// The deferred tail of game_end_turn: hand the turn over (runs immediately when
 /// the hand fits, or once the owner has discarded down to the limit).
 function game_end_turn_finish(_g) {
+    // solo mode (tutorial / adventure): no opposing seat, so each of the lone player's turns is a
+    // full round - advance the day track (rollover spawns enemies / ends the game) but never flip seats.
+    if (variable_struct_exists(_g, "solo") && _g.solo) {
+        game_advance_day(_g);
+        if (_g.phase != "gameover") game_begin_turn(_g);
+        return;
+    }
     _g.activePlayer = 1 - _g.activePlayer;
     if (_g.activePlayer == _g.firstPlayer) game_advance_day(_g);
     if (_g.phase != "gameover") game_begin_turn(_g);

@@ -5,8 +5,27 @@ frameTick += 1;
 // only when the window size actually changes (startup / F11 / manual resize).
 if (window_get_width() != lastWinW || window_get_height() != lastWinH) sync_resolution();
 
-// menu mode: nothing to simulate (board select is click-driven in the GUI event)
-if (mode != "playing") exit;
+// menu mode: nothing to simulate (board select is click-driven in the GUI event),
+// but the main title screen runs a decorative 3D background - advance its actors and
+// build a low, slowly-drifting "sitting on the field" camera so it renders behind the menu.
+if (mode != "playing") {
+    if (menuScreen == "main") {
+        if (keyboard_check_pressed(vk_f1)) titleHideHud = !titleHideHud; // screensaver: show/hide menu HUD
+        title_scene_update(titleScene);
+        var _ttx  = 45 * dsin(frameTick * 0.15);   // gentle lateral target drift
+        var _tyaw = 270 + 4 * dsin(frameTick * 0.10); // slow yaw sway
+        var _tpit = 6;                               // very low: horizon drops to ~40% down, sky clears the title
+        var _tdst = 540;
+        var _tcx = _ttx + dcos(_tyaw) * dcos(_tpit) * _tdst;
+        var _tcy =        dsin(_tyaw) * dcos(_tpit) * _tdst;
+        var _tcz =        dsin(_tpit) * _tdst;
+        viewMat = matrix_build_lookat(_tcx, _tcy, _tcz, _ttx, 0, 0, 0, 0, 1);
+        projMat = matrix_build_projection_perspective_fov(-60, -window_get_width() / window_get_height(), 1, 32000);
+        camera_set_view_mat(camera, viewMat);
+        camera_set_proj_mat(camera, projMat);
+    }
+    exit;
+}
 
 // Esc: cancel active targeting first; otherwise open/close the pause menu. While paused the
 // whole game is frozen here (only the pause-menu buttons, drawn in the GUI event, respond).
@@ -20,6 +39,10 @@ if (keyboard_check_pressed(vk_escape)) {
     }
 }
 if (paused) exit;
+
+// tutorial: action steps auto-advance on their done() condition; fail-and-retry steps reset to
+// their checkpoint. Intro steps advance via the Continue button (Draw). See tutorial_tick (Create).
+if (tutorial != undefined) tutorial_tick();
 
 // --- toggles ---
 if (keyboard_check_pressed(vk_space)) autoOrbit = !autoOrbit;
@@ -132,7 +155,7 @@ if (dayCine != undefined) {
     } else { // reveal the NEWLY-SPAWNED enemies one at a time (survivors + bosses stay put)
         var _enemyN = 0;
         for (var _l = 0; _l < game.board.laneCount; _l++) {
-            for (var _s = 0; _s <= 6; _s++) {
+            for (var _s = 0; _s < array_length(game.board.lanes[_l].spaces); _s++) {
                 var _en = game.board.lanes[_l].spaces[_s].enemy;
                 if (_en != undefined && variable_struct_exists(_en, "justSpawned") && _en.justSpawned) _enemyN += 1;
             }

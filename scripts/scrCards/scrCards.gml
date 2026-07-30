@@ -35,13 +35,29 @@ function card_back_type(_kind) {
     return _kind; // "gather" | "pellet" | "treasure" | "enemy"
 }
 
-/// Monster cards have per-board art: CARD<alias><boardNumber>.png. Resolve to the
-/// board-specific alias when that file exists, else fall back to the plain alias.
-/// (Checks file_exists directly so pre-export misses don't spam the debug log.)
+/// Monster cards have per-board art: CARD<alias><boardNumber>.png. Resolve to the board-specific
+/// file when it exists; else the plain CARD<alias>.png; else ANY board's art for this enemy
+/// (the procedural "random" board rolls a set that won't have every enemy's per-board export,
+/// so without this those cards showed no art). Result cached per (alias, boardNum) - the file
+/// scan would otherwise run on every card render. (Checks file_exists so misses don't spam logs.)
 function card_enemy_alias(_alias, _boardNum) {
+    if (!variable_global_exists("cardEnemyAliasCache")) global.cardEnemyAliasCache = {};
+    var _key = _alias + "#" + string(_boardNum);
+    if (variable_struct_exists(global.cardEnemyAliasCache, _key)) return global.cardEnemyAliasCache[$ _key];
+
+    var _res = _alias;                                   // last resort: text placeholder
     var _suffixed = _alias + string(_boardNum);
-    if (file_exists("cardimages/CARD" + _suffixed + ".png")) return _suffixed;
-    return _alias;
+    if (file_exists("cardimages/CARD" + _suffixed + ".png")) {
+        _res = _suffixed;
+    } else if (file_exists("cardimages/CARD" + _alias + ".png")) {
+        _res = _alias;
+    } else {
+        for (var _n = 1; _n <= 16; _n++) {
+            if (file_exists("cardimages/CARD" + _alias + string(_n) + ".png")) { _res = _alias + string(_n); break; }
+        }
+    }
+    global.cardEnemyAliasCache[$ _key] = _res;
+    return _res;
 }
 
 /// Free every runtime-loaded card sprite (game end, or after swapping art on disk).
@@ -53,6 +69,7 @@ function card_sprites_free() {
         if (_sprIdx != -1) sprite_delete(_sprIdx);
     }
     global.cardSpriteCache = {};
+    global.cardEnemyAliasCache = {};   // alias->file resolution is also disk-dependent
 }
 
 /// Draw one card image fitted to a target height at (_x, _y) = top-left, preserving
