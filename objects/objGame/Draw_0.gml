@@ -99,16 +99,20 @@ if (hoverKind == "space") {
         vb_tile(_overlayVB, _hp2[0], _hp2[1], 1.72, TILE_W + 8, TILE_H + 8, c_white, 0.28);
     }
 } else if (hoverKind == "home") {
-    vb_tile(_overlayVB, 0, board_home_y(hoverIdx), 1.72, board.laneCount * (TILE_W + LANE_GAP), TILE_H, c_white, 0.2);
+    vb_tile(_overlayVB, 0, board_home_y(board, hoverIdx), 1.72, board.laneCount * (TILE_W + LANE_GAP), TILE_H, c_white, 0.2);
 }
 if (selSrc != undefined) {
     if (selSrc.kind == "space") {
         var _sp2 = board_space_xy(board, selSrc.lane, selSrc.idx);
         vb_tile(_overlayVB, _sp2[0], _sp2[1], 1.74, TILE_W + 8, TILE_H + 8, make_color_rgb(255, 215, 90), 0.35);
     } else {
-        vb_tile(_overlayVB, 0, board_home_y(game.activePlayer), 1.74, board.laneCount * (TILE_W + LANE_GAP), TILE_H, make_color_rgb(255, 215, 90), 0.25);
+        vb_tile(_overlayVB, 0, board_home_y(board, game.activePlayer), 1.74, board.laneCount * (TILE_W + LANE_GAP), TILE_H, make_color_rgb(255, 215, 90), 0.25);
     }
 }
+
+// spaces past the board's midpoint (centerRow) are on the OPPONENT's half - fixture decals there
+// rotate 180deg to face that player. Solo/adventure boards have no opponent, so nothing flips.
+var _oppHalf = game.solo ? 100000 : board.centerRow;
 
 // --- flat element decals on hazard spaces ---
 for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
@@ -119,8 +123,7 @@ for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
         var _spacePos = board_space_xy(board, _laneIdx, _spaceIdx);
         var _hazSpr = element_sprite(_space.hazard);
         if (_hazSpr != -1) {
-            // opponent's half (space idx > 3): rotate the decal 180deg so it faces them
-            vb_tile_sprite(sprite_batches_vb(_spriteBatches, _hazSpr), _hazSpr, 0, _spacePos[0], _spacePos[1], 1.6, 52, c_white, 1, _spaceIdx > 3);
+            vb_tile_sprite(sprite_batches_vb(_spriteBatches, _hazSpr), _hazSpr, 0, _spacePos[0], _spacePos[1], 1.6, 52, c_white, 1, _spaceIdx > _oppHalf);
         }
     }
 }
@@ -161,7 +164,7 @@ for (var _di = array_length(game.departing) - 1; _di >= 0; _di--) {
     var _dp = game.departing[_di];
     if (!global.expRules.anims) { game_finalize_departing(game, _dp); continue; } // instant bank
     var _dFrom = board_space_xy(board, _dp.lane, _dp.fromIdx);
-    var _dHomeY = board_home_y(_dp.playerIdx);
+    var _dHomeY = board_home_y(board, _dp.playerIdx);
     if (!variable_struct_exists(_dp, "vx")) { _dp.vx = _dFrom[0]; _dp.vy = _dFrom[1]; }
     var _dpd = point_distance(_dp.vx, _dp.vy, _dFrom[0], _dHomeY);
     if (_dpd > 2.6) {
@@ -216,7 +219,7 @@ for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
         } else { // emitter: its element decal IS the visual
             if (_sDef.element != "") {
                 var _eSpr = element_sprite(_sDef.element);
-                if (_eSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _eSpr), _eSpr, 0, _sPos[0], _sPos[1], 1.62, 44, c_white, 1, _spaceIdx > 3);
+                if (_eSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _eSpr), _eSpr, 0, _sPos[0], _sPos[1], 1.62, 44, c_white, 1, _spaceIdx > _oppHalf);
             }
             array_push(_displayStructs, { sx: _sPos[0], sy: _sPos[1], sz: 28, hp: _struct.curHp });
         }
@@ -281,7 +284,7 @@ for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
         }
         var _ePos = board_space_xy(board, _laneIdx, _spaceIdx);
         var _cardSpr = card_sprite_get(card_enemy_alias(_enemy.enemyDefId, boardDef.setNumber));
-        if (_cardSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _cardSpr), _cardSpr, 0, _ePos[0], _ePos[1], 1.55, TILE_W, enemy_card_tint(_enemy), 1, _spaceIdx > 3);
+        if (_cardSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _cardSpr), _cardSpr, 0, _ePos[0], _ePos[1], 1.55, TILE_W, enemy_card_tint(_enemy), 1, _spaceIdx > _oppHalf);
         array_push(_displayEnemies, { inst: _enemy, ex: _ePos[0], ey: _ePos[1], el: _laneIdx, eidx: _spaceIdx, hasCard: (_cardSpr != -1) });
     }
 }
@@ -290,7 +293,7 @@ for (var _ti = 0; _ti < array_length(game.treasures); _ti++) {
     if (_t.boss == undefined) continue;
     var _bPos = board_space_xy(board, _t.lane, _t.idx);
     var _cardSpr = card_sprite_get(card_enemy_alias(_t.boss.enemyDefId, boardDef.setNumber));
-    if (_cardSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _cardSpr), _cardSpr, 0, _bPos[0], _bPos[1], 1.55, TILE_W, enemy_card_tint(_t.boss), 1, _t.idx > 3);
+    if (_cardSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _cardSpr), _cardSpr, 0, _bPos[0], _bPos[1], 1.55, TILE_W, enemy_card_tint(_t.boss), 1, _t.idx > _oppHalf);
     array_push(_displayEnemies, { inst: _t.boss, ex: _bPos[0], ey: _bPos[1] + 16, el: _t.lane, eidx: _t.idx, hasCard: (_cardSpr != -1) });
 }
 for (var _ei = 0; _ei < array_length(_displayEnemies); _ei++) {
@@ -382,7 +385,7 @@ for (var _p = 0; _p < 2; _p++) {
             _slot = variable_struct_exists(_clusterSlots, _key) ? _clusterSlots[$ _key] : 0;
             _clusterSlots[$ _key] = _slot + 1;
             _baseX = ((_slot mod _homeCols) - (_homeCols - 1) * 0.5) * 36;
-            _baseY = board_home_y(_p) + ((_slot div _homeCols) * 22 - 11);
+            _baseY = board_home_y(board, _p) + ((_slot div _homeCols) * 22 - 11);
             _dx = 0; _dy = 0;
         } else {
             _key = string(_p) + "_" + string(_tok.loc.lane) + "_" + string(_tok.loc.idx);
@@ -533,7 +536,7 @@ for (var _hp = 0; _hp < 2; _hp++) {
     // Own horde sits to the player's RIGHT (opponent's on their left). The y-flipped
     // projection mirrors world-x on screen, so P0's right = world -x, P1's = world +x.
     var _hAnchorX = (_hp == 0) ? -440 : 440;
-    var _hAnchorY = board_home_y(_hp) * 0.86;
+    var _hAnchorY = board_home_y(board, _hp) * 0.86;
     var _baseRad = 82;   // ground-layer spread
     var _perLayer = 12;  // items per layer before stacking on top
     var _layerH = 12;    // vertical step per layer (billboard base rests on the one below)
@@ -562,11 +565,13 @@ for (var _hp = 0; _hp < 2; _hp++) {
     }
 }
 
-// --- hands laid flat behind each home. Normally only the OPPONENT (P2) is shown, as
-// --- cardbacks (count + kind). When SPECTATING (neither seat is human) BOTH hands are
-// --- shown FACE-UP so an AI-vs-AI game can be watched card-by-card. ---
+// --- hands laid flat behind each home. Normally only the OPPONENT (the seat we're NOT
+// --- viewing from) is shown, as cardbacks - a count preview, no faces. When SPECTATING
+// --- (neither seat is human) BOTH hands are shown FACE-UP so an AI-vs-AI game can be
+// --- watched card-by-card. Each hand is rotated to face the seat it belongs to (like the
+// --- board fixtures), so from either player's camera the far hand reads as the enemy's. ---
 var _spectating = (ctl[0] != "human" && ctl[1] != "human");
-var _handPlayers = _spectating ? [0, 1] : [1]; // spectate: both; else just the far enemy
+var _handPlayers = _spectating ? [0, 1] : [1 - view_seat()]; // spectate: both; else the OTHER player
 for (var _hpI = 0; _hpI < array_length(_handPlayers); _hpI++) {
     var _hpN = _handPlayers[_hpI];
     var _hHand = game.players[_hpN].hand;
@@ -575,21 +580,24 @@ for (var _hpI = 0; _hpI < array_length(_handPlayers); _hpI++) {
     if (_handN == 0) continue;
     var _cbPitch = min(50, 520 / _handN); // spread, but keep the row on the board for big hands
     var _cbRowW = _cbPitch * (_handN - 1);
-    var _cbY = board_home_y(_hpN) + (_hpN == 1 ? 36 : -36); // just beyond (behind) each home
+    var _cbY = board_home_y(board, _hpN) + (_hpN == 1 ? 36 : -36); // just beyond (behind) each home
     for (var _hb = 0; _hb < _handN; _hb++) {
         var _cbGather = (_hb < array_length(_hHand));
         var _cbId = _cbGather ? _hHand[_hb] : _hPel[_hb - array_length(_hHand)];
         var _cbX = -_cbRowW * 0.5 + _hb * _cbPitch;
         var _cbSpr = _spectating ? card_sprite_get(_cbId) : -1; // face only when spectating
         if (_cbSpr == -1) _cbSpr = card_back_sprite_get(_cbGather ? "gather" : "pellet"); // else the back
-        if (_cbSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _cbSpr), _cbSpr, 0, _cbX, _cbY, 1.63, 56, c_white, 1);
+        if (_cbSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _cbSpr), _cbSpr, 0, _cbX, _cbY, 1.63, 56, c_white, 1, (_hpN == 1));
         else vb_tile(_overlayVB, _cbX, _cbY, 1.62, 38, 54, _cbGather ? make_color_rgb(58, 50, 74) : make_color_rgb(74, 62, 40), 0.95);
     }
 }
 
-// --- gather deck + discard: a flat decal off to the side at board centre. Shows the
-// --- LAST discarded card (face), with deck/discard counts; Alt-hover lists the pile. ---
-var _ddX = 380, _ddY = 0;
+// --- gather deck + discard: a flat decal off to the side at the board's MIDPOINT. Shows the
+// --- LAST discarded card (face), with deck/discard counts; Alt-hover lists the pile. (y=board
+// --- midpoint, not 0 - on a home-anchored solo board 0 is the near home, where the onion sits.) ---
+var _deckBnd = board_bounds_y(board, game.solo);
+var _deckMidY = (_deckBnd.minY + _deckBnd.maxY) * 0.5;
+var _ddX = 380, _ddY = _deckMidY;
 var _discN = array_length(game.decks.gatherDiscard);
 var _deckN = array_length(game.decks.gather);
 if (_discN > 0) {
@@ -607,7 +615,7 @@ if (_discN > 0) array_push(_deckCounts, { cx: _ddX, cy: _ddY, n: _discN });
 
 // --- treasure deck: face-down stack showing how many treasures remain to be dealt
 // --- (mirrors the gather deck on the opposite side of centre) ---
-var _tdX = -380, _tdY = 0;
+var _tdX = -380, _tdY = _deckMidY;
 var _tdN = array_length(game.decks.treasure);
 var _tdBackSpr = card_back_sprite_get("treasure");
 if (_tdBackSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _tdBackSpr), _tdBackSpr, 0, _tdX, _tdY, 1.63, 84, c_white, 1);
@@ -617,14 +625,14 @@ array_push(_deckCounts, { cx: _tdX, cy: _tdY, n: _tdN });
 // --- Onion discard zones: a circle to each player's LEFT (mirror of their treasure
 // --- horde), the horde-shadow footprint. Orders-phase pikmin sent here walk home
 // --- and are dismissed (game_order_discard) - a way to free token-cap space. ---
-for (var _op = 0; _op < 2; _op++) {
+for (var _op = 0; _op < (game.solo ? 1 : 2); _op++) {   // solo/adventure: no far player's onion
     var _oX = (_op == 0) ? 440 : -440;   // opposite side from the horde anchor
-    var _oY = board_home_y(_op) * 0.86;
+    var _oY = board_home_y(board, _op) * 0.86;
     var _oHover = (hoverKind == "onion" && hoverIdx == _op && _op == game.activePlayer);
     // lifted a hair off the ground plane so the tinted disc doesn't z-fight the floor
     vb_disc(_overlayVB, _oX, _oY, 2.2, 88, make_color_rgb(24, 20, 16), _oHover ? 0.45 : 0.26, 22);
     vb_disc(_overlayVB, _oX, _oY, 2.4, 76, player_tint(_op), _oHover ? 0.42 : 0.16, 22);
-    array_push(_deckCounts, { cx: _oX, cy: _oY, n: "ONION" });
+    array_push(_deckCounts, { cx: _oX, cy: _oY, n: "ONION", flip: (_op == 1) }); // seat 1's label faces the red side
 }
 } // end table-dressing (if !_stripDressing)
 
@@ -820,7 +828,10 @@ if (array_length(_deckCounts) > 0) {
     var _dcScale = 0.55;
     for (var _i = 0; _i < array_length(_deckCounts); _i++) {
         var _dc = _deckCounts[_i];
-        matrix_set(matrix_world, matrix_build(_dc.cx, _dc.cy, 3.4, 0, 0, 0, -_dcScale, -_dcScale, _dcScale));
+        // default (-,-) scale = a 180deg rotation that faces seat 0; a flipped label (owned by
+        // seat 1) uses (+,+) so it reads upright from the red side / seat-2 camera instead.
+        var _dcS = (variable_struct_exists(_dc, "flip") && _dc.flip) ? _dcScale : -_dcScale;
+        matrix_set(matrix_world, matrix_build(_dc.cx, _dc.cy, 3.4, 0, 0, 0, _dcS, _dcS, _dcScale));
         draw_set_color(c_white);
         draw_text(0, 0, string(_dc.n));
     }

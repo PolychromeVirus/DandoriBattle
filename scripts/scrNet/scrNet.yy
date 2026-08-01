@@ -1,9 +1,9 @@
 {
   "$GMScript":"v1",
-  "%Name":"scrScenarios",
+  "%Name":"scrNet",
   "isCompatibility":false,
   "isDnD":false,
-  "name":"scrScenarios",
+  "name":"scrNet",
   "parent":{
     "name":"Scripts",
     "path":"folders/Scripts.yy",

@@ -812,7 +812,7 @@ function ai4_gather_roll(_g, _p) {
     var _pel = _g.players[_p].pellets;
     var _die = _g.boardDef.pelletDie;
     var _dieHas5 = false;
-    for (var _i = 0; _i < array_length(_die); _i++) if (_die[_i].value >= 5) { _dieHas5 = true; break; }
+    for (var _i = 0; _i < array_length(_die); _i++) if (!(variable_struct_exists(_die[_i], "blank") && _die[_i].blank) && _die[_i].value >= 5) { _dieHas5 = true; break; } // skip blank faces
     if (_dieHas5) {
         var _has5 = false;
         for (var _i = 0; _i < array_length(_pel); _i++) if (pellet_def_get(_pel[_i]).sameTypeAmount >= 5) { _has5 = true; break; }

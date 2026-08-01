@@ -1,0 +1,4178 @@
+{
+ "_comment": "Adventure boards extracted from PikminCardReference.xlsx \"Campaign Maps\" by tools/extract_adventure.py. Home-anchored: treasure at the far end (idx 6), home near (idx 0). unmapped[] = overlay text with no game id yet.",
+ "scenarios": [
+  {
+   "name": "Stranded Captain",
+   "timed": true,
+   "boards": [
+    {
+     "id": "adv1_1",
+     "label": "ADV1.1",
+     "players": "(1,2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "kit": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 1,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 1,
+       "idx": 1,
+       "structId": "wall"
+      },
+      {
+       "lane": 1,
+       "idx": 4,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 3,
+       "idx": 2,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 0,
+       "structId": "firegeyser"
+      },
+      {
+       "lane": 4,
+       "idx": 2,
+       "structId": "wall"
+      }
+     ],
+     "placedEnemies": [],
+     "unmapped": []
+    },
+    {
+     "id": "adv1_2",
+     "label": "ADV1.2",
+     "players": "(1,2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "kit": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 3,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 1,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "firegeyser"
+      },
+      {
+       "lane": 3,
+       "idx": 0,
+       "structId": "firegeyser"
+      },
+      {
+       "lane": 3,
+       "idx": 3,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 0,
+       "structId": "wall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "burrowingsnagret"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "armoredcannonbeetle"
+      }
+     ],
+     "unmapped": []
+    },
+    {
+     "id": "adv1_3",
+     "label": "ADV1.3",
+     "players": "(1,2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "blue",
+      "yellow"
+     ],
+     "kit": [
+      "blue",
+      "yellow",
+      "purple"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 1,
+       "idx": 1,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "electricwall"
+      },
+      {
+       "lane": 3,
+       "idx": 2,
+       "structId": "wall"
+      },
+      {
+       "lane": 3,
+       "idx": 5,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 4,
+       "idx": 1,
+       "structId": "waterspout"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 0,
+       "idx": 6,
+       "enemyDefId": "puffstool"
+      },
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "beadylonglegs"
+      },
+      {
+       "lane": 4,
+       "idx": 6,
+       "enemyDefId": "goolix"
+      }
+     ],
+     "unmapped": []
+    },
+    {
+     "id": "adv1_4",
+     "label": "ADV1.4",
+     "players": "(1)",
+     "homeAnchored": true,
+     "basicColors": [
+      "blue"
+     ],
+     "kit": [
+      "blue",
+      "purple",
+      "white"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "poison"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "poison"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 3,
+       "structId": "wall"
+      },
+      {
+       "lane": 1,
+       "idx": 0,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 2,
+       "idx": 2,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 3,
+       "idx": 1,
+       "structId": "wall"
+      },
+      {
+       "lane": 3,
+       "idx": 3,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 0,
+       "structId": "poisonemitter"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 1,
+       "idx": 6,
+       "enemyDefId": "mamuta"
+      },
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "rangingbloyster"
+      },
+      {
+       "lane": 4,
+       "idx": 6,
+       "enemyDefId": "smokyprogg"
+      }
+     ],
+     "unmapped": []
+    },
+    {
+     "id": "adv1_5",
+     "label": "ADV1.5",
+     "players": "(1,2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "yellow"
+     ],
+     "kit": [
+      "yellow",
+      "purple",
+      "white"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "hazard",
+         "hazard": "poison"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "poison"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 2,
+       "structId": "electricitygenerator"
+      },
+      {
+       "lane": 0,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 1,
+       "idx": 4,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 4,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "poisonemitter"
+      },
+      {
+       "lane": 3,
+       "idx": 1,
+       "structId": "electricwall"
+      },
+      {
+       "lane": 4,
+       "idx": 0,
+       "structId": "poisonemitter"
+      },
+      {
+       "lane": 4,
+       "idx": 5,
+       "structId": "electricwall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 0,
+       "idx": 6,
+       "enemyDefId": "beadylonglegs"
+      },
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "burrowingsnagret"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "jumbobulborb"
+      }
+     ],
+     "unmapped": []
+    },
+    {
+     "id": "adv1_6",
+     "label": "ADV1.6",
+     "players": "(1,2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "kit": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 3,
+       "structId": "wall"
+      },
+      {
+       "lane": 0,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 1,
+       "idx": 0,
+       "structId": "firegeyser"
+      },
+      {
+       "lane": 1,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 4,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "electricwall"
+      },
+      {
+       "lane": 3,
+       "idx": 0,
+       "structId": "poisonemitter"
+      },
+      {
+       "lane": 3,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 1,
+       "structId": "electricitygenerator"
+      },
+      {
+       "lane": 4,
+       "idx": 5,
+       "structId": "wall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 0,
+       "idx": 6,
+       "enemyDefId": "raginglonglegs"
+      },
+      {
+       "lane": 1,
+       "idx": 6,
+       "enemyDefId": "armoredcannonbeetle"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "pileatedsnagret"
+      },
+      {
+       "lane": 4,
+       "idx": 6,
+       "enemyDefId": "emperorbulblax"
+      }
+     ],
+     "unmapped": [
+      {
+       "lane": 2,
+       "idx": 6,
+       "text": "SOVERIGN BULBLAX"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Home Planet Cultivation Restoration",
+   "timed": true,
+   "boards": [
+    {
+     "id": "adv2_1",
+     "label": "ADV2.1",
+     "players": "(1,2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "kit": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 3,
+       "structId": "wall"
+      },
+      {
+       "lane": 1,
+       "idx": 0,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 1,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 3,
+       "structId": "wall"
+      },
+      {
+       "lane": 3,
+       "idx": 2,
+       "structId": "firegeyser"
+      },
+      {
+       "lane": 3,
+       "idx": 3,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 5,
+       "structId": "wall"
+      }
+     ],
+     "placedEnemies": [],
+     "unmapped": []
+    },
+    {
+     "id": "adv2_2",
+     "label": "ADV2.2",
+     "players": "(1,2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "red",
+      "yellow"
+     ],
+     "kit": [
+      "red",
+      "yellow",
+      "rock"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 1,
+       "structId": "firegeyser"
+      },
+      {
+       "lane": 1,
+       "idx": 3,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "crystalwall"
+      },
+      {
+       "lane": 3,
+       "idx": 3,
+       "structId": "firegeyser"
+      },
+      {
+       "lane": 3,
+       "idx": 4,
+       "structId": "crystalwall"
+      },
+      {
+       "lane": 4,
+       "idx": 1,
+       "structId": "electricwall"
+      },
+      {
+       "lane": 4,
+       "idx": 5,
+       "structId": "wall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "armoredmawdad"
+      }
+     ],
+     "unmapped": []
+    },
+    {
+     "id": "adv2_3",
+     "label": "ADV2.3",
+     "players": "(1,2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "red",
+      "yellow"
+     ],
+     "kit": [
+      "red",
+      "yellow",
+      "rock"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 3,
+       "structId": "firegeyser"
+      },
+      {
+       "lane": 0,
+       "idx": 4,
+       "structId": "crystalwall"
+      },
+      {
+       "lane": 1,
+       "idx": 3,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 0,
+       "structId": "firegeyser"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 3,
+       "idx": 0,
+       "structId": "electricwall"
+      },
+      {
+       "lane": 3,
+       "idx": 5,
+       "structId": "crystalwall"
+      },
+      {
+       "lane": 4,
+       "idx": 1,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 5,
+       "structId": "crystalwall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 1,
+       "idx": 6,
+       "enemyDefId": "baldylonglegs"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "vehemothphosbat"
+      }
+     ],
+     "unmapped": []
+    },
+    {
+     "id": "adv2_4",
+     "label": "ADV2.4",
+     "players": "(1,3)",
+     "homeAnchored": true,
+     "basicColors": [
+      "blue"
+     ],
+     "kit": [
+      "blue",
+      "rock",
+      "winged"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 1,
+       "idx": 1,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "crystalwall"
+      },
+      {
+       "lane": 3,
+       "idx": 0,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 3,
+       "idx": 2,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 1,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 4,
+       "idx": 5,
+       "structId": "wall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 0,
+       "idx": 6,
+       "enemyDefId": "bug-eyedcrawmad"
+      },
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "sandbelchingmeerslug"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "burrowingsnagret"
+      }
+     ],
+     "unmapped": [
+      {
+       "lane": 0,
+       "idx": 0,
+       "text": "NET TRAP"
+      },
+      {
+       "lane": 1,
+       "idx": 2,
+       "text": "NET TRAP"
+      }
+     ]
+    },
+    {
+     "id": "adv2_5",
+     "label": "ADV2.5",
+     "players": "(1,2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "blue"
+     ],
+     "kit": [
+      "blue",
+      "rock",
+      "winged"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 0,
+       "structId": "wall"
+      },
+      {
+       "lane": 1,
+       "idx": 4,
+       "structId": "wall"
+      },
+      {
+       "lane": 3,
+       "idx": 5,
+       "structId": "wall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 1,
+       "idx": 6,
+       "enemyDefId": "scornetmaestro"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "burrowingsnagret"
+      },
+      {
+       "lane": 4,
+       "idx": 6,
+       "enemyDefId": "bloomcapbloyster"
+      }
+     ],
+     "unmapped": [
+      {
+       "lane": 0,
+       "idx": 5,
+       "text": "NET TRAP"
+      },
+      {
+       "lane": 2,
+       "idx": 1,
+       "text": "NET TRAP"
+      },
+      {
+       "lane": 3,
+       "idx": 0,
+       "text": "NET TRAP"
+      },
+      {
+       "lane": 4,
+       "idx": 3,
+       "text": "NET TRAP"
+      }
+     ]
+    },
+    {
+     "id": "adv2_6",
+     "label": "ADV2.6",
+     "players": "(2,3)",
+     "homeAnchored": true,
+     "basicColors": [
+      "yellow"
+     ],
+     "kit": [
+      "yellow",
+      "rock",
+      "winged"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 2,
+       "structId": "electricwall"
+      },
+      {
+       "lane": 0,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 1,
+       "idx": 1,
+       "structId": "electricitygenerator"
+      },
+      {
+       "lane": 2,
+       "idx": 1,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "crystalwall"
+      },
+      {
+       "lane": 3,
+       "idx": 1,
+       "structId": "crystalwall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 0,
+       "idx": 6,
+       "enemyDefId": "baldylonglegs"
+      },
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "quaggledmireclops"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "bug-eyedcrawmad"
+      },
+      {
+       "lane": 4,
+       "idx": 6,
+       "enemyDefId": "jumbobulborb"
+      }
+     ],
+     "unmapped": [
+      {
+       "lane": 1,
+       "idx": 4,
+       "text": "NET TRAP"
+      },
+      {
+       "lane": 4,
+       "idx": 2,
+       "text": "NET TRAP"
+      }
+     ]
+    },
+    {
+     "id": "adv2_7",
+     "label": "ADV2.7",
+     "players": "(1,2,3)",
+     "homeAnchored": true,
+     "basicColors": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "kit": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 4,
+       "structId": "wall"
+      },
+      {
+       "lane": 1,
+       "idx": 3,
+       "structId": "electricwall"
+      },
+      {
+       "lane": 2,
+       "idx": 1,
+       "structId": "electricitygenerator"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "crystalwall"
+      },
+      {
+       "lane": 3,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 1,
+       "structId": "firegeyser"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 0,
+       "idx": 6,
+       "enemyDefId": "beadylonglegs"
+      },
+      {
+       "lane": 1,
+       "idx": 6,
+       "enemyDefId": "pileatedsnagret"
+      },
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "plasmwraith"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "emperorbulblax"
+      },
+      {
+       "lane": 4,
+       "idx": 6,
+       "enemyDefId": "puffstool"
+      }
+     ],
+     "unmapped": []
+    }
+   ]
+  },
+  {
+   "name": "Glutton's Sweet Tooth",
+   "timed": false,
+   "boards": [
+    {
+     "id": "adv3_1",
+     "label": "ADV3.1",
+     "players": "(2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "kit": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "plain"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "plain"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 0,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 2,
+       "idx": 2,
+       "structId": "firegeyser"
+      },
+      {
+       "lane": 4,
+       "idx": 0,
+       "structId": "waterspout"
+      }
+     ],
+     "placedEnemies": [],
+     "unmapped": []
+    },
+    {
+     "id": "adv3_2",
+     "label": "ADV3.2",
+     "players": "(1,2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "blue",
+      "yellow"
+     ],
+     "kit": [
+      "blue",
+      "yellow",
+      "rock"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "plain"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 0,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 0,
+       "idx": 1,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 0,
+       "idx": 5,
+       "structId": "electricitygenerator"
+      },
+      {
+       "lane": 1,
+       "idx": 2,
+       "structId": "wall"
+      },
+      {
+       "lane": 3,
+       "idx": 2,
+       "structId": "crystalwall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 0,
+       "idx": 6,
+       "enemyDefId": "empressbulblax"
+      }
+     ],
+     "unmapped": []
+    },
+    {
+     "id": "adv3_3",
+     "label": "ADV3.3",
+     "players": "(1,2)",
+     "homeAnchored": true,
+     "basicColors": [
+      "yellow"
+     ],
+     "kit": [
+      "yellow",
+      "rock",
+      "ice"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "ice"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "ice"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "height"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 2,
+       "structId": "icewall"
+      },
+      {
+       "lane": 1,
+       "idx": 0,
+       "structId": "icevent"
+      },
+      {
+       "lane": 1,
+       "idx": 4,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 1,
+       "structId": "crystalwall"
+      },
+      {
+       "lane": 2,
+       "idx": 3,
+       "structId": "icevent"
+      },
+      {
+       "lane": 3,
+       "idx": 1,
+       "structId": "electricitygenerator"
+      },
+      {
+       "lane": 3,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 3,
+       "structId": "crystalwall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 1,
+       "idx": 6,
+       "enemyDefId": "snowfakefluttertail"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "giantbreadbug"
+      }
+     ],
+     "unmapped": []
+    },
+    {
+     "id": "adv3_4",
+     "label": "ADV3.4",
+     "players": "(1,3)",
+     "homeAnchored": true,
+     "basicColors": [
+      "blue"
+     ],
+     "kit": [
+      "blue",
+      "winged",
+      "ice"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "ice"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "ice"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "ice"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 0,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 0,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 1,
+       "idx": 5,
+       "structId": "wall"
+      },
+      {
+       "lane": 2,
+       "idx": 3,
+       "structId": "icevent"
+      },
+      {
+       "lane": 3,
+       "idx": 4,
+       "structId": "icewall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 0,
+       "idx": 6,
+       "enemyDefId": "beadylonglegs"
+      },
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "groovylonglegs"
+      },
+      {
+       "lane": 4,
+       "idx": 6,
+       "enemyDefId": "porquillion"
+      }
+     ],
+     "unmapped": [
+      {
+       "lane": 1,
+       "idx": 1,
+       "text": "NET TRAP"
+      }
+     ]
+    },
+    {
+     "id": "adv3_5",
+     "label": "ADV3.5",
+     "players": "(3)",
+     "homeAnchored": true,
+     "basicColors": [
+      "blue"
+     ],
+     "kit": [
+      "blue",
+      "winged",
+      "ice"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "water"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 1,
+       "idx": 1,
+       "structId": "waterspout"
+      },
+      {
+       "lane": 2,
+       "idx": 2,
+       "structId": "icewall"
+      },
+      {
+       "lane": 3,
+       "idx": 0,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 1,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 5,
+       "structId": "icevent"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 1,
+       "idx": 6,
+       "enemyDefId": "goolix"
+      },
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "raginglonglegs"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "arcticcannonbeetle"
+      }
+     ],
+     "unmapped": [
+      {
+       "lane": 0,
+       "idx": 1,
+       "text": "NET TRAP"
+      },
+      {
+       "lane": 1,
+       "idx": 4,
+       "text": "NET TRAP"
+      }
+     ]
+    },
+    {
+     "id": "adv3_6",
+     "label": "ADV3.6",
+     "players": "(1)",
+     "homeAnchored": true,
+     "basicColors": [
+      "red"
+     ],
+     "kit": [
+      "red",
+      "white",
+      "ice"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "ice"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "ice"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "ice"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "poison"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "poison"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "fire"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "poison"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 2,
+       "structId": "wall"
+      },
+      {
+       "lane": 1,
+       "idx": 1,
+       "structId": "firegeyser"
+      },
+      {
+       "lane": 1,
+       "idx": 4,
+       "structId": "icewall"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "poisonemitter"
+      },
+      {
+       "lane": 3,
+       "idx": 0,
+       "structId": "poisonemitter"
+      },
+      {
+       "lane": 3,
+       "idx": 1,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 0,
+       "structId": "icevent"
+      },
+      {
+       "lane": 4,
+       "idx": 1,
+       "structId": "icewall"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 0,
+       "idx": 6,
+       "enemyDefId": "masterhop"
+      },
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "gildemander"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "titanblowhog"
+      },
+      {
+       "lane": 4,
+       "idx": 6,
+       "enemyDefId": "blizzardingblowhog"
+      }
+     ],
+     "unmapped": []
+    },
+    {
+     "id": "adv3_7",
+     "label": "ADV3.7",
+     "players": "(1,3)",
+     "homeAnchored": true,
+     "basicColors": [
+      "red",
+      "blue",
+      "yellow"
+     ],
+     "kit": [
+      "white",
+      "rock",
+      "ice"
+     ],
+     "lanes": [
+      {
+       "name": "Lane 1",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "ice"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 2",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 3",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "ice"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 4",
+       "spaces": [
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "poison"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      },
+      {
+       "name": "Lane 5",
+       "spaces": [
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "poison"
+        },
+        {
+         "kind": "plain"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "enemy"
+        },
+        {
+         "kind": "hazard",
+         "hazard": "chasm"
+        },
+        {
+         "kind": "treasure"
+        }
+       ]
+      }
+     ],
+     "placedStructures": [
+      {
+       "lane": 0,
+       "idx": 0,
+       "structId": "poisonemitter"
+      },
+      {
+       "lane": 0,
+       "idx": 4,
+       "structId": "crystalwall"
+      },
+      {
+       "lane": 1,
+       "idx": 0,
+       "structId": "poisonemitter"
+      },
+      {
+       "lane": 1,
+       "idx": 1,
+       "structId": "wall"
+      },
+      {
+       "lane": 1,
+       "idx": 4,
+       "structId": "icevent"
+      },
+      {
+       "lane": 2,
+       "idx": 2,
+       "structId": "icewall"
+      },
+      {
+       "lane": 2,
+       "idx": 5,
+       "structId": "crystalwall"
+      },
+      {
+       "lane": 3,
+       "idx": 3,
+       "structId": "wall"
+      },
+      {
+       "lane": 4,
+       "idx": 0,
+       "structId": "crystalwall"
+      },
+      {
+       "lane": 4,
+       "idx": 2,
+       "structId": "poisonemitter"
+      }
+     ],
+     "placedEnemies": [
+      {
+       "lane": 0,
+       "idx": 6,
+       "enemyDefId": "titandweevil"
+      },
+      {
+       "lane": 1,
+       "idx": 6,
+       "enemyDefId": "smokyprogg"
+      },
+      {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "ancientsirehound"
+      },
+      {
+       "lane": 3,
+       "idx": 6,
+       "enemyDefId": "man-at-legs"
+      },
+      {
+       "lane": 4,
+       "idx": 6,
+       "enemyDefId": "segmentedcrawbster"
+      }
+     ],
+     "unmapped": []
+    }
+   ]
+  }
+ ]
+}

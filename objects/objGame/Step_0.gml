@@ -40,9 +40,30 @@ if (keyboard_check_pressed(vk_escape)) {
 }
 if (paused) exit;
 
+// online (mirror side): adopt any full state the opponent broadcast. boardDef travels with it, so
+// net_apply_state rebuilds the board buffers. Set netLastSent from OUR serialization of the adopted
+// state so we never echo it straight back to them.
+if (net_online() && (ctl[0] == "remote" || ctl[1] == "remote") && global.net.pendingState != undefined) {
+    net_apply_state(global.net.pendingState);
+    netLastSent = net_serialize_game(game);
+    global.net.pendingState = undefined;
+}
+
 // tutorial: action steps auto-advance on their done() condition; fail-and-retry steps reset to
 // their checkpoint. Intro steps advance via the Continue button (Draw). See tutorial_tick (Create).
-if (tutorial != undefined) tutorial_tick();
+if (tutorial != undefined) {
+    tutorial_tick();
+    if (tutorial == undefined) { return_to_menu(); exit; }   // tutorial just finished (action-step finale) -> menu
+}
+
+// gather-phase softlock guard: if the active human can't roll (the tutorial hides it) AND the gather
+// deck is truly empty (drawing can never produce a card), there's no way to spend a gather action -
+// so end the phase early instead of stranding them. Keys on the EMPTY DECK, not on the buttons being
+// hidden (Draw may appear on a later step). Never fires in a normal game - rolling is always up.
+if (game.phase == "gather" && ctl[game.activePlayer] == "human" && !tutorial_roll_shown()
+    && array_length(game.decks.gather) == 0 && array_length(game.decks.gatherDiscard) == 0) {
+    game.phase = "orders";
+}
 
 // --- toggles ---
 if (keyboard_check_pressed(vk_space)) autoOrbit = !autoOrbit;
@@ -208,7 +229,7 @@ if (dayCine != undefined || turnSettling || array_length(game.resolveQueue) > 0)
 // --- hand-limit overflow: an AI seat picks its own discards (one per tick); a
 // --- human seat resolves it via the modal picker in Draw_64 ---
 if (game.phase != "gameover" && game.pendingDiscard != undefined) {
-    if (ctl[game.pendingDiscard.playerIdx] != "human") {
+    if (ctl[game.pendingDiscard.playerIdx] != "human" && ctl[game.pendingDiscard.playerIdx] != "remote") {
         aiTickTimer += 1;
         if (aiTickTimer >= (global.expRules.anims ? 20 : 1)) {
             aiTickTimer = 0;
@@ -219,7 +240,7 @@ if (game.phase != "gameover" && game.pendingDiscard != undefined) {
         aiTickTimer = 0;
     }
 } else
-if (game.phase != "gameover" && array_length(game.pendingFree) > 0 && ctl[game.pendingFree[0].playerIdx] != "human") {
+if (game.phase != "gameover" && array_length(game.pendingFree) > 0 && ctl[game.pendingFree[0].playerIdx] != "human" && ctl[game.pendingFree[0].playerIdx] != "remote") {
     aiTickTimer += 1;
     if (aiTickTimer >= (global.expRules.anims ? 20 : 1)) {
         aiTickTimer = 0;
@@ -227,8 +248,9 @@ if (game.phase != "gameover" && array_length(game.pendingFree) > 0 && ctl[game.p
         if (_fhb == "v3" || _fhb == "v3b" || _fhb == "v4") ai3_place_free_hazard(game); else if (_fhb == "v2") ai2_place_free_hazard(game); else ai_place_free_hazard(game);
     }
 } else
-// --- AI turn: perform one chunk every ~third of a second so it's watchable ---
-if (game.phase != "gameover" && ctl[game.activePlayer] != "human" && array_length(game.pendingFree) == 0) {
+// --- AI turn: perform one chunk every ~third of a second so it's watchable. A "remote" seat is
+// NOT an AI - it waits for the opponent's networked state (Phase 2), so it's excluded here. ---
+if (game.phase != "gameover" && ctl[game.activePlayer] != "human" && ctl[game.activePlayer] != "remote" && array_length(game.pendingFree) == 0) {
     selSrc = undefined;
     pelletMenuIdx = -1;
     posyMenuIdx = -1;
@@ -289,8 +311,8 @@ if (keyboard_check(ord("S"))) { _panX -= _fwdX; _panY -= _fwdY; }
 if (keyboard_check(ord("D"))) { _panX += _rgtX; _panY += _rgtY; }
 if (keyboard_check(ord("A"))) { _panX -= _rgtX; _panY -= _rgtY; }
 if (_panX != 0 || _panY != 0) {
-    camTargetX = clamp(camTargetX + _panX * _panSpeed, -620, 620);
-    camTargetY = clamp(camTargetY + _panY * _panSpeed, -520, 520);
+    camTargetX = clamp(camTargetX + _panX * _panSpeed, panMinX, panMaxX);
+    camTargetY = clamp(camTargetY + _panY * _panSpeed, panMinY, panMaxY);
 }
 
 // --- camera position from spherical coordinates, z-up ---
@@ -302,3 +324,25 @@ viewMat = matrix_build_lookat(_camX, _camY, _camZ, camTargetX, camTargetY, camTa
 projMat = matrix_build_projection_perspective_fov(-60, -window_get_width() / window_get_height(), 1, 32000);
 camera_set_view_mat(camera, viewMat);
 camera_set_proj_mat(camera, projMat);
+
+// online (authoritative side): broadcast our state whenever it actually changes. Serialize once per
+// frame and only send on a real diff. `_my || netWasMyTurn` covers our whole turn PLUS the turn-flip
+// state after we resolve (so the peer learns it's their turn) - and stops the joiner from blasting
+// its placeholder during the host's turn. netLastSent is set on both send AND mirror, so no echo.
+if (net_online() && (ctl[0] == "remote" || ctl[1] == "remote")) {
+    var _my = (game.activePlayer == global.net.localSeat);
+    var _resolving = array_length(game.resolveQueue) > 0;
+    // During a resolve, send only the COMMITTED pre-resolve state, then hush and let both sides play
+    // the (deterministic) resolution locally - that's what kills the mid-animation stutter. And never
+    // rebroadcast a resolve we're merely REPLAYING off the wire (the peer sends the authoritative final).
+    if ((_my || netWasMyTurn) && !(_resolving && netResolveSent) && !netMirrorResolving) {
+        var _s = net_serialize_game(game);
+        if (_s != netLastSent) {
+            net_send(NETMSG.state, _s);
+            netLastSent = _s;
+            if (_resolving) netResolveSent = true;
+        }
+    }
+    if (!_resolving) netResolveSent = false;
+    netWasMyTurn = _my;
+}

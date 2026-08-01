@@ -320,3 +320,19 @@ function world_to_gui(_viewProj, _x, _y, _z) {
     var _ny = _v[1] / _v[3];
     return [(_nx * 0.5 + 0.5) * display_get_gui_width(), (_ny * 0.5 + 0.5) * display_get_gui_height()];
 }
+
+/// Is gui point (_px,_py) inside the convex quad a->b->c->d (each a [x,y])? A world rectangle projects
+/// to a convex quad, so the same-side-of-every-edge test works for either winding. Used to make a
+/// whole projected strip (e.g. a home row) clickable, not just sampled points along it.
+function point_in_convex_quad(_px, _py, _a, _b, _c, _d) {
+    var _pts = [_a, _b, _c, _d];
+    var _side = 0;
+    for (var _i = 0; _i < 4; _i++) {
+        var _p0 = _pts[_i];
+        var _p1 = _pts[(_i + 1) mod 4];
+        var _cross = (_p1[0] - _p0[0]) * (_py - _p0[1]) - (_p1[1] - _p0[1]) * (_px - _p0[0]);
+        var _s = sign(_cross);
+        if (_s != 0) { if (_side == 0) _side = _s; else if (_side != _s) return false; }
+    }
+    return true;
+}

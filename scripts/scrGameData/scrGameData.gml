@@ -81,13 +81,66 @@ function data_load_all() {
 
     // Persisted menu/options (seat choices + selection default + fullscreen). Defaults here;
     // settings_load() overlays whatever's saved in settings.ini from a previous run.
-    global.settings = { ctl: ["human", "hard"], defaultSelectAll: false, fullscreen: false };
+    // allSet = which shared power-card set (ALL1/ALL2) is mixed into every board's treasure deck in
+    // addition to its base set: 1, 2, or 0 = pick randomly each game. (The physical game has you choose
+    // ALL1 or ALL2 per play.)
+    global.settings = { ctl: ["human", "hard"], defaultSelectAll: false, fullscreen: false, allSet: 1 };
     settings_load();
 
     // procedural "random" board as the last entry of the board list (regenerated on demand
     // from the board-select screen; board_def_get / preview / game_new all resolve it by id)
     array_push(global.boardData.boards, board_generate_random());
     // the tutorial is a full scenario (scenario_tutorial), not a listed board - nothing to register.
+
+    // ADVENTURE (single-player campaign): scenarios of home-anchored boards pulled from the
+    // reference .xlsx by tools/extract_adventure.py. Loaded here, then finished into full board
+    // defs (setNumber/pelletDie/buildable-structures) so the chapter-select + game_new can use them.
+    global.adventureData = json_load_optional("data/adventure.json", { scenarios: [] });
+    adventure_build_defs();
+}
+
+/// Finish the raw extracted adventure boards into playable board DEFS: theme (setNumber), a pellet
+/// die from the basic colours, buildable structures, and display metadata. The lanes / homeAnchored /
+/// kit / placedStructures / placedEnemies fields come straight from the extractor. Idempotent-ish
+/// (only adds fields), called once at boot.
+function adventure_build_defs() {
+    var _setByScenario = [12, 8, 13];   // per-chapter theming: sand / grass / golden staircase
+    var _scens = global.adventureData.scenarios;
+    for (var _si = 0; _si < array_length(_scens); _si++) {
+        var _set = _setByScenario[_si mod array_length(_setByScenario)];
+        var _boards = _scens[_si].boards;
+        for (var _bi = 0; _bi < array_length(_boards); _bi++) {
+            var _b = _boards[_bi];
+            _b.setNumber = _set;
+            _b.name = _b.label;                 // e.g. "ADV1.1" - the chapter-select formats it nicer
+            _b.difficulty = "Adventure";
+            _b.treasureSet = 1;
+            _b.killedIfThrownOut = false;
+            _b.scenarioIdx = _si;
+            _b.boardIdx = _bi;
+            var _die = [];
+            var _bc = _b.basicColors;
+            for (var _ci = 0; _ci < array_length(_bc); _ci++) {
+                array_push(_die, { color: _bc[_ci], value: 1 });
+                array_push(_die, { color: _bc[_ci], value: 5 });
+            }
+            _b.pelletDie = _die;
+            // BUILDABLE structures (a default kit); the pre-placed fixtures live in placedStructures
+            _b.structures = { bridges: ["bridge"], walls: ["wall"], emitters: ["poisonemitter", "firegeyser", "waterspout"] };
+        }
+    }
+}
+
+/// Look up an adventure board def by id ("adv1_1"). undefined if not found.
+function adventure_board_get(_id) {
+    var _scens = global.adventureData.scenarios;
+    for (var _si = 0; _si < array_length(_scens); _si++) {
+        var _boards = _scens[_si].boards;
+        for (var _bi = 0; _bi < array_length(_boards); _bi++) {
+            if (_boards[_bi].id == _id) return _boards[_bi];
+        }
+    }
+    return undefined;
 }
 
 #macro SETTINGS_FILE "settings.ini"
@@ -113,6 +166,7 @@ function settings_load() {
     _s.ctl[1]           = ini_read_string("game", "p2", _s.ctl[1]);
     _s.defaultSelectAll = ini_read_real("game", "defaultSelectAll", _s.defaultSelectAll ? 1 : 0) != 0;
     _s.fullscreen       = ini_read_real("game", "fullscreen", _s.fullscreen ? 1 : 0) != 0;
+    _s.allSet           = ini_read_real("game", "allSet", _s.allSet);
     ini_close();
 }
 
@@ -135,6 +189,7 @@ function settings_save() {
     ini_write_string("game", "p2", _s.ctl[1]);
     ini_write_real("game", "defaultSelectAll", _s.defaultSelectAll ? 1 : 0);
     ini_write_real("game", "fullscreen", _s.fullscreen ? 1 : 0);
+    ini_write_real("game", "allSet", _s.allSet);
     ini_close();
 }
 

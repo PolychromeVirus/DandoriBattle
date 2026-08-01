@@ -30,22 +30,60 @@ function board_create(_boardDef) {
         }
         array_push(_boardState.lanes, _laneState);
     }
+    // --- board geometry metadata (drives all board->world placement below) ---
+    // maxSpaces = the longest lane; uniform = every lane the same length (all shipping 2-player
+    // boards are). centerRow = the space index that sits at world y=0:
+    //   * uniform boards CENTRE on their length (7 -> 3), preserving the legacy symmetric layout
+    //     and both homes at +/-4 pitch;
+    //   * irregular (adventure) boards HOME-ANCHOR at row 0 so every lane's home space lines up and
+    //     long lanes simply extend further out (there is no opposing far home in solo/adventure).
+    var _maxSp = 0, _minSp = 100000;
+    for (var _li = 0; _li < _boardState.laneCount; _li++) {
+        var _n = array_length(_boardState.lanes[_li].spaces);
+        _maxSp = max(_maxSp, _n);
+        _minSp = min(_minSp, _n);
+    }
+    _boardState.maxSpaces = _maxSp;
+    _boardState.uniform   = (_minSp == _maxSp);
+    // a board home-anchors if it declares homeAnchored (adventure: uniform length but ONE home, the
+    // treasure at the far end) OR if its lanes are irregular. Otherwise it centres (2-player boards).
+    var _homeAnchored = (variable_struct_exists(_boardDef, "homeAnchored") && _boardDef.homeAnchored) || !_boardState.uniform;
+    _boardState.homeAnchored = _homeAnchored;
+    _boardState.centerRow = _homeAnchored ? 0 : (_maxSp - 1) * 0.5;
+    // peakRow = the index the "toward centre / uphill" test (height crossing) references. A uniform
+    // 2-player board is a hill peaking at its shared centre (both homes climb toward it). A home-
+    // anchored solo board is a one-way ramp: the objective is the FAR end, so the peak sits beyond
+    // every lane (a large sentinel) - the whole lane is uphill when deploying, downhill retreating.
+    _boardState.peakRow = _homeAnchored ? 100000 : _boardState.centerRow;
     return _boardState;
 }
 
-/// World-space centre of a lane space. Index 3 (treasure) sits at y = 0.
+/// World-space centre of a lane space. centerRow sits at y = 0 (see board_create).
 function board_space_xy(_boardState, _laneIdx, _spaceIdx) {
     var _pitch = TILE_H + TILE_GAP;
     var _lanePitch = TILE_W + LANE_GAP;
     var _worldX = (_laneIdx - (_boardState.laneCount - 1) * 0.5) * _lanePitch;
-    var _worldY = (_spaceIdx - 3) * _pitch;
+    var _worldY = (_spaceIdx - _boardState.centerRow) * _pitch;
     return [_worldX, _worldY];
 }
 
-/// y coordinate of a player's HOME strip (player 0 = A/near side, 1 = B/far side).
-function board_home_y(_playerIdx) {
+/// y coordinate of a player's HOME strip (player 0 = A/near side, 1 = B/far side). Player 0's home
+/// sits one row before the nearest space; player 1's one row past the farthest. Derived from the
+/// board's own dimensions so short/long/irregular boards all place their homes correctly.
+function board_home_y(_boardState, _playerIdx) {
     var _pitch = TILE_H + TILE_GAP;
-    return (_playerIdx == 0) ? -4 * _pitch : 4 * _pitch;
+    var _c = _boardState.centerRow;
+    return (_playerIdx == 0) ? (-_c - 1) * _pitch : (_boardState.maxSpaces - _c) * _pitch;
+}
+
+/// World-Y extent of the board including the home strip(s). Solo boards have no far home, so the
+/// far edge is the longest lane's last row. Used to frame the camera + set pan limits.
+function board_bounds_y(_boardState, _solo = false) {
+    var _pitch = TILE_H + TILE_GAP;
+    var _minY = board_home_y(_boardState, 0);
+    var _maxY = _solo ? (_boardState.maxSpaces - 1 - _boardState.centerRow) * _pitch
+                      : board_home_y(_boardState, 1);
+    return { minY: _minY - TILE_H * 0.5, maxY: _maxY + TILE_H * 0.5 };
 }
 
 /// Checkerboard ground colours themed per board set (2 = checker pair; board 15's
@@ -268,6 +306,50 @@ function board_tutorial3() {
     for (var _i = 0; _i < 3; _i++) { array_push(_die, { color: _basics[_i], value: 1 }); array_push(_die, { color: _basics[_i], value: 5 }); }
     return {
         id: "tutorial3", name: "Tutorial", setNumber: 13, difficulty: "Tutorial",
+        treasureSet: 1, basicColors: _basics, killedIfThrownOut: false,
+        pelletDie: _die, structures: { bridges: ["bridge"], walls: ["wall"], emitters: [] },
+        lanes: _lanes,
+    };
+}
+
+/// Tutorial chapter 4 (crush/rock, then chasm/winged, then swift). Frigid Wasteland (setNumber 7).
+/// Lane 1 [enemy, enemy, treasure] = two Wollyhops (CRUSH: stomp non-immune pikmin even in death;
+/// rock is crush-immune) guarding a weight-1 treasure. Lane 2 [chasm, enemy, treasure] = a chasm
+/// only Winged can cross, then a swift 1/1 guarding another weight-1 treasure. All enemies/pikmin
+/// placed by scenario_tutorial4. Only red pellets (roll is hidden anyway).
+function board_tutorial4() {
+    var _lanes = [
+        { name: "Lane 1", spaces: [ {kind:"enemy"}, {kind:"enemy"}, {kind:"treasure"} ] },
+        { name: "Lane 2", spaces: [ {kind:"hazard", hazard:"chasm"}, {kind:"enemy"}, {kind:"treasure"} ] },
+    ];
+    var _die = [];
+    repeat (6) array_push(_die, { blank: true });   // BARREN die: no rolls grant pellets (so Wollyhop rewards give nothing)
+    return {
+        id: "tutorial4", name: "Tutorial", setNumber: 7, difficulty: "Tutorial",
+        treasureSet: 1, basicColors: ["red"], killedIfThrownOut: false,
+        pelletDie: _die, structures: { bridges: ["bridge"], walls: ["wall"], emitters: [] },
+        lanes: _lanes,
+    };
+}
+
+/// DEV: an IRREGULAR solo board to exercise the adventure geometry groundwork - four lanes of
+/// DIFFERENT lengths (3/8/5/10), each with its treasure at the FAR end. Non-uniform => the board
+/// HOME-ANCHORS (centerRow 0): every lane's home space lines up and the long lanes extend far out,
+/// with only the near home strip (solo). A couple of hazards/enemies check that fixture decals still
+/// face the player (no opponent to flip toward). See scenario_advtest / start_advtest.
+function board_advtest() {
+    var _lanes = [
+        { name: "Short",   spaces: [ {kind:"plain"}, {kind:"enemy"}, {kind:"treasure"} ] },                                                        // 3
+        { name: "Long",    spaces: [ {kind:"plain"}, {kind:"plain"}, {kind:"hazard",hazard:"water"}, {kind:"plain"}, {kind:"enemy"}, {kind:"plain"}, {kind:"plain"}, {kind:"treasure"} ] }, // 8
+        { name: "Medium",  spaces: [ {kind:"plain"}, {kind:"hazard",hazard:"fire"}, {kind:"plain"}, {kind:"enemy"}, {kind:"treasure"} ] },          // 5
+        { name: "Longest", spaces: [ {kind:"plain"}, {kind:"plain"}, {kind:"plain"}, {kind:"enemy"}, {kind:"plain"}, {kind:"hazard",hazard:"height"}, {kind:"plain"}, {kind:"plain"}, {kind:"plain"}, {kind:"treasure"} ] }, // 10
+        { name: "Mid",     spaces: [ {kind:"plain"}, {kind:"plain"}, {kind:"enemy"}, {kind:"plain"}, {kind:"plain"}, {kind:"treasure"} ] },          // 6
+    ];
+    var _basics = ["red", "blue", "yellow"];
+    var _die = [];
+    for (var _i = 0; _i < 3; _i++) { array_push(_die, { color: _basics[_i], value: 1 }); array_push(_die, { color: _basics[_i], value: 5 }); }
+    return {
+        id: "advtest", name: "Adventure Test", setNumber: 8, difficulty: "Dev",
         treasureSet: 1, basicColors: _basics, killedIfThrownOut: false,
         pelletDie: _die, structures: { bridges: ["bridge"], walls: ["wall"], emitters: [] },
         lanes: _lanes,
@@ -515,9 +597,9 @@ function board_build_tile_vb(_boardState, _solo = false) {
     vertex_begin(_vb, vformat_3d());
     var _stripW  = _boardState.laneCount * (TILE_W + LANE_GAP);
     var _homeCol = make_color_rgb(222, 205, 160);
-    vb_tile(_vb, 0, board_home_y(0), 0.5, _stripW, TILE_H, merge_color(_homeCol, player_tint(0), 0.35));
+    vb_tile(_vb, 0, board_home_y(_boardState, 0), 0.5, _stripW, TILE_H, merge_color(_homeCol, player_tint(0), 0.35));
     // solo / co-op: only one player, no opponent home strip on the far side
-    if (!_solo) vb_tile(_vb, 0, board_home_y(1), 0.5, _stripW, TILE_H, merge_color(_homeCol, player_tint(1), 0.35));
+    if (!_solo) vb_tile(_vb, 0, board_home_y(_boardState, 1), 0.5, _stripW, TILE_H, merge_color(_homeCol, player_tint(1), 0.35));
     for (var _laneIdx = 0; _laneIdx < _boardState.laneCount; _laneIdx++) {
         var _spaces = _boardState.lanes[_laneIdx].spaces;
         for (var _spaceIdx = 0; _spaceIdx < array_length(_spaces); _spaceIdx++) {

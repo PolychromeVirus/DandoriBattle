@@ -90,7 +90,8 @@
       "Bash(python -c \"import json; p=json.load\\(open\\('datafiles/data/pikmin.json'\\)\\); print\\('top keys:', list\\(p.keys\\(\\)\\)\\)\")",
       "Bash(sed -n '/function board_space_xy/,/^}/p' scripts/scrBoard/scrBoard.gml)",
       "Bash(sed -n '/function board_home_y/,/^}/p' scripts/scrBoard/scrBoard.gml)",
-      "PowerShell(Select-String -Path \"DandoriBattle.yyp\" -Pattern \"sprTextBox|fntDialog\" | ForEach-Object { $_.Line.Trim\\(\\) })"
+      "PowerShell(Select-String -Path \"DandoriBattle.yyp\" -Pattern \"sprTextBox|fntDialog\" | ForEach-Object { $_.Line.Trim\\(\\) })",
+      "Bash(python tools/extract_adventure.py)"
     ]
   }
 }

@@ -51,11 +51,24 @@ function deck_build_gather(_setNumber = 1) {
     return _deck;
 }
 
+/// Which shared power-card set ("ALL1"/"ALL2") to mix in this game, honoring the options setting
+/// (global.settings.allSet: 1, 2, or 0 = random each build).
+function all_set_tag() {
+    var _c = (variable_global_exists("settings") && variable_struct_exists(global.settings, "allSet"))
+             ? global.settings.allSet : 1;
+    if (_c != 1 && _c != 2) _c = irandom_range(1, 2);   // 0 / anything else = random each game
+    return "ALL" + string(_c);
+}
+
+/// A board's treasure deck = its base numeric set PLUS the chosen shared ALL* power set (the Good/Bad
+/// on-bank cards, which belong to every board). Adventure boards pass their own set (A1/A2/A3).
 function deck_build_treasure(_treasureSet) {
     var _deck = [];
     var _defs = global.treasureData.treasures;
+    var _allTag = all_set_tag();
     for (var _i = 0; _i < array_length(_defs); _i++) {
-        if (_treasureSet == "all" || _defs[_i].set == _treasureSet) {
+        var _s = _defs[_i].set;
+        if (_treasureSet == "all" || _s == _treasureSet || _s == _allTag) {
             repeat (_defs[_i].copies) array_push(_deck, _defs[_i].id);
         }
     }
@@ -399,10 +412,11 @@ function game_path_exited_spaces(_g, _p, _src, _dst) {
     } else {
         return _out; // home -> home
     }
+    var _laneLen = array_length(_g.board.lanes[_lane].spaces);
     var _step = (_to > _from) ? 1 : -1;
     var _s = _from;
     while (_s != _to) { // includes src (exited), excludes dst (entered, not exited)
-        if (_s >= 0 && _s <= 6) array_push(_out, { lane: _lane, idx: _s, key: string(_lane) + "_" + string(_s) });
+        if (_s >= 0 && _s < _laneLen) array_push(_out, { lane: _lane, idx: _s, key: string(_lane) + "_" + string(_s) });
         _s += _step;
     }
     return _out;
@@ -436,20 +450,22 @@ function token_poison_add(_tok, _key) {
 /// the treasure space.
 function game_dest_legal(_g, _p, _typeId, _lane, _idx, _waterOk = false) {
     var _typeDef = pikmin_type_get(_typeId);
+    var _laneLen = array_length(_g.board.lanes[_lane].spaces);
+    var _peak = _g.board.peakRow;
     var _dir = (_p == 0) ? 1 : -1;
-    var _s = (_p == 0) ? 0 : 6;
-    var _prevDist = 4; // HOME sits beyond the outermost space
+    var _s = (_p == 0) ? 0 : _laneLen - 1;
+    var _prevDist = abs(((_p == 0) ? -1 : _laneLen) - _peak); // HOME sits beyond the outermost space
     while (_s != _idx) {
-        var _toward = abs(_s - 3) < _prevDist;
+        var _toward = abs(_s - _peak) < _prevDist;
         var _space = _g.board.lanes[_lane].spaces[_s];
         if (_space.enemy != undefined) return false;                 // fight it, or stop short of it
         if (game_treasure_at(_g, _lane, _s) != undefined) return false;
         if (!game_type_can_enter(_typeDef, _space, _toward, false, _waterOk)) return false; // wall / non-immune hazard
-        _prevDist = abs(_s - 3);
+        _prevDist = abs(_s - _peak);
         _s += _dir;
-        if (_s < 0 || _s > 6) return false;
+        if (_s < 0 || _s >= _laneLen) return false;
     }
-    var _towardDest = abs(_idx - 3) < _prevDist;
+    var _towardDest = abs(_idx - _peak) < _prevDist;
     return game_type_can_enter(_typeDef, _g.board.lanes[_lane].spaces[_idx], _towardDest, true, _waterOk);
 }
 
@@ -495,18 +511,19 @@ function game_lifeguard_ok(_g, _p, _dst, _counts) {
 /// trapped and may only attach to a card it can still walk to (see game_move_legal).
 function game_can_reach_home(_g, _p, _typeId, _lane, _srcIdx, _waterOk = false) {
     var _typeDef = pikmin_type_get(_typeId);
+    var _peak = _g.board.peakRow;
     var _dir = (_p == 0) ? -1 : 1;               // toward this player's home edge
-    var _homeEdge = (_p == 0) ? 0 : 6;
+    var _homeEdge = (_p == 0) ? 0 : array_length(_g.board.lanes[_lane].spaces) - 1;
     var _s = _srcIdx;
-    var _prevDist = abs(_srcIdx - 3);
+    var _prevDist = abs(_srcIdx - _peak);
     while (_s != _homeEdge) {
         _s += _dir;
-        var _toward = abs(_s - 3) < _prevDist;   // this step heads toward the centre?
+        var _toward = abs(_s - _peak) < _prevDist;   // this step heads toward the centre / uphill?
         var _space = _g.board.lanes[_lane].spaces[_s];
         if (_space.enemy != undefined) return false;
         if (game_treasure_at(_g, _lane, _s) != undefined) return false;
         if (!game_type_can_enter(_typeDef, _space, _toward, false, _waterOk)) return false;
-        _prevDist = abs(_s - 3);
+        _prevDist = abs(_s - _peak);
     }
     return true;
 }
@@ -517,12 +534,13 @@ function game_can_reach_home(_g, _p, _typeId, _lane, _srcIdx, _waterOk = false) 
 function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx) {
     if (_srcIdx == _dstIdx) return true;
     var _typeDef = pikmin_type_get(_typeId);
+    var _peak = _g.board.peakRow;
     var _dir = (_dstIdx > _srcIdx) ? 1 : -1;
     var _s = _srcIdx;
-    var _prevDist = abs(_srcIdx - 3);
+    var _prevDist = abs(_srcIdx - _peak);
     while (_s != _dstIdx) {
         _s += _dir;
-        var _toward = abs(_s - 3) < _prevDist;
+        var _toward = abs(_s - _peak) < _prevDist;
         var _space = _g.board.lanes[_lane].spaces[_s];
         var _isDest = (_s == _dstIdx);
         if (!_isDest) {
@@ -532,7 +550,7 @@ function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx) {
         } else if (!game_type_can_enter(_typeDef, _space, _toward, true)) {
             return false;
         }
-        _prevDist = abs(_s - 3);
+        _prevDist = abs(_s - _peak);
     }
     return true;
 }
@@ -569,6 +587,7 @@ function game_args_loc(_args) {
 
 function game_begin_turn(_g) {
     _g.phase = "gather";
+    _g.soothed = false;   // a Soothe power only lasts the turn it was banked
     var _pl = _g.players[_g.activePlayer];
     _g.gatherActionsLeft = (_pl.turnsTaken == 0) ? 3 : 2;
     // snitchbug stuns / ice freezes wear off over the owner's turn starts; reset per-turn flags
@@ -592,9 +611,9 @@ function game_begin_turn(_g) {
     }
     game_trace(_g, "");
     game_trace(_g, "===== HUMAN TURN P" + string(_g.activePlayer + 1) + "  Day " + string(_g.dayNumber)
-        + " (" + string(_g.dayTrack) + "/" + string(global.rules.dayTrackLength) + ")  score "
+        + " (" + string(_g.dayTrack) + "/" + string(_g.dayTrackLength) + ")  score "
         + string(game_realized_score(_g, _g.activePlayer)) + " vs " + string(game_realized_score(_g, 1 - _g.activePlayer)) + " =====");
-    game_log(_g, "== Day " + string(_g.dayNumber) + " (" + string(_g.dayTrack) + "/" + string(global.rules.dayTrackLength) + ") - Player " + string(_g.activePlayer + 1) + "'s turn ==");
+    game_log(_g, "== Day " + string(_g.dayNumber) + " (" + string(_g.dayTrack) + "/" + string(_g.dayTrackLength) + ") - Player " + string(_g.activePlayer + 1) + "'s turn ==");
     // remove this player's leftover spray tokens from a previous turn
     var _si = 0;
     while (_si < array_length(_g.sprays)) {
@@ -617,13 +636,26 @@ function game_gather_draw(_g) {
     game_spend_gather_action(_g);
 }
 
+/// Roll the board's pellet die. Returns a face {color, value}, or undefined for a BLANK face
+/// (a face with `blank:true`) or an EMPTY die - a barren roll grants nothing. Lets a board ship a
+/// fully-barren die (pelletDie: []) or a partial one (mix blank faces with real ones).
+function game_die_roll(_g) {
+    var _die = _g.boardDef.pelletDie;
+    if (array_length(_die) == 0) return undefined;
+    var _face = _die[irandom(array_length(_die) - 1)];
+    if (variable_struct_exists(_face, "blank") && _face.blank) return undefined;
+    return _face;
+}
+
 function game_gather_roll(_g) {
     if (_g.phase != "gather" || _g.gatherActionsLeft <= 0) return;
-    var _die = _g.boardDef.pelletDie;
-    var _face = _die[irandom(array_length(_die) - 1)];
-    var _pelletId = _face.color + string(_face.value);
-    array_push(_g.players[_g.activePlayer].pellets, _pelletId);
-    game_log(_g, "P" + string(_g.activePlayer + 1) + " rolls " + string(_face.value) + string_upper(string_char_at(_face.color, 1)));
+    var _face = game_die_roll(_g);
+    if (_face != undefined) {
+        array_push(_g.players[_g.activePlayer].pellets, _face.color + string(_face.value));
+        game_log(_g, "P" + string(_g.activePlayer + 1) + " rolls " + string(_face.value) + string_upper(string_char_at(_face.color, 1)));
+    } else {
+        game_log(_g, "P" + string(_g.activePlayer + 1) + " rolls a blank - nothing gained.");
+    }
     game_spend_gather_action(_g);
 }
 
@@ -1597,13 +1629,18 @@ function game_carry_one_space(_g, _p, _t) {
     var _oldIdx = _t.idx;
     var _hereLoc = { kind: "space", lane: _t.lane, idx: _t.idx };
 
-    if (_newIdx < 0 || _newIdx > 6) {
+    // banked once carried off THIS player's home edge: player 0 past index 0, player 1 past the
+    // lane's last index. (Hardcoding >6 banked a treasure the instant it reached index 7 on a long
+    // lane - the far edge is the lane's own length, not a fixed 6.)
+    if (_newIdx < 0 || _newIdx >= array_length(_g.board.lanes[_t.lane].spaces)) {
         // carried off the board edge: it heads HOME to be banked. Scoring is DEFERRED
         // until the pile finishes animating home (game_finalize_departing), so it
         // doesn't blink out of existence at the edge. Mechanically it leaves play now.
         var _total = 0;
         for (var _c = 0; _c < array_length(_t.cards); _c++) _total += treasure_def_get(_t.cards[_c]).value;
         array_push(_g.departing, { cards: _t.cards, playerIdx: _p, lane: _t.lane, fromIdx: _oldIdx, total: _total });
+        // on-bank powers fire NOW (deterministic, before the enemy beat) - see game_treasure_bank_effects
+        game_treasure_bank_effects(_g, _p, _t.cards);
         // no log here - the pile animates home and the bank line reports the score
         for (var _q = 0; _q < 2; _q++) {
             var _riders = game_tokens_at(_g, _q, _hereLoc);
@@ -1708,6 +1745,249 @@ function game_finalize_departing(_g, _entry) {
 /// Force-bank every pile still animating home (game over needs final scores now).
 function game_flush_departing(_g) {
     while (array_length(_g.departing) > 0) game_finalize_departing(_g, _g.departing[0]);
+}
+
+// ========================= TREASURE ON-BANK POWERS =========================
+// A subset of treasures carry a Good/Bad power (effectType/effectName/effect in treasures.json - the
+// shared ALL1/ALL2 sets). When a pile is banked, each such card in it fires its power for the banking
+// player: Good helps the banker, Bad hurts them. Fired from game_carry_one_space's bank branch (so it
+// runs DETERMINISTICALLY before the enemy beat - Soothe can suppress that turn's attacks). Effects
+// that target the OPPONENT no-op in solo. A few rich effects are first-pass auto-resolved (no target
+// picker yet - sensible auto-choice); Spy/Reveal/Wild/Glow Up/Heavy are stubbed + logged for now.
+
+/// The opponent seat, or -1 in solo (no opponent).
+function game_opp(_g, _p) { return _g.solo ? -1 : (1 - _p); }
+
+/// Which player's half a space index sits on (symmetric 2-player board); -1 = the neutral centre row.
+function game_idx_side(_g, _idx) {
+    var _c = _g.board.centerRow;
+    if (_idx < _c) return 0;
+    if (_idx > _c) return 1;
+    return -1;
+}
+/// Is space _idx on player _p's side? Solo = the near (home) half, since idx_side has no 2nd player.
+function game_side_match(_g, _p, _idx) {
+    if (_g.solo) return _idx <= floor((_g.board.maxSpaces - 1) / 2);
+    return game_idx_side(_g, _idx) == _p;
+}
+
+function game_power_draw_gather(_g, _p) {
+    if (array_length(_g.decks.gather) == 0 && array_length(_g.decks.gatherDiscard) > 0) {
+        _g.decks.gather = _g.decks.gatherDiscard; _g.decks.gatherDiscard = []; deck_shuffle(_g.decks.gather);
+    }
+    if (array_length(_g.decks.gather) == 0) return false;
+    array_push(_g.players[_p].hand, array_pop(_g.decks.gather));
+    return true;
+}
+function game_power_draw_pellet(_g, _p) {
+    var _face = game_die_roll(_g);
+    if (_face == undefined) return false;
+    array_push(_g.players[_p].pellets, _face.color + string(_face.value));
+    return true;
+}
+function game_power_grant_treasure(_g, _p) {
+    if (array_length(_g.decks.treasure) == 0) return false;
+    var _tid = array_pop(_g.decks.treasure);
+    array_push(_g.players[_p].collected, _tid);
+    _g.players[_p].score += treasure_def_get(_tid).value;
+    return true;
+}
+function game_power_discard_a(_g, _tid, _lane, _idx) {   // FX + discard-deck bookkeeping for a removal
+    game_fx_enemy(_g, _tid, _lane, _idx, false);
+    array_push(_g.decks.enemyDiscard, _tid);
+}
+/// Discard the strongest enemy (mode "field") or boss (mode "boss") on the board. Returns true if one.
+function game_power_discard_enemy(_g, _mode) {
+    var _target = undefined, _bestHp = -1;
+    if (_mode == "field") {
+        for (var _l = 0; _l < _g.board.laneCount; _l++) {
+            var _sp = _g.board.lanes[_l].spaces;
+            for (var _i = 0; _i < array_length(_sp); _i++) {
+                var _e = _sp[_i].enemy;
+                if (_e != undefined && !_e.dead && _e.curHp > _bestHp) { _bestHp = _e.curHp; _target = { id: _e.enemyDefId, lane: _l, idx: _i, boss: false }; }
+            }
+        }
+    } else {
+        for (var _t = 0; _t < array_length(_g.treasures); _t++) {
+            var _b = _g.treasures[_t].boss;
+            if (_b != undefined && !_b.dead && _b.curHp > _bestHp) { _bestHp = _b.curHp; _target = { id: _b.enemyDefId, tre: _t, boss: true }; }
+        }
+    }
+    if (_target == undefined) return false;
+    if (_target.boss) { var _tt = _g.treasures[_target.tre]; game_fx_enemy(_g, _target.id, _tt.lane, _tt.idx, true); array_push(_g.decks.enemyDiscard, _target.id); _tt.boss = undefined; }
+    else { game_power_discard_a(_g, _target.id, _target.lane, _target.idx); _g.board.lanes[_target.lane].spaces[_target.idx].enemy = undefined; }
+    return true;
+}
+/// Discard every field enemy in the lane with the most of them. Returns the lane idx, or -1.
+function game_power_clear_lane(_g) {
+    var _bestLane = -1, _bestN = 0;
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        var _sp = _g.board.lanes[_l].spaces, _n = 0;
+        for (var _i = 0; _i < array_length(_sp); _i++) if (_sp[_i].enemy != undefined && !_sp[_i].enemy.dead) _n += 1;
+        if (_n > _bestN) { _bestN = _n; _bestLane = _l; }
+    }
+    if (_bestLane < 0) return -1;
+    var _sp2 = _g.board.lanes[_bestLane].spaces;
+    for (var _i2 = 0; _i2 < array_length(_sp2); _i2++) {
+        var _e = _sp2[_i2].enemy;
+        if (_e != undefined && !_e.dead) { game_power_discard_a(_g, _e.enemyDefId, _bestLane, _i2); _sp2[_i2].enemy = undefined; }
+    }
+    return _bestLane;
+}
+/// Discard every enemy (field + boss) on the given board side.
+function game_power_discard_side_enemies(_g, _side) {
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        var _sp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sp); _i++) {
+            if (game_idx_side(_g, _i) != _side) continue;
+            var _e = _sp[_i].enemy;
+            if (_e != undefined && !_e.dead) { game_power_discard_a(_g, _e.enemyDefId, _l, _i); _sp[_i].enemy = undefined; }
+        }
+    }
+    for (var _t = 0; _t < array_length(_g.treasures); _t++) {
+        var _tr = _g.treasures[_t];
+        if (game_idx_side(_g, _tr.idx) != _side) continue;
+        var _b = _tr.boss;
+        if (_b != undefined && !_b.dead) { game_fx_enemy(_g, _b.enemyDefId, _tr.lane, _tr.idx, true); array_push(_g.decks.enemyDiscard, _b.enemyDefId); _tr.boss = undefined; }
+    }
+}
+/// Respawn enemies on every bare enemy space on player _p's side (from the enemy deck).
+function game_power_respawn_side(_g, _p) {
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        var _sp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sp); _i++) {
+            if (game_side_match(_g, _p, _i) && _sp[_i].kind == "enemy" && _sp[_i].enemy == undefined) game_spawn_enemy_at(_g, _l, _i);
+        }
+    }
+}
+/// Place up to _count emitters/structures on empty spaces on player _p's side. Returns how many.
+function game_power_place_emitters(_g, _p, _structId, _count) {
+    var _placed = 0, _hp = hazard_def_get(_structId).hp;
+    for (var _l = 0; _l < _g.board.laneCount && _placed < _count; _l++) {
+        var _sp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sp) && _placed < _count; _i++) {
+            if (!game_side_match(_g, _p, _i)) continue;
+            if (_sp[_i].kind == "treasure" || _sp[_i].structure != undefined || _sp[_i].enemy != undefined) continue;
+            _sp[_i].structure = { structId: _structId, curHp: _hp };
+            _placed += 1;
+        }
+    }
+    return _placed;
+}
+/// Remove one hazard (structure or terrain) on the given side. Returns true if one was removed.
+function game_power_erase_hazard(_g, _side) {
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        var _sp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sp); _i++) {
+            if (game_idx_side(_g, _i) != _side) continue;
+            if (_sp[_i].structure != undefined) { _sp[_i].structure = undefined; return true; }
+            if (_sp[_i].kind == "hazard") { _sp[_i].kind = "plain"; _sp[_i].hazard = ""; return true; }
+        }
+    }
+    return false;
+}
+
+/// Fire every Good/Bad on-bank power carried by a just-banked pile, for the banking player _p.
+function game_treasure_bank_effects(_g, _p, _cards) {
+    for (var _c = 0; _c < array_length(_cards); _c++) {
+        var _def = treasure_def_get(_cards[_c]);
+        if (_def.effectType == "Good" || _def.effectType == "Bad") game_treasure_power_apply(_g, _p, _def);
+    }
+}
+
+function game_treasure_power_apply(_g, _p, _def) {
+    var _opp = game_opp(_g, _p);
+    var _tag = "[" + _def.effectType + " power] " + _def.name + " (" + _def.effectName + "): ";
+    switch (_def.effectName) {
+        case "Reverse":
+            _g.dayTrack = max(1, _g.dayTrack - 1);
+            game_log(_g, _tag + "day track moves back to " + string(_g.dayTrack) + ".");
+            break;
+        case "Glutton": case "Scatter": {
+            var _n = array_length(_g.players[_p].tokens);
+            _g.players[_p].tokens = [];
+            game_log(_g, _tag + "P" + string(_p + 1) + " loses all " + string(_n) + " of their pikmin!");
+            break;
+        }
+        case "Soothe":
+            _g.soothed = true;
+            game_log(_g, _tag + "enemies won't attack this turn.");
+            break;
+        case "Deafen":
+            game_log(_g, _tag + (game_power_discard_enemy(_g, "boss") ? "a boss is discarded." : "no boss to discard."));
+            break;
+        case "Spook":
+            game_log(_g, _tag + (game_power_discard_enemy(_g, "field") ? "an enemy is discarded." : "no enemy to discard."));
+            break;
+        case "Clear": {
+            var _ln = game_power_clear_lane(_g);
+            game_log(_g, _tag + (_ln >= 0 ? ("all enemies in lane " + string(_ln + 1) + " discarded.") : "no enemies to clear."));
+            break;
+        }
+        case "Draw":
+            if (_opp < 0) { game_log(_g, _tag + "no opponent (solo) - no effect."); break; }
+            if (array_length(_g.players[_opp].hand) > 0) {
+                var _ri = irandom(array_length(_g.players[_opp].hand) - 1);
+                array_push(_g.players[_p].hand, _g.players[_opp].hand[_ri]);
+                array_delete(_g.players[_opp].hand, _ri, 1);
+                game_log(_g, _tag + "P" + string(_p + 1) + " takes a card from P" + string(_opp + 1) + "'s hand.");
+            } else game_log(_g, _tag + "opponent's hand is empty.");
+            break;
+        case "Gamble": {
+            if (irandom(1) == 0) { game_log(_g, _tag + "coin flip: tails - nothing."); break; }
+            var _txt = _def.effect;
+            var _cnt = (string_pos("2 ", _txt) > 0) ? 2 : 1;
+            var _kind = (string_pos("pellet", _txt) > 0) ? "pellet" : ((string_pos("treasure", _txt) > 0) ? "treasure" : "gather");
+            repeat (_cnt) {
+                if (_kind == "pellet") game_power_draw_pellet(_g, _p);
+                else if (_kind == "treasure") game_power_grant_treasure(_g, _p);
+                else game_power_draw_gather(_g, _p);
+            }
+            game_log(_g, _tag + "coin flip: heads - P" + string(_p + 1) + " draws " + string(_cnt) + " " + _kind + " card(s).");
+            break;
+        }
+        case "Man's Best Friend": {
+            var _found = false;
+            for (var _i = 0; _i < array_length(_g.decks.gather); _i++) {
+                if (_g.decks.gather[_i] == "oatchirush") { array_delete(_g.decks.gather, _i, 1); array_push(_g.players[_p].hand, "oatchirush"); _found = true; break; }
+            }
+            game_log(_g, _tag + (_found ? "found an Oatchi Rush in the deck." : "no Oatchi Rush in the deck."));
+            break;
+        }
+        case "Respawn":
+            game_power_respawn_side(_g, _p);
+            game_log(_g, _tag + "enemies respawn on P" + string(_p + 1) + "'s side.");
+            break;
+        case "Justice":
+            if (_opp < 0) { game_log(_g, _tag + "no opponent (solo) - no effect."); break; }
+            game_power_discard_side_enemies(_g, _opp);
+            game_log(_g, _tag + "all enemies on P" + string(_opp + 1) + "'s side discarded.");
+            break;
+        case "Storm": case "Wildfire": case "Noxious": case "Flood": {
+            var _sid = (_def.effectName == "Storm") ? "electricitygenerator"
+                     : ((_def.effectName == "Wildfire") ? "firegeyser"
+                     : ((_def.effectName == "Noxious") ? "poisonemitter" : "waterspout"));
+            var _placed = game_power_place_emitters(_g, _p, _sid, 2);
+            game_log(_g, _tag + string(_placed) + " placed on P" + string(_p + 1) + "'s side.");
+            break;
+        }
+        case "Erase":
+            if (_opp < 0) { game_log(_g, _tag + "no opponent (solo) - no effect."); break; }
+            game_log(_g, _tag + (game_power_erase_hazard(_g, _opp) ? "a hazard on the opponent's side is destroyed." : "no hazard to destroy."));
+            break;
+        case "Find":
+            if (_opp < 0) { game_log(_g, _tag + "no opponent (solo) - no effect."); break; }
+            game_power_grant_treasure(_g, _opp);
+            game_log(_g, _tag + "opponent draws a free treasure.");
+            break;
+        // --- first-pass stubs (need a target picker / set-scoring / carry rules); logged, no state change ---
+        case "Spy":     game_log(_g, _tag + "(peek at opponent's hand - not yet wired)"); break;
+        case "Reveal":  game_log(_g, _tag + "(opponent reorders a pile - not yet wired)"); break;
+        case "Wild":    game_log(_g, _tag + "(counts as any set - set-scoring not yet wired)"); break;
+        case "Glow Up": game_log(_g, _tag + "(sub-100p treasures worth +100 - not yet wired)"); break;
+        case "Heavy":   break;   // a CARRY restriction (needs a purple to move), not an on-bank effect
+        default:        game_log(_g, _tag + "(unrecognized power)"); break;
+    }
 }
 
 /// Settle the score at game over: bank any pile still in flight, then decide the
@@ -1907,12 +2187,12 @@ function game_toss_lane_tokens(_g, _p, _lane, _idx, _n, _dir) {
 /// enemy + any boss there, minus the source. Killed enemies die WITHOUT reward or death
 /// abilities - the blast is the enemy's ATTACK, so there's no chain reaction.
 function game_blast_hit_enemies(_g, _lane, _idx, _dmg, _src) {
-    if (_lane < 0 || _lane >= _g.board.laneCount || _idx < 0 || _idx > 6) return;
+    if (_lane < 0 || _lane >= _g.board.laneCount || _idx < 0 || _idx >= array_length(_g.board.lanes[_lane].spaces)) return;
     var _hits = [];
     var _space = _g.board.lanes[_lane].spaces[_idx];
-    if (_space.enemy != undefined && _space.enemy != _src && !_space.enemy.dead) array_push(_hits, { e: _space.enemy, boss: false });
+    if (_space.enemy != undefined && _space.enemy != _src && !_space.enemy.dead) array_push(_hits, { e: _space.enemy, boss: false, host: undefined });
     var _t = game_treasure_at(_g, _lane, _idx);
-    if (_t != undefined && _t.boss != undefined && _t.boss != _src && !_t.boss.dead) array_push(_hits, { e: _t.boss, boss: true });
+    if (_t != undefined && _t.boss != undefined && _t.boss != _src && !_t.boss.dead) array_push(_hits, { e: _t.boss, boss: true, host: _t });
     for (var _i = 0; _i < array_length(_hits); _i++) {
         var _e = _hits[_i].e;
         _e.curHp -= _dmg;
@@ -1920,6 +2200,9 @@ function game_blast_hit_enemies(_g, _lane, _idx, _dmg, _src) {
             _e.dead = true;
             game_fx_enemy(_g, _e.enemyDefId, _lane, _idx, _hits[_i].boss);
             array_push(_g.decks.enemyDiscard, _e.enemyDefId);
+            // still remove the corpse from the board (no reward/abilities - it's the enemy's
+            // own attack) - without this the dead enemy lingers, showing negative HP
+            game_clear_enemy(_g, { enemy: _e, lane: _lane, idx: _idx, isBoss: _hits[_i].boss, hostT: _hits[_i].host });
             game_log(_g, enemy_def_get(_e.enemyDefId).name + " is caught in the blast!");
         } else {
             game_log(_g, enemy_def_get(_e.enemyDefId).name + " takes " + string(_dmg) + " blast damage (" + string(max(0, _e.curHp)) + " hp left).");
@@ -1928,6 +2211,8 @@ function game_blast_hit_enemies(_g, _lane, _idx, _dmg, _src) {
 }
 
 function game_enemy_attack(_g, _p, _f) {
+    // a Soothe treasure power banked this turn: no enemy attacks at all
+    if (variable_struct_exists(_g, "soothed") && _g.soothed) return;
     var _def = enemy_def_get(_f.enemy.enemyDefId);
     // bittered / frozen enemies skip their next action entirely
     if (variable_struct_exists(_f.enemy, "stunned") && _f.enemy.stunned > 0) {
@@ -1957,7 +2242,7 @@ function game_enemy_attack(_g, _p, _f) {
             for (var _o = 0; _o < array_length(_offsets); _o++) {
                 var _bl = _f.lane + _offsets[_o][0];
                 var _bi = _f.idx + _offsets[_o][1];
-                if (_bl < 0 || _bl >= _g.board.laneCount || _bi < 0 || _bi > 6) continue;
+                if (_bl < 0 || _bl >= _g.board.laneCount || _bi < 0 || _bi >= array_length(_g.board.lanes[_bl].spaces)) continue;
                 game_fx_boom(_g, _bl, _bi);
                 for (var _q = 0; _q < 2; _q++) game_kill_tokens(_g, _q, _bl, _bi, game_decoy_absorb(_g, _q, _bl, _bi, _def.damage), _def, undefined);
                 if (global.expRules.explodeEnemies) game_blast_hit_enemies(_g, _bl, _bi, _def.damage, _f.enemy);
@@ -2043,8 +2328,8 @@ function game_enemy_die(_g, _p, _f) {
     // cards as "G" (never the card name - that's hidden info). e.g. "Reward: 1B 5B 1R G"
     var _rw = "";
     repeat (_def.reward.pellets) {
-        var _die = _g.boardDef.pelletDie;
-        var _face = _die[irandom(array_length(_die) - 1)];
+        var _face = game_die_roll(_g);
+        if (_face == undefined) continue;   // blank / barren die - this reward pellet is nothing
         array_push(_g.players[_p].pellets, _face.color + string(_face.value));
         _rw += (_rw == "" ? "" : " ") + string(_face.value) + string_upper(string_char_at(_face.color, 1));
     }
@@ -2367,7 +2652,7 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
             for (var _o = 0; _o < array_length(_offsets) && !_inRange; _o++) {
                 var _bl = _laneIdx + _offsets[_o][0];
                 var _bi = _spaceIdx + _offsets[_o][1];
-                if (_bl < 0 || _bl >= _g.board.laneCount || _bi < 0 || _bi > 6) continue;
+                if (_bl < 0 || _bl >= _g.board.laneCount || _bi < 0 || _bi >= array_length(_g.board.lanes[_bl].spaces)) continue;
                 if (array_length(game_tokens_at(_g, _p, { kind: "space", lane: _bl, idx: _bi })) > 0) _inRange = true;
             }
             if (_inRange) game_enemy_attack(_g, _p, { enemy: _enemy, lane: _laneIdx, idx: _spaceIdx, isBoss: false, hostT: undefined });
@@ -2384,7 +2669,7 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
         for (var _o = 0; _o < array_length(_offsets) && !_inRange; _o++) {
             var _bl = _t.lane + _offsets[_o][0];
             var _bi = _t.idx + _offsets[_o][1];
-            if (_bl < 0 || _bl >= _g.board.laneCount || _bi < 0 || _bi > 6) continue;
+            if (_bl < 0 || _bl >= _g.board.laneCount || _bi < 0 || _bi >= array_length(_g.board.lanes[_bl].spaces)) continue;
             if (array_length(game_tokens_at(_g, _p, { kind: "space", lane: _bl, idx: _bi })) > 0) _inRange = true;
         }
         if (_inRange) game_enemy_attack(_g, _p, { enemy: _t.boss, lane: _t.lane, idx: _t.idx, isBoss: true, hostT: _t });
@@ -2497,7 +2782,7 @@ function game_discard_choice(_g, _kind, _idx) {
 
 function game_advance_day(_g) {
     _g.dayTrack += 1;
-    if (_g.dayTrack <= global.rules.dayTrackLength) return;
+    if (_g.dayTrack <= _g.dayTrackLength) return;
     _g.dayTrack = 1;
     _g.dayNumber += 1;
     if (_g.dayNumber > global.rules.days) {

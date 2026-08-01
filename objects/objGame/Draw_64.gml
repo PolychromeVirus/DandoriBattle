@@ -65,6 +65,7 @@ if (mode == "menu") {
 
         var _bw = 320, _bh = 54, _bx = _guiW * 0.5 - _bw * 0.5, _by = 312;
         if (ui_button(_bx, _by,        _bw, _bh, "Play",        fntMaru)) menuScreen = "board";
+        if (ui_button(_bx + _bw + 10, _by, 150, _bh, "Adventure", fntMaru)) { menuScreen = "adventure"; menuAdvIdx = 0; menuAdvScroll = 0; }
         if (ui_button(_bx, _by + 66,   _bw, _bh, "How to Play", fntMaru)) { start_tutorial(); exit; }
         // TESTING: square numbered buttons jump straight to a specific tutorial scene (skip ahead).
         // Final ship: gate these (locked until reached) and reuse for replaying a specific lesson.
@@ -72,9 +73,88 @@ if (mode == "menu") {
         for (var _ts = 0; _ts < _tsN; _ts++) {
             if (ui_button(_bx + _bw + 10 + _ts * (_bh + 8), _by + 66, _bh, _bh, string(_ts + 1), fntMaru)) { start_tutorial(_ts); exit; }
         }
-        if (ui_button(_bx, _by + 132,  _bw, _bh, "Options",     fntMaru)) menuScreen = "options";
-        if (ui_button(_bx, _by + 198,  _bw, _bh, "Quit",        fntMaru)) game_end();
+        if (ui_button(_bx, _by + 132,  _bw, _bh, "Online",      fntMaru)) { menuScreen = "online"; menuNetField = ""; }
+        if (ui_button(_bx, _by + 198,  _bw, _bh, "Options",     fntMaru)) menuScreen = "options";
+        if (ui_button(_bx, _by + 264,  _bw, _bh, "Quit",        fntMaru)) game_end();
+        // DEV: irregular solo board that exercises the adventure geometry (small corner; remove pre-ship)
+        if (ui_button(12, _guiH - 40, 96, 28, "Adv Test", fntMaru)) { start_advtest(); exit; }
 
+        // developer logo: animated fursona head, bottom-right corner (sprite origin is bottom-right,
+        // faces left into the menu). Only drawn here, so F1's HUD-hide (above) also hides it.
+        var _pfH  = 160;                                             // on-screen height (tuning knob)
+        var _pfSc = _pfH / sprite_get_height(sprPolyFace);
+        var _pfSub = (frameTick div 30) mod max(1, sprite_get_number(sprPolyFace)); // ~2 fps idle
+        draw_sprite_ext(sprPolyFace, _pfSub, _guiW - 14, _guiH - 10, _pfSc, _pfSc, 0, c_white, 1);
+
+        draw_set_halign(fa_left);
+        draw_set_color(c_white);
+        exit;
+    }
+
+    // ============================== ONLINE LOBBY ==============================
+    if (menuScreen == "online") {
+        // handshake complete -> board select (the board screen is online-aware for both sides)
+        if (net_online() && global.net.status == "ready") { menuScreen = "board"; exit; }
+
+        draw_set_halign(fa_center);
+        draw_set_font(fntMaru);
+        draw_set_color(make_color_rgb(255, 224, 120));
+        draw_text_transformed(_guiW * 0.5, 40, "ONLINE", 2.4 * UI_TS, 2.4 * UI_TS, 0);
+        draw_set_halign(fa_left);
+        draw_set_color(c_white);
+
+        if (ui_button(20, 16, 120, 30, "< Back")) { net_close(); menuScreen = "main"; }
+
+        // --- editable text field helper (immediate mode, backed by keyboard_string) ---
+        var _fx = _guiW * 0.5 - 210, _fw = 420, _fh = 40;
+        var _drawField = function(_x, _y, _w, _h, _label, _val, _key) {
+            var _focused = (menuNetField == _key);
+            draw_set_color(make_color_rgb(200, 210, 220));
+            dtext(_x, _y - 20, _label);
+            draw_set_alpha(0.9); draw_set_color(_focused ? make_color_rgb(50, 62, 84) : make_color_rgb(34, 40, 52));
+            draw_rectangle(_x, _y, _x + _w, _y + _h, false);
+            draw_set_alpha(1); draw_set_color(_focused ? make_color_rgb(255, 224, 120) : make_color_rgb(90, 100, 120));
+            draw_rectangle(_x, _y, _x + _w, _y + _h, true);
+            draw_set_color(c_white);
+            var _shown = _val + ((_focused && (current_time div 500) mod 2 == 0) ? "|" : "");
+            dtext(_x + 10, _y + 11, _shown);
+            return (ui_mouse_in(_x, _y, _w, _h) && mouse_check_button_pressed(mb_left)); // clicked -> focus
+        };
+
+        if (net_online() && (global.net.status == "listening" || global.net.status == "connecting")) {
+            draw_set_halign(fa_center);
+            draw_set_color(make_color_rgb(255, 224, 120));
+            dtext(_guiW * 0.5, 300, (global.net.mode == "host") ? "Waiting for a player to join..." : "Connecting...");
+            draw_set_halign(fa_left);
+            draw_set_color(c_white);
+            if (ui_button(_guiW * 0.5 - 90, 340, 180, 36, "Cancel", fntMaru)) net_close();
+        } else {
+            // NAME - a single shared field, used whether you host OR join.
+            if (_drawField(_fx, 130, _fw, _fh, "Your name (used for host or join):", menuNetName, "name")) { menuNetField = "name"; keyboard_string = menuNetName; }
+            if (menuNetField == "name") menuNetName = keyboard_string;
+
+            draw_set_alpha(0.45); draw_set_color(make_color_rgb(90, 100, 120));
+            draw_line(_fx, 198, _fx + _fw, 198);   // divider between the shared name and the two options
+            draw_set_alpha(1); draw_set_color(c_white);
+
+            // OPTION 1: host and wait for a joiner
+            if (ui_button(_fx, 222, _fw, 46, "HOST a game", fntMaru)) { net_host(menuNetName); menuNetField = ""; }
+
+            draw_set_halign(fa_center); draw_set_color(make_color_rgb(150, 160, 175));
+            dtext(_guiW * 0.5, 294, "- or -");
+            draw_set_halign(fa_left); draw_set_color(c_white);
+
+            // OPTION 2: join a host by IP
+            if (_drawField(_fx, 350, _fw, _fh, "Host IP:", menuNetIP, "ip")) { menuNetField = "ip"; keyboard_string = menuNetIP; }
+            if (menuNetField == "ip") menuNetIP = keyboard_string;
+            if (ui_button(_fx, 410, _fw, 46, "JOIN a game", fntMaru)) { net_join(menuNetIP, menuNetName); menuNetField = ""; }
+
+            if (global.net.status == "failed" || global.net.status == "disconnected") {
+                draw_set_halign(fa_center); draw_set_color(make_color_rgb(230, 120, 110));
+                dtext(_guiW * 0.5, 470, (global.net.status == "failed") ? "Connection failed - check the IP." : "Opponent disconnected.");
+                draw_set_halign(fa_left); draw_set_color(c_white);
+            }
+        }
         draw_set_halign(fa_left);
         draw_set_color(c_white);
         exit;
@@ -137,6 +217,13 @@ if (mode == "menu") {
         draw_set_halign(fa_left);
         var _iy = _ifHeadY + 30;
         if (ui_button(_ox0, _iy, _ow, _obh, "New-pick Default: " + (defaultSelectAll ? "ALL" : "NONE"), fntMaru)) { defaultSelectAll = !defaultSelectAll; save_settings(); }
+        // which shared power-card set (ALL1/ALL2) is mixed into every board's treasure deck (or random)
+        var _allLbl = (global.settings.allSet == 1) ? "ALL1" : ((global.settings.allSet == 2) ? "ALL2" : "Random");
+        if (ui_button(_ox1, _iy, _ow, _obh, "Power Card Set: " + _allLbl, fntMaru)) {
+            var _a = global.settings.allSet;
+            global.settings.allSet = (_a == 1) ? 2 : ((_a == 2) ? 0 : 1);   // ALL1 -> ALL2 -> Random -> ALL1
+            save_settings();
+        }
 
         draw_set_halign(fa_center);
         draw_set_font(fntMaru);
@@ -147,12 +234,193 @@ if (mode == "menu") {
         exit;
     }
 
+    // =========================== ADVENTURE / CHAPTER SELECT ===========================
+    // (menuScreen == "adventure") - a scrolling list of campaign scenarios + their boards on the
+    // left, and a preview of the selected board (its actual lane LAYOUT) on the right. PLAY launches
+    // the board as a solo home-anchored game. Data = data/adventure.json (extracted from the .xlsx).
+    if (menuScreen == "adventure") {
+        var _scens = global.adventureData.scenarios;
+        // flatten to display rows: a header per scenario, then a row per board; _advB indexes boards.
+        var _flat = [];
+        var _advB = [];
+        for (var _si = 0; _si < array_length(_scens); _si++) {
+            array_push(_flat, { hdr: true, text: _scens[_si].name });
+            var _sb = _scens[_si].boards;
+            for (var _bi = 0; _bi < array_length(_sb); _bi++) {
+                array_push(_flat, { hdr: false, bidx: array_length(_advB), board: _sb[_bi] });
+                array_push(_advB, _sb[_bi]);
+            }
+        }
+        var _nAdv = array_length(_advB);
+        menuAdvIdx = clamp(menuAdvIdx, 0, max(0, _nAdv - 1));
+        var _selB = (_nAdv > 0) ? _advB[menuAdvIdx] : undefined;
+
+        // background: the selected board's skybox theme, darkened (mirrors board-select)
+        if (_selB != undefined) {
+            var _skySpr = asset_get_index("_" + string(_selB.setNumber));
+            if (_skySpr >= 0) {
+                var _skW = sprite_get_width(_skySpr), _skH = sprite_get_height(_skySpr);
+                var _skSc = max(_guiW / _skW, _guiH / _skH);
+                draw_sprite_ext(_skySpr, 0, (_guiW - _skW * _skSc) * 0.5, (_guiH - _skH * _skSc) * 0.5, _skSc, _skSc, 0, c_white, 1);
+            }
+        }
+        draw_set_alpha(0.62); draw_set_color(c_black); draw_rectangle(0, 0, _guiW, _guiH, false); draw_set_alpha(1);
+
+        draw_set_halign(fa_center); draw_set_font(fntMaru); draw_set_color(make_color_rgb(255, 224, 120));
+        draw_text_transformed(_guiW * 0.5, 16, "ADVENTURE", 2.0 * UI_TS, 2.0 * UI_TS, 0);
+        draw_set_halign(fa_left); draw_set_color(c_white);
+        if (ui_button(20, 12, 110, 30, "< Back")) { menuScreen = "main"; }
+
+        if (_nAdv == 0) {
+            draw_set_halign(fa_center); draw_set_color(make_color_rgb(220, 180, 180));
+            dtext(_guiW * 0.5, _guiH * 0.5, "No adventure data (data/adventure.json missing).");
+            draw_set_halign(fa_left); draw_set_color(c_white);
+            exit;
+        }
+
+        // space kind/hazard -> a preview swatch colour
+        var _advSpCol = function(_sp) {
+            if (_sp.kind == "plain")    return make_color_rgb(104, 142, 88);
+            if (_sp.kind == "enemy")    return make_color_rgb(150, 150, 150);
+            if (_sp.kind == "treasure") return make_color_rgb(232, 210, 66);
+            switch (_sp.hazard) {
+                case "fire":   return make_color_rgb(210, 70, 50);
+                case "water":  return make_color_rgb(70, 120, 200);
+                case "height": return make_color_rgb(226, 205, 170);
+                case "ice":    return make_color_rgb(120, 220, 230);
+                case "poison": return make_color_rgb(150, 110, 190);
+                case "chasm":  return make_color_rgb(120, 80, 40);
+            }
+            return make_color_rgb(90, 90, 90);
+        };
+
+        var _barY = _guiH - 56;
+        // ---- left: scrolling list (scenario headers + board rows) ----
+        var _listX = 20, _listW = 300, _listTop = 50, _rowH = 34;
+        var _nF = array_length(_flat);
+        var _rows = max(1, floor((_barY - 12 - _listTop) / _rowH));
+        var _maxTop = max(0, _nF - _rows);
+        if (_mgx0 >= _listX && _mgx0 <= _listX + _listW && _mgy0 >= _listTop && _mgy0 <= _listTop + _rows * _rowH) {
+            if (mouse_wheel_up())   menuAdvScroll -= 1;
+            if (mouse_wheel_down()) menuAdvScroll += 1;
+        }
+        menuAdvScroll = clamp(menuAdvScroll, 0, _maxTop);
+        draw_set_alpha(0.45); draw_set_color(make_color_rgb(18, 22, 26));
+        draw_rectangle(_listX, _listTop, _listX + _listW, _listTop + _rows * _rowH, false); draw_set_alpha(1);
+        for (var _r = 0; _r < _rows; _r++) {
+            var _fi = menuAdvScroll + _r;
+            if (_fi >= _nF) break;
+            var _fe = _flat[_fi];
+            var _ey = _listTop + _r * _rowH;
+            draw_set_font(fntMaru);
+            if (_fe.hdr) {
+                draw_set_color(make_color_rgb(255, 224, 120));
+                dtext(_listX + 8, _ey + 8, _fe.text);
+                draw_set_color(c_white);
+            } else {
+                var _sel = (_fe.bidx == menuAdvIdx);
+                var _hov = (_mgx0 >= _listX && _mgx0 < _listX + _listW && _mgy0 >= _ey && _mgy0 < _ey + _rowH);
+                if (_hov) global.uiMouseConsumed = true;
+                draw_set_alpha(_sel ? 0.9 : (_hov ? 0.7 : 0.4));
+                draw_set_color(_sel ? make_color_rgb(58, 82, 66) : make_color_rgb(38, 46, 52));
+                draw_rectangle(_listX + 20, _ey + 2, _listX + _listW - 4, _ey + _rowH - 2, false); draw_set_alpha(1);
+                draw_set_color(_sel ? make_color_rgb(255, 224, 120) : make_color_rgb(200, 210, 215));
+                dtext(_listX + 30, _ey + 8, _fe.board.label + "    " + _fe.board.players);
+                draw_set_color(c_white);
+                if (_hov && mouse_check_button_pressed(mb_left)) menuAdvIdx = _fe.bidx;
+            }
+        }
+        draw_set_halign(fa_center); draw_set_color(make_color_rgb(255, 224, 120));
+        if (menuAdvScroll > 0)       dtext(_listX + _listW * 0.5, _listTop + 1, "^");
+        if (menuAdvScroll < _maxTop) dtext(_listX + _listW * 0.5, _listTop + _rows * _rowH - 15, "v");
+        draw_set_halign(fa_left); draw_set_color(c_white);
+
+        // ---- right: preview of the selected board (scenario name + its actual LANE LAYOUT + kit) ----
+        var _pvX = _listX + _listW + 34;
+        draw_set_font(fntMaru); draw_set_color(make_color_rgb(255, 236, 190));
+        draw_text_transformed(_pvX, 52, _scens[_selB.scenarioIdx].name, 1.7 * UI_TS, 1.7 * UI_TS, 0);
+        draw_set_color(make_color_rgb(200, 210, 205));
+        draw_text_transformed(_pvX, 92, "Map " + _selB.label + "     Players: " + _selB.players, 1.05 * UI_TS, 1.05 * UI_TS, 0);
+
+        // mini lane layout: 5 lane columns x their spaces; treasure (far end) at TOP, home at bottom
+        var _gx = _pvX, _gy = 132, _cw = 52, _ch = 34, _gp = 6;
+        var _lanes = _selB.lanes;
+        for (var _l = 0; _l < array_length(_lanes); _l++) {
+            var _lspaces = _lanes[_l].spaces;
+            var _n = array_length(_lspaces);
+            for (var _i = 0; _i < _n; _i++) {
+                var _cx = _gx + _l * (_cw + _gp);
+                var _cy = _gy + (_n - 1 - _i) * (_ch + _gp);   // idx 0 (home) at the bottom
+                draw_set_color(_advSpCol(_lspaces[_i]));
+                draw_rectangle(_cx, _cy, _cx + _cw, _cy + _ch, false);
+                draw_set_color(make_color_rgb(24, 28, 22));
+                draw_rectangle(_cx, _cy, _cx + _cw, _cy + _ch, true);
+            }
+        }
+        var _gridBot = _gy + 7 * (_ch + _gp);
+        // fixture markers: pre-placed structures (white ring) + named enemies/bosses (red dot)
+        var _cellXY = function(_gx, _gy, _cw, _ch, _gp, _n, _l, _i) {
+            return [_gx + _l * (_cw + _gp) + _cw * 0.5, _gy + (_n - 1 - _i) * (_ch + _gp) + _ch * 0.5];
+        };
+        for (var _s2 = 0; _s2 < array_length(_selB.placedStructures); _s2++) {
+            var _ps = _selB.placedStructures[_s2];
+            var _pc = _cellXY(_gx, _gy, _cw, _ch, _gp, array_length(_lanes[_ps.lane].spaces), _ps.lane, _ps.idx);
+            draw_set_color(make_color_rgb(240, 240, 245));
+            draw_circle(_pc[0], _pc[1], 6, true);
+        }
+        for (var _e2 = 0; _e2 < array_length(_selB.placedEnemies); _e2++) {
+            var _pe = _selB.placedEnemies[_e2];
+            var _ec = _cellXY(_gx, _gy, _cw, _ch, _gp, array_length(_lanes[_pe.lane].spaces), _pe.lane, _pe.idx);
+            draw_set_color(make_color_rgb(230, 70, 60));
+            draw_circle(_ec[0], _ec[1], 5, false);
+        }
+        draw_set_color(make_color_rgb(180, 190, 185));
+        dtext(_gx, _gy - 22, "far / treasures");
+        dtext(_gx, _gridBot - 8, "home");
+        draw_set_color(c_white);
+
+        // starting pikmin kit (coloured dots + labels)
+        var _kitY = _gridBot + 22;
+        draw_set_color(make_color_rgb(210, 220, 214));
+        dtext(_gx, _kitY, "Kit:");
+        var _kx = _gx + dtext_width("Kit:") + 16;
+        for (var _k = 0; _k < array_length(_selB.kit); _k++) {
+            draw_set_color(pikmin_tint(_selB.kit[_k]));
+            draw_circle(_kx + 8, _kitY + 12, 8, false);
+            draw_set_color(make_color_rgb(20, 24, 20));
+            draw_circle(_kx + 8, _kitY + 12, 8, true);
+            _kx += 24;
+        }
+        draw_set_color(c_white);
+        // legend for the fixture markers
+        draw_set_color(make_color_rgb(160, 170, 165));
+        dtext(_gx, _kitY + 34, "(white ring = structure, red dot = enemy/boss)");
+        draw_set_color(c_white);
+
+        // ---- bottom bar: Back + PLAY ----
+        if (ui_button(_guiW - 250, _barY, 230, 44, "PLAY", fntMaru)) { start_adventure(_selB); exit; }
+        exit;
+    }
+
     // =========================== BOARD SELECT ===========================
     // (menuScreen == "board") - a scrolling board list on the left, a live data preview of the
     // highlighted board on the right, and a Play button that locks in the seats + board.
     var _boards = global.boardData.boards;
     var _nB = array_length(_boards);
     menuBoardIdx = clamp(menuBoardIdx, 0, _nB - 1);
+
+    // online: the HOST browses + streams the previewed board id; the JOINER mirrors it (list hidden,
+    // just the preview pane) and launches when START arrives. (Standard boards only for now - the
+    // "random" board differs per client, so it isn't synced yet.)
+    var _netHost = net_online() && global.net.mode == "host";
+    var _netJoin = net_online() && global.net.mode == "join";
+    if (_netJoin) {
+        if (global.net.previewBoard != "") for (var _bi = 0; _bi < _nB; _bi++) if (_boards[_bi].id == global.net.previewBoard) { menuBoardIdx = _bi; break; }
+        if (global.net.startBoard != "") { start_game_online(global.net.startBoard, false); exit; }
+    } else if (_netHost) {
+        var _hid = _boards[menuBoardIdx].id;
+        if (_hid != global.net.previewBoard) { net_send_board(_hid); global.net.previewBoard = _hid; }
+    }
 
     // background: the highlighted board's skybox (sprites _1.._16), cover-fit + darkened so
     // the light UI text stays readable on top of it
@@ -172,10 +440,27 @@ if (mode == "menu") {
     draw_text_transformed(_guiW * 0.5, 16, "SELECT A BOARD", 2.0 * UI_TS, 2.0 * UI_TS, 0);
     draw_set_halign(fa_left);
 
-    if (ui_button(20, 12, 110, 30, "< Back")) { menuScreen = "main"; batchArm = false; }
+    if (ui_button(20, 12, 110, 30, "< Back")) { if (net_online()) net_close(); menuScreen = "main"; batchArm = false; }
 
-    // ---- bottom control bar: seat toggles + batch + Play ----
+    // ---- bottom control bar: seat toggles + batch + Play (offline) OR opponent + PLAY/wait (online) ----
     var _barY = _guiH - 56;
+    if (_netHost || _netJoin) {
+        draw_set_color(make_color_rgb(200, 210, 220));
+        dtext(20, _barY + 12, (_netHost ? "vs " : "hosted by ") + global.net.remoteName);
+        draw_set_color(c_white);
+        if (_netHost) {
+            if (ui_button(_guiW - 250, _barY, 230, 44, "PLAY (online)", fntMaru)) {
+                var _pbh = _boards[menuBoardIdx];
+                net_send_start(_pbh.id);
+                start_game_online(_pbh.id, true);
+                exit;
+            }
+        } else {
+            draw_set_halign(fa_center); draw_set_color(make_color_rgb(255, 224, 120));
+            dtext(_guiW * 0.5, _barY + 12, "Waiting for " + global.net.remoteName + " to start...");
+            draw_set_halign(fa_left); draw_set_color(c_white);
+        }
+    } else {
     var _bsCtlName = function(_c) {
         if (_c == "human")  return "Human";
         if (_c == "easy")   return "COM - EASY";
@@ -206,9 +491,11 @@ if (mode == "menu") {
         }
         exit;
     }
+    } // end offline bottom bar (online/offline branch)
 
-    // ---- left: scrolling board list (name / difficulty / basic colours) ----
-    var _listX = 20, _listW = 356, _listTop = 50, _entH = 76;
+    // ---- left: scrolling board list (offline + host; the JOINER sees only the preview pane) ----
+    var _listX = 20, _listW = 356, _listTop = 50, _entH = 76;   // geometry also used by the preview pane
+    if (!_netJoin) {
     var _rows = max(1, floor((_barY - 12 - _listTop) / _entH));
     var _listBot = _listTop + _rows * _entH;
     var _maxTop = max(0, _nB - _rows);
@@ -261,6 +548,7 @@ if (mode == "menu") {
     if (menuListScroll < _maxTop) dtext(_listX + _listW * 0.5, _listBot - 15, "v");
     draw_set_halign(fa_left);
     draw_set_color(c_white);
+    } // end board list (if !_netJoin)
 
     // ---- right: live preview of the highlighted board ----
     // structures get their own tall column down the far right; the rest of the preview
@@ -329,14 +617,15 @@ if (mode == "menu") {
     for (var _i = 0; _i < array_length(_pbd.pelletDie); _i++) {
         var _f = _pbd.pelletDie[_i];
         var _fcx = _pvX + 18 + _i * 48;
-        draw_set_color(pikmin_tint(_f.color));
+        var _fBlank = variable_struct_exists(_f, "blank") && _f.blank;
+        draw_set_color(_fBlank ? make_color_rgb(70, 74, 80) : pikmin_tint(_f.color));
         draw_circle(_fcx, _dfy, 17, false);
         draw_set_color(make_color_rgb(20, 24, 20));
         draw_circle(_fcx, _dfy, 17, true);
         draw_set_halign(fa_center); draw_set_valign(fa_middle);
-        var _dark = (_f.color == "white" || _f.color == "yellow" || _f.color == "ice");
-        draw_set_color(_dark ? c_black : c_white);
-        draw_text_transformed(_fcx, _dfy, string(_f.value), 1.2 * UI_TS, 1.2 * UI_TS, 0);
+        var _dark = (!_fBlank && (_f.color == "white" || _f.color == "yellow" || _f.color == "ice"));
+        draw_set_color(_fBlank ? make_color_rgb(150, 155, 160) : (_dark ? c_black : c_white));
+        draw_text_transformed(_fcx, _dfy, _fBlank ? "-" : string(_f.value), 1.2 * UI_TS, 1.2 * UI_TS, 0);
         draw_set_halign(fa_left); draw_set_valign(fa_top);
     }
     draw_set_color(c_white);
@@ -403,7 +692,7 @@ if (paused) {
     draw_set_color(make_color_rgb(255, 224, 120));
     draw_text_transformed(_px + _pw * 0.5, _py + 14, "PAUSED", 2.2 * UI_TS, 2.2 * UI_TS, 0);
     draw_set_color(make_color_rgb(200, 210, 205));
-    var _pHdr = boardDef.name + "    -    Day " + string(game.dayNumber) + " (" + string(game.dayTrack) + "/" + string(global.rules.dayTrackLength) + ")";
+    var _pHdr = boardDef.name + "    -    Day " + string(game.dayNumber) + " (" + string(game.dayTrack) + "/" + string(game.dayTrackLength) + ")";
     if (!game.solo) _pHdr += "    -    P1 " + string(game_realized_score(game, 0)) + "p  vs  P2 " + string(game_realized_score(game, 1)) + "p"; // solo/co-op has no opponent to compare
     draw_text_transformed(_px + _pw * 0.5, _py + 50, _pHdr, 1.1 * UI_TS, 1.1 * UI_TS, 0);
     draw_set_halign(fa_left);
@@ -537,20 +826,24 @@ for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
         if (_d < _bestDist) { _bestDist = _d; hoverKind = "space"; hoverLane = _laneIdx; hoverIdx = _spaceIdx; }
     }
 }
-for (var _h = 0; _h < 2; _h++) {
-    // sample one point per lane so the whole strip is clickable
-    for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
-        var _lx = (_laneIdx - (board.laneCount - 1) * 0.5) * (TILE_W + LANE_GAP);
-        var _scr = world_to_gui(_vp, _lx, board_home_y(_h), 1);
-        if (_scr == undefined) continue;
-        var _d = point_distance(_mgx, _mgy, _scr[0], _scr[1]);
-        if (_d < max(_bestDist, 55)) { _bestDist = _d; hoverKind = "home"; hoverLane = -1; hoverIdx = _h; }
+// the WHOLE home strip is clickable, not just points in line with the lanes: test the cursor against
+// the strip's projected quad. A space picked above wins over the home row behind it.
+if (hoverKind != "space") {
+    var _stripHalfW = board.laneCount * (TILE_W + LANE_GAP) * 0.5;
+    for (var _h = 0; _h < (game.solo ? 1 : 2); _h++) {   // solo/adventure: no far home to pick
+        var _hy = board_home_y(board, _h);
+        var _q0 = world_to_gui(_vp, -_stripHalfW, _hy - TILE_H * 0.5, 1);
+        var _q1 = world_to_gui(_vp,  _stripHalfW, _hy - TILE_H * 0.5, 1);
+        var _q2 = world_to_gui(_vp,  _stripHalfW, _hy + TILE_H * 0.5, 1);
+        var _q3 = world_to_gui(_vp, -_stripHalfW, _hy + TILE_H * 0.5, 1);
+        if (_q0 == undefined || _q1 == undefined || _q2 == undefined || _q3 == undefined) continue;
+        if (point_in_convex_quad(_mgx, _mgy, _q0, _q1, _q2, _q3)) { hoverKind = "home"; hoverLane = -1; hoverIdx = _h; }
     }
 }
 // the active player's ONION discard zone (their left, mirror of the horde): a click
 // target that dismisses the selected pikmin. Only the owner's zone is pickable.
 if (!_aiTurn) {
-    var _oScr = world_to_gui(_vp, (_p == 0) ? 440 : -440, board_home_y(_p) * 0.86, 1.66);
+    var _oScr = world_to_gui(_vp, (_p == 0) ? 440 : -440, board_home_y(board, _p) * 0.86, 1.66);
     if (_oScr != undefined) {
         var _oD = point_distance(_mgx, _mgy, _oScr[0], _oScr[1]);
         if (_oD < max(_bestDist, 60)) { _bestDist = _oD; hoverKind = "onion"; hoverLane = -1; hoverIdx = _p; }
@@ -628,7 +921,7 @@ draw_set_halign(fa_left);
 
 // left: board + day
 draw_set_color(c_white);
-dtext(10, _midY, boardDef.name + "    Day " + string(game.dayNumber) + " (" + string(game.dayTrack) + "/" + string(global.rules.dayTrackLength) + ")");
+dtext(10, _midY, boardDef.name + "    Day " + string(game.dayNumber) + " (" + string(game.dayTrack) + "/" + string(game.dayTrackLength) + ")");
 if (batchRemaining > 0) {
     draw_set_halign(fa_center);
     draw_set_color(make_color_rgb(255, 224, 120));
@@ -650,8 +943,8 @@ var _seatAiWord = function(_seat) {
         && ctl[_seat] == seat_brain(boardDef.id, _tier)) return seat_ai_label(_tier);
     return seat_ai_label(ctl[_seat]);
 };
-// the active seat's label: "YOU" for a human, "P<n> (<Difficulty> AI)" for a computer
-var _meLbl = (ctl[_p] == "human") ? "YOU" : ("P" + string(_p + 1) + " (" + _seatAiWord(_p) + ")");
+// the active seat's label: "YOU" for the local human, the opponent's name online, else "P<n> (<AI>)"
+var _meLbl = (ctl[_p] == "human") ? "YOU" : ((ctl[_p] == "remote") ? global.net.remoteName : ("P" + string(_p + 1) + " (" + _seatAiWord(_p) + ")"));
 var _youLbl = _meLbl + " " + string(game_realized_score(game, _p)) + "p";
 draw_set_color(make_color_rgb(255, 236, 180));
 dtext(_bx, _midY, _youLbl);
@@ -695,7 +988,8 @@ if (game.solo) {
     var _opp = 1 - _p;
     var _oppB = game_bulbmin_count(game, _opp);
     var _oppCap = string(game_capped_count(game, _opp)) + "/" + string(_capMax) + ((_oppB > 0) ? ("+" + string(_oppB) + "b") : "");
-    var _oppLbl = "vs P" + string(_opp + 1) + ((ctl[_opp] != "human") ? (" (" + _seatAiWord(_opp) + ")") : "");
+    var _oppLbl = (ctl[_opp] == "remote") ? ("vs " + global.net.remoteName)
+        : ("vs P" + string(_opp + 1) + ((ctl[_opp] != "human") ? (" (" + _seatAiWord(_opp) + ")") : ""));
     dtext(_guiW - 10, _midY, _oppLbl + " " + string(game_realized_score(game, _opp)) + "p [" + _oppCap + "]        " + _meLbl + " - " + _phaseName);
 }
 draw_set_halign(fa_left);
@@ -773,6 +1067,7 @@ if (_tStep != undefined) {
     draw_set_color(c_white);
     if (_isIntro && ui_button(_tbX + _tbW - _padX - 130, _tbY + _padTop + _txtH + 8, 130, 30, "Continue", fntDialog)) {
         tutorial_advance();   // steps within a scene, then scene-to-scene, then ends the tutorial
+        if (tutorial == undefined) { return_to_menu(); exit; }   // Continue on the very last text box -> back to the menu
     }
     ui_block_rect(_tbX, _tbY, _tbW, _tbH);
     draw_set_font(fntMaru);   // restore the body UI font - fntDialog would otherwise leak into later buttons/text
@@ -792,7 +1087,8 @@ if (_cine) {
     _cy += 22;
     dtext_bg(12, _cy, _freeHuman ? "Pick a hazard type, then click an empty basic space." : "The AI is choosing its spot" + string_repeat(".", 1 + (frameTick div 20) mod 3));
 } else if (_aiTurn) {
-    dtext_bg(12, _cy, "AI is taking its turn" + string_repeat(".", 1 + (frameTick div 20) mod 3));
+    var _turnWho = (ctl[_p] == "remote") ? (global.net.remoteName + "'s turn") : "AI is taking its turn";
+    dtext_bg(12, _cy, _turnWho + string_repeat(".", 1 + (frameTick div 20) mod 3));
 } else if (game.phase == "gather") {
     dtext_bg(12, _cy, "Gather actions left: " + string(game.gatherActionsLeft));
     _cy += 22;
@@ -1464,8 +1760,10 @@ if (keyboard_check(vk_alt)) {
         }
     }
 
-    // discard-pile list: Alt-hover the centre-side discard decal to read the pile
-    var _ddScr = world_to_gui(_vp, 380, 0, 1.63);
+    // discard-pile list: Alt-hover the discard decal to read the pile (y = board midpoint, matching
+    // the Draw_0 deck placement - 0 would miss it on a home-anchored solo board)
+    var _ddBnd = board_bounds_y(board, game.solo);
+    var _ddScr = world_to_gui(_vp, 380, (_ddBnd.minY + _ddBnd.maxY) * 0.5, 1.63);
     var _discList = game.decks.gatherDiscard;
     var _discNn = array_length(_discList);
     if (_ddScr != undefined && _discNn > 0 && point_distance(_mgx, _mgy, _ddScr[0], _ddScr[1]) < 80) {

@@ -3,11 +3,21 @@
 // --- data + mode ---
 data_load_all();
 randomize();
+net_init();             // P2P connection state (global.net); Async - Networking event drives it
 
 mode = "menu";          // "menu" | "playing"
-menuScreen = "main";    // when mode=="menu": "main" (title) | "board" (board select) | "options"
+menuScreen = "main";    // when mode=="menu": "main" (title) | "board" (board select) | "options" | "online" | "adventure"
 menuBoardIdx = 0;       // board-select: index of the previewed board in global.boardData.boards
 menuListScroll = 0;     // board-select: top row index of the scrolling board list
+menuAdvIdx = 0;         // chapter-select: index of the previewed adventure board (flat across scenarios)
+menuAdvScroll = 0;      // chapter-select: top row index of the scrolling chapter/board list
+menuNetName = "Player"; // online lobby: local player name field
+menuNetIP   = "127.0.0.1"; // online lobby: host IP to join
+menuNetField = "";      // which lobby text field has focus: "" | "name" | "ip"
+netLastSent = "";       // serialized state we last broadcast/adopted (only re-send on real change)
+netWasMyTurn = false;   // was it our seat's turn last frame (so we still broadcast the turn-flip state)
+netResolveSent = false; // we've broadcast the committed pre-resolve state; hush during the pump
+netMirrorResolving = false; // we're REPLAYING a resolve received off the wire - don't rebroadcast it
 game = undefined;
 board = undefined;
 boardDef = undefined;
@@ -86,6 +96,9 @@ camTargetX = 0;
 camTargetY = 0;
 camTargetZ = 0;
 autoOrbit = false;
+// WASD pan bounds - recomputed per board from its extent (cam_pan_limits); legacy defaults here.
+panMinX = -620; panMaxX = 620;
+panMinY = -520; panMaxY = 520;
 
 camera = camera_create();
 view_enabled    = true;
@@ -133,6 +146,52 @@ sync_resolution = function() {
     lastWinW = _w; lastWinH = _h;
 };
 
+// Which seat's perspective the camera + ground decals should face. Online: our own seat (the
+// joiner sits at P2, so they view/orient from the red side). Hotseat (both human, future): whoever's
+// turn it is. Otherwise (vs AI): the human seat, which is P1 unless the human is explicitly seat 1.
+view_seat = function() {
+    if (net_online() && (ctl[0] == "remote" || ctl[1] == "remote")) return global.net.localSeat;
+    if (ctl[0] == "human" && ctl[1] == "human") return game.activePlayer;
+    return (ctl[0] != "human" && ctl[1] == "human") ? 1 : 0;
+};
+
+// Recompute the WASD pan bounds from the current board's extent, so long adventure lanes stay
+// reachable while the stock boards keep (at least) their legacy hand-tuned range. Call after a
+// board loads and the camera target is set.
+cam_pan_limits = function() {
+    // slacks chosen so a stock 7-space board reproduces the old hand-tuned +/-520 (Y) / +/-620 (X)
+    // exactly (its home edge sits ~336px out, +184 = 520; a 5-lane half-width ~325, +295 = 620),
+    // while longer/wider boards expand to keep their far rows reachable.
+    var _halfW = board.laneCount * (TILE_W + LANE_GAP) * 0.5;
+    var _b = board_bounds_y(board, game.solo);
+    panMaxX =  max(620, _halfW + 295);
+    panMinX = -panMaxX;
+    panMaxY =  max(520, _b.maxY + 184);
+    panMinY =  min(-520, _b.minY - 184);
+};
+
+// Fit the FULL renderer's camera + ground slab to the whole board (the adventure/long-board analog of
+// frame_compact_board, which is tutorial-only). Recenters on the board midpoint, rebuilds the ground
+// to cover it, and pulls the camera back to frame the full span. Call after start_game for a solo /
+// irregular board; the stock 2-player boards keep start_game's fixed camera + 20x14 ground.
+frame_board = function() {
+    var _b = board_bounds_y(board, game.solo);
+    var _cyMid = (_b.minY + _b.maxY) * 0.5;
+    var _spanY = _b.maxY - _b.minY;
+    vertex_delete_buffer(groundVB);
+    // 20 cols = the stock boards' panel width (~+/-640). Every board is 5 lanes, so the side furniture
+    // - onion/horde discs and deck stacks out at |x|~440-530 - lands ON the panel just like normal.
+    // Rows scale with the board's length (never below the stock 14) so long lanes stay on the panel.
+    var _rows = max(14, ceil((_spanY + 300) / 64));
+    groundVB = build_ground(20, _rows, 64, board_ground_palette(boardDef.setNumber), 0, _cyMid);
+    camTargetX = 0;
+    camTargetY = _cyMid;
+    camDist    = clamp(_spanY + 350, 800, 1800);
+    camPitch   = 52;
+    camYaw     = (view_seat() == 1) ? 90 : 270;
+    cam_pan_limits();
+};
+
 // launch a game on a board id, resetting view + selection state.
 // _ctl: optional seat assignment; defaults to the menu's selection.
 start_game = function(_boardId, _ctl = undefined, _scenario = undefined, _keepTutorial = false) {
@@ -162,10 +221,54 @@ start_game = function(_boardId, _ctl = undefined, _scenario = undefined, _keepTu
     presMoving = false; settleHold = 0; resolveHold = 0; biteT = 0; biteKind = "";
     prevActive = game.activePlayer; turnSettling = false; turnSettleFrames = 0; gameoverSettled = false; gameoverHold = 0;
     if (batchRemaining <= 0) { // batch rounds keep the camera (let it orbit while it grinds)
-        camYaw = 270; camPitch = 52; camDist = 900;
+        // seat 2 (a local human on the red side) starts orbited 180 deg to face the board from THEIR side
+        camYaw = (view_seat() == 1) ? 90 : 270; camPitch = 52; camDist = 900;
         camTargetX = 0; camTargetY = 0; camTargetZ = 0;
     }
+    cam_pan_limits();
     aiTickTimer = 0;
+};
+
+// launch an ONLINE game: the host is seat 0 (local human) vs the remote at seat 1; the joiner is
+// seat 1 (local human) vs the remote host at seat 0. A "remote" seat waits for network state
+// instead of running the AI (see Step). Turn sync itself is Phase 2.
+start_game_online = function(_boardId, _isHost) {
+    start_game(_boardId, _isHost ? ["human", "remote"] : ["remote", "human"]);
+    netLastSent = "";       // fresh game -> the host will broadcast it; the joiner will adopt the host's
+    netWasMyTurn = false;
+};
+
+// DEV: launch the irregular solo adventure-geometry test board (full renderer, then fit the camera).
+start_advtest = function() {
+    start_game(undefined, ["human", "human"], scenario_advtest(), false);
+    frame_board();
+};
+
+// Launch an ADVENTURE board (from the chapter select) as a solo home-anchored game, framed to fit.
+start_adventure = function(_advBoard) {
+    start_game(undefined, ["human", "human"], scenario_adventure(_advBoard), false);
+    frame_board();
+};
+
+// Adopt a full game state received from the peer (the mirror side). boardDef travels in the state,
+// so we rebuild the board buffers to match (handles random boards, whose layout differs per client).
+net_apply_state = function(_json) {
+    var _g = net_deserialize_game(_json);
+    if (_g == undefined) return;
+    game = _g;
+    board = game.board;
+    boardDef = game.boardDef;
+    if (tileVB != -1) vertex_delete_buffer(tileVB);
+    tileVB = board_build_tile_vb(board, game.solo);
+    vertex_delete_buffer(groundVB);
+    groundVB = build_ground(20, 14, 64, board_ground_palette(boardDef.setNumber));
+    // the mirror doesn't own selection/targeting/fx - clear them so stale UI doesn't linger
+    selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined; freeBuild = "";
+    fxList = [];
+    prevActive = game.activePlayer;
+    // if the adopted state carries a live resolveQueue, this is a committed turn we now REPLAY
+    // locally (deterministically) - suppress our own broadcasts until the peer's final state lands.
+    netMirrorResolving = (array_length(game.resolveQueue) > 0);
 };
 
 // launch the guided tutorial. The tutorial is a sequence of SCENES (chapters), each a full solo
@@ -205,10 +308,8 @@ tutorial_load_scene = function(_scene) {
 // (camDist / camPitch / margins below are the tuning knobs.)
 frame_compact_board = function() {
     var _pitch = TILE_H + TILE_GAP;
-    var _maxSp = 0;
-    for (var _l = 0; _l < board.laneCount; _l++) _maxSp = max(_maxSp, array_length(board.lanes[_l].spaces));
-    var _yTop  = board_home_y(0) - _pitch;              // a touch behind the home strip
-    var _yBot  = (_maxSp - 1 - 3) * _pitch + _pitch;    // a touch past the far (treasure) row
+    var _yTop  = board_home_y(board, 0) - _pitch;                         // a touch behind the home strip
+    var _yBot  = (board.maxSpaces - 1 - board.centerRow) * _pitch + _pitch; // a touch past the far (treasure) row
     var _cyMid = (_yTop + _yBot) * 0.5;
     var _tw    = board.laneCount * (TILE_W + LANE_GAP);
     vertex_delete_buffer(groundVB);
@@ -217,6 +318,7 @@ frame_compact_board = function() {
     camTargetY = _cyMid;
     camDist    = 560;
     camPitch   = 54;
+    cam_pan_limits();
 };
 
 // --- tutorial navigation helpers ---
@@ -365,7 +467,7 @@ tutorial_scenes = function() {
         // reset. Success = the heavy item reaches home in the collected pile.
         { scenario: scenario_tutorial3(), startPhase: "orders", steps: [
             { kind: "intro", checkpoint: true, text: "In a real game, treasures aren't single cards, they're piles of around 500p. The weight of the pile is the card on top. You can use the Survey Drone or Ship Signal to change which item's weight is being used." },
-            { kind: "action", text: "Try banking this heavy item.",
+            { kind: "action", text: "Bank this heavy item to continue.",
               done: function(_g) {
                   var _c = _g.players[0].collected;
                   for (var _i = 0; _i < array_length(_c); _i++) if (_c[_i] == "amplifiedamplifier") return true;
@@ -376,6 +478,73 @@ tutorial_scenes = function() {
                   if (array_length(_g.resolveQueue) > 0 || array_length(_g.departing) > 0) return false; // let the turn fully settle
                   return _g.players[0].turnsTaken > _cp.players[0].turnsTaken;   // turn resolved; done() already ruled out success
               } },
+            { kind: "intro", text: "Nicely done. One more lesson..." },
+        ] },
+        // ---- Scene 4: CRUSH/Rock -> chasm/Winged -> swift (discovery combat lesson) ----
+        // Two lanes (see scenario_tutorial4). Starts in the MOVE phase (turn 1 = resolve+watch the
+        // Reds die). A dialogue beat + checkpoint after each success; each action's failIf resets to
+        // the latest checkpoint when the force is too thin to finish. Lane index 0 = the crush lane,
+        // 1 = the chasm/swift lane. Helper reads inline (winged count, lane-treasure position).
+        // rush RULE ON so a weight-1 treasure with 3 carriers hauls TWO spaces/turn (the first haul
+        // is one turn, not three) - matches the intended pacing.
+        { scenario: scenario_tutorial4(), startPhase: "move", rules: { rush: true }, steps: [
+            // turn 1: forced demo - Reds kill the first Wollyhop but get stomped.
+            { kind: "action", hideRoll: true, text: "Just you and a treasure. You've got twice as many Pikmin as you need, and there should be nothing in your way. Right? Take them out and claim the treasure!",
+              done: function(_g) {
+                  if (array_length(_g.resolveQueue) > 0 || array_length(_g.departing) > 0) return false;
+                  var _e1 = _g.board.lanes[0].spaces[0].enemy;
+                  return _e1 == undefined || _e1.dead;
+              } },
+            {kind: "intro", text: "Oops."},
+			// draw prompt: advances the instant a Candypop is in hand (not a Continue button).
+            { kind: "action", checkpoint: true, showDraw: true, hideRoll: true, text: "If you lose all your Pikmin fighting the monsters, you won't have enough to carry the treasure home. Let's try drawing some cards.",
+              done: function(_g) { return array_length(_g.players[0].hand) >= 1; } },
+            // Rock the second Wollyhop, then carry the crush-lane treasure down to space 0. Checkpoint
+            // here (post-draw) so a botched fight resets with the card already in hand.
+            { kind: "action", checkpoint: true, showDraw: true, hideRoll: true, text: "Great! Now assign your remaining 3 Pikmin to the Wollyhop and end your Orders phase, then apply the Bud to turn them into Rocks - see what happens.",
+              done: function(_g) {
+                  if (array_length(_g.resolveQueue) > 0 || array_length(_g.departing) > 0) return false;
+                  for (var _i = 0; _i < array_length(_g.treasures); _i++) if (_g.treasures[_i].lane == 0) return _g.treasures[_i].idx <= 0; // reached space 0
+                  return false;   // crush-lane treasure gone before space 0 shouldn't happen
+              },
+              failIf: function(_g, _cp) {
+                  if (_cp == undefined) return false;
+                  if (array_length(_g.resolveQueue) > 0 || array_length(_g.departing) > 0) return false;
+                  return array_length(_g.players[0].tokens) < 3;   // crushed too many Reds -> reset
+              } },
+            { kind: "intro", checkpoint: true, hideRoll: true, text: "Now it's time to think ahead. To get the other treasure, you'll need Pikmin that can cross chasms. Use a Candypop Bud on your 3 Rock Pikmin now and turn them into Winged Pikmin so you can use them next turn." },
+            // turn them Winged and bank the crush-lane treasure. Reset if they end with < 2 flyers.
+            { kind: "action", showDraw: true, hideRoll: true, text: "Turn your Rocks into Winged Pikmin before ending your turn.",
+              done: function(_g) {
+                  if (array_length(_g.resolveQueue) > 0 || array_length(_g.departing) > 0) return false;
+                  for (var _i = 0; _i < array_length(_g.treasures); _i++) if (_g.treasures[_i].lane == 0) return false; // crush-lane treasure not banked yet
+                  var _w = 0; for (var _i = 0; _i < array_length(_g.players[0].tokens); _i++) if (_g.players[0].tokens[_i].typeId == "winged") _w += 1;
+                  return _w >= 2;
+              },
+              failIf: function(_g, _cp) {
+                  if (_cp == undefined) return false;
+                  if (array_length(_g.resolveQueue) > 0 || array_length(_g.departing) > 0) return false;
+                  for (var _i = 0; _i < array_length(_g.treasures); _i++) if (_g.treasures[_i].lane == 0) return false; // not banked yet -> no reset
+                  var _w = 0; for (var _i = 0; _i < array_length(_g.players[0].tokens); _i++) if (_g.players[0].tokens[_i].typeId == "winged") _w += 1;
+                  return _w < 2;   // banked but too few flyers to take the swift -> reset
+              } },
+            { kind: "intro", checkpoint: true, hideRoll: true, text: "Now go after the last treasure. That enemy is SWIFT - it takes its combat turn before yours. Commit enough Pikmin that you can still kill it after it eats one of them." },
+            // cross the chasm, kill the swift 1/1, and get the last treasure moving.
+            { kind: "action", hideRoll: true, text: "Fly across the chasm, defeat the swift Shearwig, and get the last treasure moving.",
+              done: function(_g) {
+                  if (array_length(_g.resolveQueue) > 0 || array_length(_g.departing) > 0) return false;
+                  for (var _i = 0; _i < array_length(_g.treasures); _i++) if (_g.treasures[_i].lane == 1) return _g.treasures[_i].idx < 2; // moved off idx 2
+                  return true;   // chasm-lane treasure banked also counts
+              },
+              failIf: function(_g, _cp) {
+                  if (_cp == undefined) return false;
+                  if (array_length(_g.resolveQueue) > 0 || array_length(_g.departing) > 0) return false;
+                  var _sw = _g.board.lanes[1].spaces[1].enemy;
+                  return (_sw != undefined && !_sw.dead) && array_length(_g.players[0].tokens) < 2; // lost the flyers to the swift -> reset
+              } },
+            { kind: "intro", hideRoll: true, text: "The third colour, Ice, freezes enemies. Attack a monster with Ice Pikmin equal to half its health, and it skips its next attack entirely." },
+            { kind: "intro", hideRoll: true, text: "Freezing can be switched off in the settings, along with the other special Pikmin interactions that aren't part of the base rules." },
+            { kind: "intro", hideRoll: true, text: "And that's the basics of combat. Enemies come with all sorts of attack elements, and most Pikmin are immune to some of them - check the pause menu (Esc) for a full reference." },
         ] },
     ];
 };
