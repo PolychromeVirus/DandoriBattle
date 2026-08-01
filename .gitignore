@@ -21,6 +21,9 @@ $RECYCLE.BIN/
 *.msix
 *.msm
 *.msp
+.claude
+PikminCardReference.xlsx
+PikminCardReference - Enemy.csv
  
 # Windows shortcuts
 *.lnk
