@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"sfxDestroyStructure",
+  "audioGroupId":{
+    "name":"Explosions",
+    "path":"audiogroups/Explosions",
+  },
+  "bitDepth":1,
+  "channelFormat":0,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":3.593492,
+  "exportDir":"",
+  "name":"sfxDestroyStructure",
+  "parent":{
+    "name":"SFX",
+    "path":"folders/SFX.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"sfxDestroyStructure.wav",
+  "volume":1.0,
+}

@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"sing16",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":0,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":0.23977324,
+  "exportDir":"",
+  "name":"sing16",
+  "parent":{
+    "name":"PikminSounds",
+    "path":"folders/SFX/PikminSounds.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"sing16.wav",
+  "volume":1.0,
+}

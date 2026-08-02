@@ -290,6 +290,7 @@ function title_scene_create(_setNumber = 1) {
         spawnTimer: 20,                      // frames until the next lone wanderer
         convoyTimer: irandom_range(240, 480),// frames until the next treasure convoy (rare)
         bandTimer: irandom_range(700, 1400), // frames until the next bulbmin band (rarer still)
+        skyTimer: irandom_range(1100, 2200), // frames until a winged squad flies a treasure overhead (rarest)
         // ~10560 wide, faded out between y=500..2600 so the checker dissolves just under the
         // (now low) horizon, leaving sky reaching well down the frame - past the title
         groundVB: build_ground(110, 84, 96, board_ground_palette(_setNumber), 0, 0, 500, 2600),
@@ -398,6 +399,30 @@ function title_spawn_band(_ts) {
     });
 }
 
+/// A rare flypast: a squad of WINGED Pikmin hauling a treasure HIGH overhead, sailing above
+/// everything else on the field. No ground shadow to speak of (they're way up); a steady glide.
+function title_spawn_sky_convoy(_ts) {
+    var _dir = choose(-1, 1);
+    var _n = irandom_range(4, 6);
+    var _carriers = [];
+    for (var _i = 0; _i < _n; _i++) {
+        array_push(_carriers, { typeId: "winged", ox: random_range(-34, 34), oy: random_range(-20, 20), phase: random(6.283) });
+    }
+    var _y = random_range(-200, 260);
+    var _edge = title_actor_edge(_y, 150);
+    array_push(_ts.actors, {
+        kind: "sky",
+        treasureId: _ts.treasurePool[irandom(array_length(_ts.treasurePool) - 1)],
+        x: -_dir * _edge,
+        y: _y,
+        z: random_range(210, 300),           // high above the map, over all the ground Pikmin
+        dir: _dir,
+        edge: _edge,
+        spd: random_range(1.6, 2.2),          // a smooth glide
+        carriers: _carriers,
+    });
+}
+
 /// Advance the title scene one menu frame: spawn on cadence (capped), walk every
 /// actor along its lane, and cull once it's fully off the far side.
 function title_scene_update(_ts) {
@@ -415,6 +440,11 @@ function title_scene_update(_ts) {
     if (_ts.bandTimer <= 0) {
         title_spawn_band(_ts);
         _ts.bandTimer = irandom_range(900, 1700);
+    }
+    _ts.skyTimer -= 1;
+    if (_ts.skyTimer <= 0) {
+        title_spawn_sky_convoy(_ts);
+        _ts.skyTimer = irandom_range(1400, 2800);   // rarest: a treasure sails overhead now and then
     }
     for (var _i = array_length(_ts.actors) - 1; _i >= 0; _i--) {
         var _a = _ts.actors[_i];
@@ -463,21 +493,24 @@ function title_scene_draw(_ts, _viewMat, _frameTick) {
             var _wflip = (title_pik_faces_right(_a.typeId) != _travelRight);
             vb_billboard(sprite_batches_vb(_batches, _spr), _spr, 0, _a.x, _a.y, _bob, 34, _camRight, _camUp, _tint, 1, 1, _wflip);
         } else {
-            // a convoy hauls a treasure pile; a bulbmin band travels empty
-            if (_a.kind == "convoy") {
+            // a convoy hauls a treasure pile; a bulbmin band travels empty; a "sky" flypast is a
+            // winged haul lifted to _a.z (a faint far-below shadow sells the height)
+            var _baseZ = (_a.kind == "sky") ? _a.z : 0;
+            if (_a.kind == "convoy" || _a.kind == "sky") {
                 var _tspr = data_sprite(treasure_def_get(_a.treasureId), sprFRIEND);
-                vb_disc(_overlayVB, _a.x, _a.y, 0.5, 22, make_color_rgb(24, 20, 16), 0.28);
-                vb_billboard(sprite_batches_vb(_batches, _tspr), _tspr, 0, _a.x, _a.y - 4, 1, 46, _camRight, _camUp, c_white, 1);
+                if (_a.kind == "sky") vb_disc(_overlayVB, _a.x, _a.y, 0.5, 13, make_color_rgb(24, 20, 16), 0.12);
+                else                  vb_disc(_overlayVB, _a.x, _a.y, 0.5, 22, make_color_rgb(24, 20, 16), 0.28);
+                vb_billboard(sprite_batches_vb(_batches, _tspr), _tspr, 0, _a.x, _a.y - 4, _baseZ + 1, 46, _camRight, _camUp, c_white, 1);
             }
             for (var _c = 0; _c < array_length(_a.carriers); _c++) {
                 var _cr = _a.carriers[_c];
                 var _cbob = abs(sin(_frameTick * 0.14 + _cr.phase)) * 4;
                 var _cx2 = _a.x + _cr.ox, _cy2 = _a.y + _cr.oy;
-                vb_disc(_overlayVB, _cx2, _cy2, 0.5, 6, make_color_rgb(24, 20, 16), 0.4);
+                if (_a.kind != "sky") vb_disc(_overlayVB, _cx2, _cy2, 0.5, 6, make_color_rgb(24, 20, 16), 0.4);
                 var _cspr = data_sprite(pikmin_type_get(_cr.typeId), sprFRIEND);
                 var _ctint = (_cspr == sprFRIEND) ? pikmin_tint(_cr.typeId) : c_white;
                 var _cflip = (title_pik_faces_right(_cr.typeId) != _travelRight);
-                vb_billboard(sprite_batches_vb(_batches, _cspr), _cspr, 0, _cx2, _cy2, _cbob, 30, _camRight, _camUp, _ctint, 1, 1, _cflip);
+                vb_billboard(sprite_batches_vb(_batches, _cspr), _cspr, 0, _cx2, _cy2, _baseZ + _cbob, 30, _camRight, _camUp, _ctint, 1, 1, _cflip);
             }
         }
     }

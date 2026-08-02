@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"ah11",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":0,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":0.31492063,
+  "exportDir":"",
+  "name":"ah11",
+  "parent":{
+    "name":"PikminSounds",
+    "path":"folders/SFX/PikminSounds.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"ah11.wav",
+  "volume":1.0,
+}

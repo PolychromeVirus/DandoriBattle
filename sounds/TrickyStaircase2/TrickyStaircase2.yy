@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"TrickyStaircase2",
+  "audioGroupId":{
+    "name":"Pikmin3",
+    "path":"audiogroups/Pikmin3",
+  },
+  "bitDepth":1,
+  "channelFormat":1,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":179.68506,
+  "exportDir":"",
+  "name":"TrickyStaircase2",
+  "parent":{
+    "name":"Music",
+    "path":"folders/Music.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":48000,
+  "soundFile":"TrickyStaircase2.mp3",
+  "volume":1.0,
+}

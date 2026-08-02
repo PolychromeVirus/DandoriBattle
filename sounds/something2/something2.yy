@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"something2",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":0,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":1.5440589,
+  "exportDir":"",
+  "name":"something2",
+  "parent":{
+    "name":"PikminSounds",
+    "path":"folders/SFX/PikminSounds.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"something2.wav",
+  "volume":1.0,
+}

@@ -97,6 +97,13 @@ function net_rehydrate(_g) {
     if (!variable_struct_exists(_g, "pendingDiscard")) _g.pendingDiscard = undefined;
     if (!variable_struct_exists(_g, "bombCue"))        _g.bombCue = undefined;
     if (!variable_struct_exists(_g, "combatFights"))   _g.combatFights = undefined;
+    if (!variable_struct_exists(_g, "soothed"))        _g.soothed = false;
+    if (!variable_struct_exists(_g, "bankCues"))       _g.bankCues = [];
+    if (!variable_struct_exists(_g, "sfxCue"))         _g.sfxCue = [];
+    if (!variable_struct_exists(_g, "dayRawFree"))     _g.dayRawFree = false;
+    if (!variable_struct_exists(_g, "dayPelletBonus")) _g.dayPelletBonus = false;
+    if (!variable_struct_exists(_g, "flarlicBonus"))   _g.flarlicBonus = 0;
+    if (!variable_struct_exists(_g, "dayTrackDef"))    _g.dayTrackDef = game_day_track_default();
     for (var _i = 0; _i < array_length(_g.treasures); _i++) {
         if (!variable_struct_exists(_g.treasures[_i], "boss")) _g.treasures[_i].boss = undefined;
     }

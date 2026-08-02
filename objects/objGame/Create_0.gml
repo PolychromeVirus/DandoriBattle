@@ -5,8 +5,20 @@ data_load_all();
 randomize();
 net_init();             // P2P connection state (global.net); Async - Networking event drives it
 
+// --- audio: the Pikmin 3 OST group is quiet, so load it at boot + boost its gain (tuning knob) ---
+audio_group_load(Pikmin3);
+audio_group_set_gain(Pikmin3, 2.0, 0);
+
+audio_group_load(Explosions);
+audio_group_set_gain(Explosions, 0.75, 0);
+
+audio_group_load(QuietSounds);
+audio_group_set_gain(QuietSounds, 0.25, 0);
+
 mode = "menu";          // "menu" | "playing"
 menuScreen = "main";    // when mode=="menu": "main" (title) | "board" (board select) | "options" | "online" | "adventure"
+prevMenuScreen = "main"; // for menu open/close SFX (change-detected in Step)
+prevPaused = false;      // for pause open/close SFX
 menuBoardIdx = 0;       // board-select: index of the previewed board in global.boardData.boards
 menuListScroll = 0;     // board-select: top row index of the scrolling board list
 menuAdvIdx = 0;         // chapter-select: index of the previewed adventure board (flat across scenarios)
@@ -39,6 +51,162 @@ prevDayNumber = 1;    // last day we saw, to detect the sunset rollover
 
 // --- death FX (animated spirits / enemy squash, drained from game.fx) ---
 fxList = [];
+// --- on-bank power toasts: a PENDING queue (pop in one at a time) + active toasts that animate ---
+toastList = [];         // active {name,effect,good,age,y,targetY,deH}
+toastQueue = [];        // pending {name,effect,good} - released one every toastSpawnDelay frames
+toastSpawnTimer = 0;
+
+// --- per-map, per-day music. Assets are "<PascalMapName><N>" (e.g. FamiliarGrotto1..3). Track 1 =
+// --- day 1, track 3 = the FINAL day, track 2 = every day between (so 2-day maps go 1 -> 3). ---
+musicAsset = -1;        // currently-playing sound asset index (-1 = silence)
+musicInst  = -1;        // the playing sound instance
+musicFadeInst  = -1;    // an outgoing track still fading out (hard-stopped once its timer ends)
+musicFadeFrames = 0;
+MUSIC_FADE_MS = 550;    // crossfade length - old track eases out as the new one eases in
+// which of the 3 tracks a day wants, given the game's total day count
+music_track_for_day = function(_day, _totalDays) {
+    if (_day <= 1) return 1;
+    if (_day >= _totalDays) return 3;   // final day
+    return 2;
+};
+// let an outgoing (fading) track finish, then hard-stop it so it doesn't loop on silently
+music_fade_tick = function() {
+    if (musicFadeInst == -1) return;
+    musicFadeFrames -= 1;
+    if (musicFadeFrames <= 0) {
+        if (audio_is_playing(musicFadeInst)) audio_stop_sound(musicFadeInst);
+        musicFadeInst = -1;
+    }
+};
+// stop the current track. _fade eases it out over MUSIC_FADE_MS instead of a hard cut.
+music_stop = function(_fade = true) {
+    if (musicInst != -1 && audio_is_playing(musicInst)) {
+        if (_fade) {
+            if (musicFadeInst != -1 && audio_is_playing(musicFadeInst)) audio_stop_sound(musicFadeInst); // one fade at a time
+            musicFadeInst = musicInst;
+            audio_sound_gain(musicFadeInst, 0, MUSIC_FADE_MS);
+            musicFadeFrames = ceil(MUSIC_FADE_MS / 1000 * 60) + 4; // frames to let the fade run before the hard stop
+        } else {
+            audio_stop_sound(musicInst);
+        }
+    }
+    musicInst = -1; musicAsset = -1;
+};
+// switch to _asset (looping), crossfading old out + new in. No-op if already playing (incl. -1 = silence).
+music_want = function(_asset) {
+    if (_asset == musicAsset) return;
+    music_stop();
+    musicAsset = _asset;
+    if (_asset != -1) {
+        musicInst = audio_play_sound(_asset, 10, true);
+        audio_sound_gain(musicInst, 0, 0);             // start silent...
+        audio_sound_gain(musicInst, 1, MUSIC_FADE_MS); // ...and fade in
+    }
+};
+// fire-and-forget one-shot SFX by asset name; safe if the asset isn't imported yet (returns -1).
+// optional _pitch (1 = normal) - the SFX drain passes a slight random pitch so repeats don't phase-align.
+sfx = function(_name, _pitch = 1) {
+    var _s = asset_get_index(_name);
+    if (_s != -1) audio_play_sound(_s, 8, false, 1, 0, _pitch);
+};
+// --- spatial audio: an emitter per board SPACE (+ home strips), so combat/carry/death sounds
+// come from where they happen and pan across the stereo field. Mono sources only (all ours are).
+// Falloff is deliberately gentle - panning does the separation, distance just adds a little depth.
+// The listener is repositioned to the camera each frame in Step (seat-2 flip comes free, since it's
+// derived from the actual eye->target). Emitters are freed + lazily rebuilt per board (positions move).
+audio_falloff_set_model(audio_falloff_linear_distance_clamped);
+SND_FALLOFF_REF = 220;    // gain ~1 within this radius of the ear...
+SND_FALLOFF_MAX = 1500;   // ...rolling off to here (closer max = stronger attenuation)
+SND_FALLOFF_FCT = 1.0;    // <1 softens the rolloff; 1 = full linear falloff
+sndEmitters = {};         // "lane_idx" / "homeP" / "c_KEY" -> audio emitter
+snd_emitter_make = function(_wx, _wy) {
+    var _e = audio_emitter_create();
+    audio_emitter_position(_e, _wx, _wy, 0);
+    audio_emitter_falloff(_e, SND_FALLOFF_REF, SND_FALLOFF_MAX, SND_FALLOFF_FCT);
+    return _e;
+};
+emitter_at = function(_lane, _idx) {
+    var _k = string(_lane) + "_" + string(_idx);
+    if (!variable_struct_exists(sndEmitters, _k)) {
+        var _p = board_space_xy(board, _lane, _idx);
+        sndEmitters[$ _k] = snd_emitter_make(_p[0], _p[1]);
+    }
+    return sndEmitters[$ _k];
+};
+emitter_home = function(_pl) {
+    var _k = "home" + string(_pl);
+    if (!variable_struct_exists(sndEmitters, _k)) sndEmitters[$ _k] = snd_emitter_make(0, board_home_y(board, _pl));
+    return sndEmitters[$ _k];
+};
+// a repositionable emitter for a MOVING source (a carry pile), keyed by carry-loop key
+emitter_moving = function(_key, _wx, _wy) {
+    var _k = "c_" + _key;
+    if (!variable_struct_exists(sndEmitters, _k)) sndEmitters[$ _k] = snd_emitter_make(_wx, _wy);
+    else audio_emitter_position(sndEmitters[$ _k], _wx, _wy, 0);
+    return sndEmitters[$ _k];
+};
+emitters_free = function() {
+    var _ks = variable_struct_get_names(sndEmitters);
+    for (var _i = 0; _i < array_length(_ks); _i++) audio_emitter_free(sndEmitters[$ _ks[_i]]);
+    sndEmitters = {};
+};
+// positional one-shot: plays _name on the space's emitter (falls back to flat sfx if given no space)
+sfx_at = function(_name, _lane, _idx, _pitch = 1, _priority = 8) {
+    var _s = asset_get_index(_name);
+    if (_s == -1) return -1;
+    if (_lane == undefined || _idx == undefined) { audio_play_sound(_s, _priority, false, 1, 0, _pitch); return -1; }
+    return audio_play_sound_on(emitter_at(_lane, _idx), _s, false, _priority, 1, 0, _pitch);
+};
+// play one drained sfxCue entry: a bare string is flat/centred, a {n,l,i} struct is positional
+snd_play_cue = function(_entry, _priority, _pitch) {
+    if (is_struct(_entry)) sfx_at(_entry.n, _entry.l, _entry.i, _pitch, _priority);
+    else { var _s = asset_get_index(_entry); if (_s != -1) audio_play_sound(_s, _priority, false, 1, 0, _pitch); }
+};
+// pick + (re)start the track for the current map/day; no-ops while it's already the right one.
+music_sync = function() {
+    if (mode != "playing" || game == undefined || batchRemaining > 0) {
+		if (musicAsset != TitleScreen || musicInst == -1 || !audio_is_playing(musicInst)) {
+			music_stop();
+			musicAsset = TitleScreen;
+			musicInst = audio_play_sound(musicAsset, 10, true, 0.5);
+		}
+		return;
+	}  // in-game only, not batch runs
+    if (dayCine != undefined) { music_stop(); return; }  // silent through the day transition (whistle + respawn); the new track starts when it ends
+    var _base  = string_replace_all(boardDef.name, " ", "");                 // "Familiar Grotto" -> "FamiliarGrotto"
+    // key off prevDayNumber (the day the cinematic has revealed), not game.dayNumber - the latter
+    // ticks over mid-resolution, which would start the next track a few frames early
+    var _track = music_track_for_day(prevDayNumber, global.rules.days);
+    var _asset = asset_get_index(_base + string(_track));                    // -1 if this map has no music yet
+    if (_asset == musicAsset) return;                                        // already correct (incl. both -1 = stay silent)
+    music_stop();
+    musicAsset = _asset;
+    if (_asset != -1) musicInst = audio_play_sound(_asset, 10, true);        // loop
+};
+
+// --- carry-loop SFX: a looping carry sound per moving pile (Draw_0 reconciles per frame). carry2
+// --- (higher) for a group that's mostly whites/pinks, else carry1; a random pitch per loop. ---
+carrySnds = {};   // active loops keyed by pile: "t"+lane (on-board) / "d"+lane (departing home)
+carry_asset_for = function(_lane, _idx) {
+    var _wp = 0, _other = 0;
+    for (var _cp = 0; _cp < 2; _cp++) {
+        var _toks = game_tokens_at(game, _cp, { kind: "space", lane: _lane, idx: _idx });
+        for (var _i = 0; _i < array_length(_toks); _i++) {
+            if (_toks[_i].typeId == "white" || _toks[_i].typeId == "winged") _wp += 1; else _other += 1;
+        }
+    }
+    return asset_get_index((_wp > _other) ? "carry2" : "carry1");
+};
+atkTimers = [0, 0, 0];   // up to 3 independent swipe schedules - more pikmin -> more overlapping layers
+carry_stop_all = function() {
+    var _ks = variable_struct_get_names(carrySnds);
+    for (var _i = 0; _i < array_length(_ks); _i++) {
+        var _s = carrySnds[$ _ks[_i]];
+        if (_s != -1 && audio_is_playing(_s)) audio_stop_sound(_s);
+    }
+    carrySnds = {};
+    atkTimers = [0, 0, 0];
+};
 
 // --- animation pacing ---
 presMoving = false;   // set by Draw when any pikmin/pile is still sliding; play waits on it
@@ -381,7 +549,7 @@ tutorial_restore_checkpoint = function() {
     board = game.board; boardDef = game.boardDef;
     selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined; freeBuild = "";
     dayCine = undefined; prevDayNumber = game.dayNumber;
-    fxList = []; presMoving = false;
+    fxList = []; toastList = []; toastQueue = []; toastSpawnTimer = 0; presMoving = false; carry_stop_all(); emitters_free();
     settleHold = 0; resolveHold = 0; biteT = 0; biteKind = "";
     prevActive = game.activePlayer; turnSettling = false; turnSettleFrames = 0; gameoverSettled = false; gameoverHold = 0;
     aiTickTimer = 0;
@@ -550,6 +718,8 @@ tutorial_scenes = function() {
 };
 
 return_to_menu = function() {
+    carry_stop_all();   // Draw_0's carry reconcile won't run in menu, so stop loops here
+    emitters_free();    // next game rebuilds space emitters for its own board
     mode = "menu";
     menuScreen = "main";
     tutorial = undefined;

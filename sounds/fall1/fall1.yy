@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"fall1",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":0,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":2.0174377,
+  "exportDir":"",
+  "name":"fall1",
+  "parent":{
+    "name":"PikminSounds",
+    "path":"folders/SFX/PikminSounds.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"fall1.wav",
+  "volume":1.0,
+}

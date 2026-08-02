@@ -60,6 +60,22 @@ presMoving = false; // set true below while any pikmin or homing pile is still s
 if (game.jumpCue == "enemy" || game.jumpCue == "swift") { biteT = 1; biteKind = game.jumpCue; }
 else biteT = max(0, biteT - 0.022);
 
+// --- combat "attack scene" ------------------------------------------------------------
+// The whole strike run (swift wind-up -> pikmin damage -> enemy bite -> red 2nd strike)
+// reads as ONE scene: the active player's attackers LEAP onto their foe at a random spot
+// and cling there through every beat, dropping straight off at the end or the instant the
+// foe dies. Derived from the beat queue so it spans the silent damage beats too. The enemy
+// loop stashes each foe's live body position into _enemyVis (keyed lane_idx) so the
+// clinging pikmin ride its dip (or its crush-leap). Purely cosmetic - vx/vy never move, so
+// the beat pump never mistakes a clinger for a walker (which would softlock resolution).
+var _combatBeats = ["jumpSwift", "swift", "jumpPik", "pik", "jumpEnemy", "enemy", "jumpRed", "post"];
+var _frontBeat = (array_length(game.resolveQueue) > 0) ? game.resolveQueue[0] : "";
+var _atkSection = ((is_string(_frontBeat) && arr_has(_combatBeats, _frontBeat)) || arr_has(_combatBeats, game.jumpCue)) && global.expRules.anims;
+var _enemyVis = {};
+var _latchCount = 0;     // clinging attackers this frame
+var _structForce = 0;    // pikmin smashing a wall/emitter this frame - both feed the attack-SFX layers
+var _atkSpaceSet = {};   // "lane_idx" -> {lane,idx} of spaces with live combat, so swipes emit from there
+
 gpu_set_ztestenable(true);
 gpu_set_zwriteenable(true);
 gpu_set_alphatestenable(true);
@@ -128,6 +144,11 @@ for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
     }
 }
 
+// carry-loop SFX: piles moving THIS frame want a looping carry sound (started/stopped in the reconcile below)
+var _carryNow = {};
+var _carryPos = {};   // same keys -> [wx,wy] of the pile, so the loop's emitter follows it across the board
+// departing-pile positions keyed "d"+lane, so the pikmin that banked them can escort them home
+var _departVis = {};
 // --- treasures (top card sprite + value/weight label; hidden while a boss guards the pile) ---
 for (var _ti = 0; _ti < array_length(game.treasures); _ti++) {
     var _t = game.treasures[_ti];
@@ -142,6 +163,7 @@ for (var _ti = 0; _ti < array_length(game.treasures); _ti++) {
     var _pileSpd = (variable_struct_exists(_t, "rushMove") && _t.rushMove) ? 3.8 : 2.6;
     _t.vmoving = (_pd > 0.5);   // riders read this to move locked to the pile
     _t.vspdCur = _pileSpd;
+    if (_t.vmoving) { _carryNow[$ "t" + string(_t.lane)] = carry_asset_for(_t.lane, _t.idx); _carryPos[$ "t" + string(_t.lane)] = [_t.vx, _t.vy - 6]; }
     if (_pd > 0) {
         var _ps = min(_pd, _pileSpd);
         _t.vx += (_tPos[0] - _t.vx) / _pd * _ps;
@@ -167,17 +189,58 @@ for (var _di = array_length(game.departing) - 1; _di >= 0; _di--) {
     var _dHomeY = board_home_y(board, _dp.playerIdx);
     if (!variable_struct_exists(_dp, "vx")) { _dp.vx = _dFrom[0]; _dp.vy = _dFrom[1]; }
     var _dpd = point_distance(_dp.vx, _dp.vy, _dFrom[0], _dHomeY);
+    var _dSpr = data_sprite(treasure_def_get(_dp.cards[array_length(_dp.cards) - 1]), sprFRIEND);
     if (_dpd > 2.6) {
         var _dps = min(_dpd, 2.6);
         _dp.vx += (_dFrom[0] - _dp.vx) / _dpd * _dps;
         _dp.vy += (_dHomeY - _dp.vy) / _dpd * _dps;
         presMoving = true;
-        var _dSpr = data_sprite(treasure_def_get(_dp.cards[array_length(_dp.cards) - 1]), sprFRIEND);
+        _carryNow[$ "d" + string(_dp.lane)] = asset_get_index("carry1");   // hauling home
+        _carryPos[$ "d" + string(_dp.lane)] = [_dp.vx, _dp.vy - 6];
+        _departVis[$ "d" + string(_dp.lane)] = { x: _dp.vx, y: _dp.vy, arrived: false }; // escorts follow this
         vb_billboard(sprite_batches_vb(_spriteBatches, _dSpr), _dSpr, 0, _dp.vx, _dp.vy - 6, 1, 40, _camRight, _camUp, c_white, 1);
         array_push(_labels, { labelX: _dp.vx, labelY: _dp.vy - 6, labelZ: 46, labelText: string(_dp.total) + "p" });
     } else {
-        game_finalize_departing(game, _dp); // reached home - bank it, score ticks up now
+        // arrived home: ease the pile out with a fade instead of blinking, then bank. The
+        // escorting pikmin peel off to their home slots the moment it lands (arrived:true).
+        _departVis[$ "d" + string(_dp.lane)] = { x: _dp.vx, y: _dp.vy, arrived: true };
+        var _fade = variable_struct_exists(_dp, "fadeT") ? _dp.fadeT : 1;
+        _fade = max(0, _fade - 0.012); // slow, clearly-visible dissolve into the onion (~1.4s)
+        _dp.fadeT = _fade;
+        if (_fade > 0) {
+            presMoving = true; // hold the turn until it finishes fading (the bank applies only then)
+            // MUST draw in the alpha-BLENDING batch - the cutout batch would just snap it out at ~50%
+            vb_billboard(sprite_batches_vb(_fxBatches, _dSpr), _dSpr, 0, _dp.vx, _dp.vy - 6, 1, 40, _camRight, _camUp, c_white, _fade);
+        } else {
+            // fully absorbed: the onion "picks it up" (import a sound named sfxOnionCollect), THEN it banks
+            var _os = asset_get_index("sfxOnionCollect");
+            if (_os != -1) audio_play_sound_on(emitter_home(_dp.playerIdx), _os, false, 10, 1, 0, random_range(0.97, 1.03));
+            game_finalize_departing(game, _dp); // score ticks up now, as it vanishes
+        }
     }
+}
+// reconcile carry loops: start one for each pile now moving, stop any whose pile stopped/arrived
+if (batchRemaining <= 0) {
+    var _cKeys = variable_struct_get_names(_carryNow);
+    for (var _ck = 0; _ck < array_length(_cKeys); _ck++) {
+        var _k = _cKeys[_ck];
+        var _cpos = variable_struct_exists(_carryPos, _k) ? _carryPos[$ _k] : [0, 0];
+        var _cem = emitter_moving(_k, _cpos[0], _cpos[1]); // follow the pile across the board each frame
+        if (!variable_struct_exists(carrySnds, _k) || carrySnds[$ _k] == -1 || !audio_is_playing(carrySnds[$ _k])) {
+            var _cAsset = _carryNow[$ _k];
+            carrySnds[$ _k] = (_cAsset != -1) ? audio_play_sound_on(_cem, _cAsset, true, 5, 1, 0, random_range(0.92, 1.08)) : -1;
+        }
+    }
+    var _cHeld = variable_struct_get_names(carrySnds);
+    for (var _hk = 0; _hk < array_length(_cHeld); _hk++) {
+        var _k2 = _cHeld[_hk];
+        if (!variable_struct_exists(_carryNow, _k2)) {
+            if (carrySnds[$ _k2] != -1 && audio_is_playing(carrySnds[$ _k2])) audio_stop_sound(carrySnds[$ _k2]);
+            variable_struct_remove(carrySnds, _k2);
+        }
+    }
+} else if (variable_struct_names_count(carrySnds) > 0) {
+    carry_stop_all();
 }
 
 // --- built structures: wall = standing plane, bridge = plank, emitter = element
@@ -312,17 +375,19 @@ for (var _ei = 0; _ei < array_length(_displayEnemies); _ei++) {
     var _jsx = 0;
     var _sink = 0;
     var _isSwift = (_enemyDef.attackElement == "swift");
+    var _isCrush = (_enemyDef.attackElement == "crush");
     var _canBite = !_de.inst.dead && _enemyDef.damage > 0
         && !(variable_struct_exists(_de.inst, "stunned") && _de.inst.stunned > 0);
     var _hasBitten = (variable_struct_exists(_de.inst, "attacked") && _de.inst.attacked);
     var _isBoom = (_enemyDef.attackElement == "explosive");
+    var _engaged = (array_length(game_tokens_at(game, game.activePlayer, { kind: "space", lane: _de.el, idx: _de.eidx })) > 0);
     // wind-up: swift enemies crouch in THEIR section, everyone else in the enemy
-    // section - EXCEPT explosives, which telegraph with a strobing white flash instead
-    if (_canBite && !_hasBitten && !_isBoom
+    // section - EXCEPT explosives (strobe instead) and crush foes (they LEAP, below)
+    if (_canBite && !_hasBitten && !_isBoom && !_isCrush
         && ((game.jumpCue == "swift" && _isSwift) || (game.jumpCue == "enemy" && !_isSwift))
-        && array_length(game_tokens_at(game, game.activePlayer, { kind: "space", lane: _de.el, idx: _de.eidx })) > 0) {
+        && _engaged) {
         _sink = min(clamp(resolveHold / 34, 0, 1) * 2, 1); // lean down over the first half, stay down
-    } else if (biteT > 0 && _canBite && _hasBitten && !_isBoom && (_isSwift == (biteKind == "swift"))) {
+    } else if (biteT > 0 && _canBite && !_isCrush && _hasBitten && !_isBoom && (_isSwift == (biteKind == "swift"))) {
         _sink = biteT; // bite landed - keep chewing/shaking, easing back up as the ghosts fade
     }
     // explosive telegraph: anything about to blow (engaged OR merely in + range of the
@@ -356,11 +421,28 @@ for (var _ei = 0; _ei < array_length(_displayEnemies); _ei++) {
             break;
         }
     }
-    if (_sink > 0) {
+    if (_isCrush && _atkSection && _canBite && _engaged) {
+        // crush foe: instead of leaning in to eat, it LEAPS skyward with the pikmin still
+        // clinging, then slams back down - it deals its crush damage and takes the pikmin's
+        // at the same instant (the flavour of it landing on you as it dies).
+        var _cf = clamp(resolveHold / 34, 0, 1);
+        var _rise = 0;
+        if (game.jumpCue == "pik") _rise = _cf;                                       // gathering for the leap
+        else if (game.jumpCue == "enemy") _rise = 1 - _cf;                            // slamming back down
+        else if (_hasBitten) _rise = biteT * 0.12;                                    // slammed home: grounded, tiny residual jitter
+        else if (game.jumpCue == "") _rise = 1;                                       // hang at apex while the pikmin bite
+        _jz = 1 + dsin(_rise * 90) * (_bbHeight * 0.55);
+        _jsx = dsin(frameTick * 14) * 2.5 * _rise;
+    } else if (_sink > 0) {
         _jz = 1 - _sink * (_bbHeight * 0.22);
         _jsx = dsin(frameTick * 11) * 3.5 * _sink; // continuous tremble phase (no snap at the beat)
     }
     vb_billboard(sprite_batches_vb(_spriteBatches, _bodySpr), _bodySpr, 0, _de.ex + _jsx, _de.ey, _jz, _bbHeight, _camRight, _camUp, _bodyTint, 1);
+    // stash the live body pose so clinging pikmin ride it (dip, leap, tremble all included)
+    _enemyVis[$ string(_de.el) + "_" + string(_de.eidx)] = {
+        x: _de.ex + _jsx, y: _de.ey, z0: _jz, h: _bbHeight,
+        dead: _de.inst.dead, heightGated: (_enemyDef.defenseElement == "height")
+    };
 }
 
 // --- pikmin tokens from game state (team ring + sprite, small hop) ---
@@ -399,6 +481,19 @@ for (var _p = 0; _p < 2; _p++) {
         }
         var _tx = _baseX + _dx;
         var _ty = _baseY + _dy;
+        // escorting a banked pile home: a carrier that just sent its treasure off walks WITH it
+        // (offset a touch so the group fans around the pile) until it lands, then heads to its
+        // home slot. Purely visual - the token is already "home" to the engine.
+        if (variable_struct_exists(_tok, "escort")) {
+            var _eKey = "d" + string(_tok.escort.lane);
+            if (variable_struct_exists(_departVis, _eKey) && !_departVis[$ _eKey].arrived) {
+                if (!variable_struct_exists(_tok, "escOffX")) { _tok.escOffX = random_range(-16, 16); _tok.escOffY = random_range(-6, 10); }
+                _tx = _departVis[$ _eKey].x + _tok.escOffX;
+                _ty = _departVis[$ _eKey].y + _tok.escOffY;
+            } else {
+                variable_struct_remove(_tok, "escort"); // pile landed (or gone) - peel off to the home slot
+            }
+        }
         // movement animation: each token keeps a visual position (_tok.vx/_tok.vy)
         // that chases its logical target at a CONSTANT speed (world-units/frame), so
         // travel time scales with distance - a 2-space move takes twice as long as a
@@ -414,12 +509,22 @@ for (var _p = 0; _p < 2; _p++) {
             if (_rideT != undefined && variable_struct_exists(_rideT, "vmoving") && _rideT.vmoving) _mySpd = _rideT.vspdCur;
         }
         var _travel = point_distance(_tok.vx, _tok.vy, _tx, _ty);
+        // while clinging to a foe, FREEZE the ground position (vx/vy) so any deaths this beat
+        // don't quietly re-slot the survivors mid-air - they should still be spread the OLD way
+        // when they drop, then visibly reorganise after the land-hold. Clingers are excluded
+        // from the presMoving check below so a frozen-but-distant target can't stall the pump.
+        var _clinging = (variable_struct_exists(_tok, "latchT") && _tok.latchT > 0);
+        // land-hold: after dropping off a foe, pikmin plant on the ground for a beat before
+        // walking off to re-spread on the space (set below when the cling releases). Freezes
+        // the walk and holds the resolution so the reorganise doesn't snap the instant they land.
+        var _landHold = variable_struct_exists(_tok, "landHold") ? _tok.landHold : 0;
+        if (_landHold > 0) { _tok.landHold = _landHold - 1; presMoving = true; }
         // jump-cue flights write vx/vy themselves - don't count them as "walking" or
         // the pump resets the arc every frame (vibrating softlock)
-        if (_travel > 1 && game.jumpCue == "") presMoving = true;
+        if (_travel > 1 && game.jumpCue == "" && !_clinging) presMoving = true;
         // hold tokens in place during the sunset flash so the walk-home reads AFTER it
         var _cineFreeze = (dayCine != undefined && dayCine.phase == "flash");
-        if (_travel > 0 && !_cineFreeze) {
+        if (_travel > 0 && !_cineFreeze && _landHold <= 0 && !_clinging) {
             var _stepD = min(_travel, _mySpd);
             _tok.vx += (_tx - _tok.vx) / _travel * _stepD;
             _tok.vy += (_ty - _tok.vy) / _travel * _stepD;
@@ -433,42 +538,70 @@ for (var _p = 0; _p < 2; _p++) {
         var _hopZ = abs(sin(frameTick * 0.09 + _i * 1.31 + _p * 2.2)) * 3;
         var _moveF = clamp(_travel / 30, 0, 1);
         if (_moveF > 0.05) _hopZ = max(_hopZ, abs(sin(frameTick * 0.3 + _i)) * 11 * _moveF);
-        // combat wind-up beat: the pikmin that will ACTUALLY deal damage all leap
-        // together in one arc; the pump fires the damage beat exactly as they land.
-        // The "red" cue is the red second strike - only reds pounce, enemies only.
-        // only the ACTIVE player's pikmin attack, and frozen ones sit combat out
-        // (frozen check here: the later override only zeroes the hop, not the lunge)
-        var _cueMine = (game.jumpCue == "pik") || (game.jumpCue == "red" && _tok.typeId == "red");
-        if (_cueMine && _p == game.activePlayer && _tok.loc.kind == "space" && !token_is_disabled(_tok)) {
-            var _jsp = game.board.lanes[_tok.loc.lane].spaces[_tok.loc.idx];
-            var _jt = game_treasure_at(game, _tok.loc.lane, _tok.loc.idx);
-            var _jFoe = (_jsp.enemy != undefined) ? _jsp.enemy : ((_jt != undefined) ? _jt.boss : undefined);
-            var _jAtk = false;
-            if (_jFoe != undefined && !_jFoe.dead) {
-                var _jDef = enemy_def_get(_jFoe.enemyDefId);
-                var _jtd = pikmin_type_get(_tok.typeId);
-                _jAtk = true;
-                if (_jDef.defenseElement == "crush" && !arr_has(_jtd.immunities, "crush")) _jAtk = false;
-                if (_jDef.defenseElement == "height" && !arr_has(_jtd.traits, "climbs_height") && !arr_has(_jtd.traits, "flies_over_hazards")) _jAtk = false;
-                if (game.jumpCue == "red" && game_attack_requirement(_jDef) != undefined) _jAtk = false; // pass C skips these
-            } else if (game.jumpCue == "pik" && _jsp.structure != undefined && hazard_def_get(_jsp.structure.structId).type != "bridge") {
-                _jAtk = struct_type_can_damage(_tok.typeId, _jsp.structure.structId); // structures: main strike only
+        // --- combat cling: an attacking pikmin LEAPS onto its foe at a random spot on the
+        // sprite and rides there for the whole strike scene (swift -> pik -> enemy -> red),
+        // dropping straight off at the end or the instant the foe dies - then the walk
+        // system reorganises it on the space. Render-only: vx/vy stay parked on the space so
+        // the beat pump never mistakes a clinger for a walker (which would softlock resolve).
+        var _latchZ = 0;
+        var _lt = variable_struct_exists(_tok, "latchT") ? _tok.latchT : 0;
+        var _wantLatch = false;
+        if (_atkSection && _p == game.activePlayer && _tok.loc.kind == "space" && !token_is_disabled(_tok)) {
+            var _lKey = string(_tok.loc.lane) + "_" + string(_tok.loc.idx);
+            var _foeVis = variable_struct_exists(_enemyVis, _lKey) ? _enemyVis[$ _lKey] : undefined;
+            // can this token reach what's there? (height foes can't be climbed; type-locked
+            // ones still get clung to at 0 damage - matches the damage step's own gate)
+            if (_foeVis != undefined && !_foeVis.dead) {
+                _wantLatch = true;
+                if (_foeVis.heightGated) {
+                    var _jtr = pikmin_type_get(_tok.typeId).traits;
+                    if (!arr_has(_jtr, "climbs_height") && !arr_has(_jtr, "flies_over_hazards")) _wantLatch = false;
+                }
             }
-            if (_jAtk) {
-                var _jfrac = clamp(resolveHold / 34, 0, 1);
-                _hopZ = max(_hopZ, dsin(_jfrac * 180) * 26);
-                // leap AT the foe: arc from the stored take-off spot to the cell
-                // centre and LAND there as the damage hits - written into the
-                // persistent vx/vy so afterwards they simply WALK back to their spots
-                if (!variable_struct_exists(_tok, "jox")) { _tok.jox = _tok.vx; _tok.joy = _tok.vy; }
-                var _jc = board_space_xy(board, _tok.loc.lane, _tok.loc.idx);
-                _tok.vx = _tok.jox + (_jc[0] - _tok.jox) * _jfrac;
-                _tok.vy = _tok.joy + (_jc[1] - _tok.joy) * _jfrac;
-                _rx = _tok.vx; _ry = _tok.vy;
+            if (_wantLatch) {
+                if (_lt <= 0) { _tok.latchU = random_range(-0.34, 0.34); _tok.latchV = random_range(0.24, 0.9); } // pick a cling spot once
+                // refresh the cling target each frame so it rides the body's dip / crush-leap
+                _tok.lclX = _foeVis.x + _tok.latchU * (TILE_W * 0.34);
+                _tok.lclY = _foeVis.y;
+                _tok.lclZ = _foeVis.z0 + _tok.latchV * (_foeVis.h * 0.82);
             }
-        } else if (variable_struct_exists(_tok, "jox")) {
-            variable_struct_remove(_tok, "jox"); // flight over - movement system walks them home
-            variable_struct_remove(_tok, "joy");
+        }
+        var _prevLt = _lt;
+        if (_wantLatch) _lt = min(1, _lt + 0.18); else _lt = max(0, _lt - 0.11); // quick leap on, slower gravity drop
+        if (_prevLt > 0 && _lt <= 0 && variable_struct_exists(_tok, "lclX")) {
+            // just hit the dirt directly under where it clung: plant there (scattered off the foe),
+            // hold a beat to get its bearings, THEN the walk carries it back to its slot on the space
+            _tok.landHold = 18;
+            _tok.vx = _tok.lclX;
+            _tok.vy = _tok.lclY + random_range(-3, 12); // slight forward scatter so they don't land in a line
+        }
+        _tok.latchT = _lt;
+        if (_lt > 0 && variable_struct_exists(_tok, "lclX")) {
+            _hopZ = 0;
+            if (_wantLatch) {
+                // leaping on / riding the foe: arc up from the ground slot onto the body
+                _rx = _tok.vx + (_tok.lclX - _tok.vx) * _lt;
+                _ry = _tok.vy + (_tok.lclY - _tok.vy) * _lt;
+                _latchZ = _tok.lclZ * _lt;
+                _latchCount += 1;
+                _atkSpaceSet[$ string(_tok.loc.lane) + "_" + string(_tok.loc.idx)] = { lane: _tok.loc.lane, idx: _tok.loc.idx };
+            } else {
+                // dropping off: fall STRAIGHT DOWN from the cling spot - x/y hold, only z falls,
+                // eased so it accelerates like gravity (slow off the body, quick into the ground)
+                _rx = _tok.lclX;
+                _ry = _tok.lclY;
+                _latchZ = _tok.lclZ * (1 - sqr(1 - _lt));
+            }
+        } else if (_atkSection && (_frontBeat == "pik" || game.jumpCue == "pik")
+            && _p == game.activePlayer && _tok.loc.kind == "space" && !token_is_disabled(_tok)) {
+            // no body to cling to, but there's a structure here to smash: keep the old
+            // lunge-hop so hitting a wall/emitter still animates (0 damage animates too)
+            var _ssp = game.board.lanes[_tok.loc.lane].spaces[_tok.loc.idx];
+            if (_ssp.structure != undefined && hazard_def_get(_ssp.structure.structId).type != "bridge") {
+                _hopZ = max(_hopZ, dsin(clamp(resolveHold / 34, 0, 1) * 180) * 20);
+                _structForce += 1; // walls/emitters get the same repeated-whack SFX layers as enemies
+                _atkSpaceSet[$ string(_tok.loc.lane) + "_" + string(_tok.loc.idx)] = { lane: _tok.loc.lane, idx: _tok.loc.idx };
+            }
         }
         // newly-sprouted pikmin GROW up through the board (spawn below, rise through
         // the floor - the underground part is depth-clipped, so they emerge like plants)
@@ -509,15 +642,42 @@ for (var _p = 0; _p < 2; _p++) {
                 }
             }
         }
-        // shadow stays on the ground and shrinks a touch as the token hops
-        vb_disc(_overlayVB, _rx, _ry, 1.68, 7 - _hopZ * 0.4, _shadowCol, 0.5);
-        vb_billboard(sprite_batches_vb(_spriteBatches, _tokSpr), _tokSpr, 0, _rx, _ry, 1 + _hopZ - _sunk + _bornZ, 30, _camRight, _camUp, _tokTint, 1);
+        // shadow stays on the ground and shrinks a touch as the token hops; while clinging
+        // to a foe it lifts off the floor, so fade the shadow out as it climbs
+        vb_disc(_overlayVB, _rx, _ry, 1.68, 7 - _hopZ * 0.4, _shadowCol, 0.5 * (1 - _lt));
+        vb_billboard(sprite_batches_vb(_spriteBatches, _tokSpr), _tokSpr, 0, _rx, _ry, 1 + _hopZ - _sunk + _bornZ + _latchZ, 30, _camRight, _camUp, _tokTint, 1);
         if (_fk != "") {
             // flat decal on the floor at the token's feet (over the shadow), not on the sprite
             var _fSpr = (_fk == "shock") ? TokElectric : ((_fk == "bitter") ? TokBitter : TokIce);
             vb_tile_sprite(sprite_batches_vb(_spriteBatches, _fSpr), _fSpr, 0, _rx, _ry, 1.70, 16, c_white, 1);
         }
     }
+}
+
+// repeated attack swipes: while the strike scene is live and pikmin are actually hitting
+// something (clinging to a foe or smashing a wall/emitter), fire single sfxPikAttack swipes
+// on SEVERAL independent schedules so it reads like a crowd whacking away out of phase - not
+// a drone, not a metronome. More pikmin committed -> more overlapping layers (up to 3). Low
+// priority (3) so a bank or death sound always outranks them; anims-off keeps the engine hits.
+var _atkForce = _latchCount + _structForce;
+var _atkPik = asset_get_index("sfxPikAttack");
+var _atkSpaces = [];
+var _asKeys = variable_struct_get_names(_atkSpaceSet);
+for (var _ak = 0; _ak < array_length(_asKeys); _ak++) array_push(_atkSpaces, _atkSpaceSet[$ _asKeys[_ak]]);
+if (_atkSection && _atkForce > 0 && _atkPik != -1 && array_length(_atkSpaces) > 0) {
+    var _layers = (_atkForce >= 4) ? 3 : ((_atkForce >= 2) ? 2 : 1);
+    for (var _al = 0; _al < _layers; _al++) {
+        atkTimers[_al] -= 1;
+        if (atkTimers[_al] <= 0) {
+            // each swipe comes from a random space that's actually fighting, so multiple
+            // lanes in combat pan apart instead of piling up in the centre
+            var _asp = _atkSpaces[irandom(array_length(_atkSpaces) - 1)];
+            audio_play_sound_on(emitter_at(_asp.lane, _asp.idx), _atkPik, false, 3, 1, 0, random_range(0.8, 1.2));
+            atkTimers[_al] = irandom_range(16, 34); // each layer drifts on its own gap -> overlapping offset hits
+        }
+    }
+} else {
+    atkTimers = [0, irandom_range(5, 11), irandom_range(10, 18)]; // stagger the layers' first hits for the next scene
 }
 
 // deck/onion count labels, filled by the dressing blocks below (empty -> no labels drawn)

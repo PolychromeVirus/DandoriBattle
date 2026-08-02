@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"ah3",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":0,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":0.34836733,
+  "exportDir":"",
+  "name":"ah3",
+  "parent":{
+    "name":"PikminSounds",
+    "path":"folders/SFX/PikminSounds.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"ah3.wav",
+  "volume":1.0,
+}

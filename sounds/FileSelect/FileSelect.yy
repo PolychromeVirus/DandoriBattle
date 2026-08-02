@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"FileSelect",
+  "audioGroupId":{
+    "name":"QuietSounds",
+    "path":"audiogroups/QuietSounds",
+  },
+  "bitDepth":1,
+  "channelFormat":1,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":77.688,
+  "exportDir":"",
+  "name":"FileSelect",
+  "parent":{
+    "name":"Music",
+    "path":"folders/Music.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":48000,
+  "soundFile":"FileSelect.mp3",
+  "volume":0.21,
+}

@@ -26,6 +26,10 @@ function scenario_base(_boardDef) {
         dayNumber: 1,
         dayTrack: 1,
         dayTrackLength: global.rules.dayTrackLength, // per-game phase count; a scenario can lengthen the day (e.g. long tutorials)
+        dayTrackDef: game_day_track_default(),        // NEW day system (groundwork): per-space step events {days, spaces:[{ev,..}]} (distinct from dayTrack, the within-day counter above)
+        dayRawFree: false,      // RAW day event: building costs 1 raw this turn (reset each turn)
+        dayPelletBonus: false,  // PELLET day event: pellets give +1 pikmin this turn (reset each turn)
+        flarlicBonus: 0,        // FLARLIC day event: +N pikmin cap for the rest of the match (persists)
         solo: false,         // scenarios set their own; false = normal 2-player (day flips seats)
         decks: { gather: [], gatherDiscard: [], treasure: [], enemy: [], enemyDiscard: [] },
         sprays: [],          // {playerIdx, lane, idx} - ultra-spicy tokens
@@ -40,6 +44,8 @@ function scenario_base(_boardDef) {
         bombCue: undefined,  // {lane, idx} - Bomb Rock/Boulder telegraph target (strobe + ring)
         sprayCue: false,     // spicy ignition beat - sprayed friendlies glow red
         soothed: false,      // a Soothe treasure power banked this turn -> enemies skip their attack
+        bankCues: [],        // cosmetic: on-bank power activations {name,effect,good} - drained into toasts by the renderer
+        sfxCue: [],          // cosmetic: queued one-shot SFX asset names - drained + played by the presentation (Step_0)
         trace: [false, false], // per-seat human decision tracing (controller sets from ctl)
         combatFights: undefined, // fights list persisted across staged combat beats
         log: [],

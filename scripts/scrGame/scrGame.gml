@@ -101,15 +101,35 @@ function game_fx_pik(_g, _tok, _lane, _idx) {
     var _hasV = variable_struct_exists(_tok, "vx");
     array_push(_g.fx, { kind: "pik", typeId: _tok.typeId, lane: _lane, idx: _idx,
         px: _hasV ? _tok.vx : undefined, py: _hasV ? _tok.vy : undefined });
+    game_sfx(_g, "sfxPikDeath", 3, _lane, _idx);
 }
 function game_fx_enemy(_g, _enemyDefId, _lane, _idx, _isBoss) {
     array_push(_g.fx, { kind: "enemy", enemyDefId: _enemyDefId, lane: _lane, idx: _idx, isBoss: _isBoss });
+    game_sfx(_g, "sfxEnemyDeath", 3, _lane, _idx);
 }
 function game_fx_boom(_g, _lane, _idx) {
     array_push(_g.fx, { kind: "boom", lane: _lane, idx: _idx });
 }
 function game_fx_spicy(_g, _lane, _idx) {
     array_push(_g.fx, { kind: "spicy", lane: _lane, idx: _idx });
+}
+
+/// Queue a one-shot SFX (asset name) for the presentation to play (drained in Step_0). Cosmetic, like
+/// game.fx. Up to _maxDup of the same name may queue - default 3 so a mass death lands as a FEW slightly-
+/// offset hits (drain staggers + pitch-varies them). Pass 1 for sounds that fire in tight clusters and
+/// would get LOUD stacked (banks, on-bank effects). Capped overall so headless sims don't grow it.
+/// Queue a one-shot SFX for the presentation to play (headless-safe: just names + optional position).
+/// Pass _lane/_idx to make it POSITIONAL - the drain plays it on that space's emitter so it pans.
+function game_sfx(_g, _name, _maxDup = 3, _lane = undefined, _idx = undefined) {
+    if (array_length(_g.sfxCue) >= 24) return;
+    var _same = 0;
+    for (var _i = 0; _i < array_length(_g.sfxCue); _i++) {
+        var _e = _g.sfxCue[_i];
+        if ((is_struct(_e) ? _e.n : _e) == _name) _same += 1;
+    }
+    if (_same >= _maxDup) return;
+    if (_lane != undefined && _idx != undefined) array_push(_g.sfxCue, { n: _name, l: _lane, i: _idx });
+    else array_push(_g.sfxCue, _name);
 }
 
 /// Index of a lane's treasure space, or -1 if it has none. Lanes vary in length (the tutorial's
@@ -588,6 +608,7 @@ function game_args_loc(_args) {
 function game_begin_turn(_g) {
     _g.phase = "gather";
     _g.soothed = false;   // a Soothe power only lasts the turn it was banked
+    _g.dayRawFree = false; _g.dayPelletBonus = false;   // per-turn day-event modifiers (flarlicBonus persists)
     var _pl = _g.players[_g.activePlayer];
     _g.gatherActionsLeft = (_pl.turnsTaken == 0) ? 3 : 2;
     // snitchbug stuns / ice freezes wear off over the owner's turn starts; reset per-turn flags
@@ -990,6 +1011,7 @@ function game_play_gather(_g, _handIdx, _args) {
     if (_effectId == "colorchangingposy") {
         if (_g.phase != "orders" && _g.phase != "move") return false;
     } else if (_g.phase != "move") {
+        game_sfx(_g, "sfxError");   // a card played in the wrong phase (only a human ever hits this)
         game_log(_g, "Gather cards are played in the Move phase, before resolving.");
         return false;
     }
@@ -1222,24 +1244,22 @@ function game_play_gather(_g, _handIdx, _args) {
         }
 
         case "bitterspray": {
-            // "Enemies skip their next action" - and opposing pikmin COUNT as enemies
-            // (confirmed by user; the card text predates multiplayer), so bitter also
-            // cancels an opposing carry by freezing their group for a turn.
+            // "Enemies skip their next action" - petrifies the enemy (or boss) on the space for a
+            // turn. It does NOT affect pikmin at all - not even an opponent's; it's an anti-enemy tool.
             var _space = _g.board.lanes[_args.lane].spaces[_args.idx];
             var _t = game_treasure_at(_g, _args.lane, _args.idx);
             var _hit = 0;
             if (_space.enemy != undefined) { _space.enemy.stunned = 1; _space.enemy.stunnedBy = "bitter"; _hit += 1; }
             if (_t != undefined && _t.boss != undefined) { _t.boss.stunned = 1; _t.boss.stunnedBy = "bitter"; _hit += 1; }
-            var _oppToks = game_tokens_at(_g, 1 - _p, { kind: "space", lane: _args.lane, idx: _args.idx });
-            for (var _i = 0; _i < array_length(_oppToks); _i++) { _oppToks[_i].frozen = 2; _oppToks[_i].frozenKind = "bitter"; _hit += 1; }
-            if (_hit == 0) { game_log(_g, "Nothing there to embitter."); return false; }
+            if (_hit == 0) { game_log(_g, "No enemy there to embitter."); return false; }
+            game_sfx(_g, "sfxFreeze");   // bitter spray = the crackling-ice SFX
             game_discard_gather_card(_g, _handIdx);
-            game_log(_g, "Ultra-Bitter Spray! Everything hostile there is petrified for its next action.");
+            game_log(_g, "Ultra-Bitter Spray! The enemy there is petrified for its next action.");
             return true;
         }
 
         case "icebomb": {
-            var _n = game_freeze_space(_g, _args.lane, _args.idx);
+            var _n = game_freeze_space(_g, _args.lane, _args.idx, "ice", _p);
             if (_n == 0) { game_log(_g, "Ice Bomb would hit nothing there."); return false; }
             game_discard_gather_card(_g, _handIdx);
             game_log(_g, "Ice Bomb! " + string(_n) + " creatures on the space are frozen for a turn.");
@@ -1250,10 +1270,10 @@ function game_play_gather(_g, _handIdx, _args) {
             // 2x2 area anchored at the clicked space (clamped to the board)
             var _l0 = clamp(_args.lane, 0, _g.board.laneCount - 2);
             var _i0 = clamp(_args.idx, 0, 5);
-            var _n = game_freeze_space(_g, _l0, _i0, "shock")
-                   + game_freeze_space(_g, _l0 + 1, _i0, "shock")
-                   + game_freeze_space(_g, _l0, _i0 + 1, "shock")
-                   + game_freeze_space(_g, _l0 + 1, _i0 + 1, "shock");
+            var _n = game_freeze_space(_g, _l0, _i0, "shock", _p)
+                   + game_freeze_space(_g, _l0 + 1, _i0, "shock", _p)
+                   + game_freeze_space(_g, _l0, _i0 + 1, "shock", _p)
+                   + game_freeze_space(_g, _l0 + 1, _i0 + 1, "shock", _p);
             if (_n == 0) { game_log(_g, "Lightning Storm would hit nothing there."); return false; }
             game_discard_gather_card(_g, _handIdx);
             game_log(_g, "Lightning Storm! " + string(_n) + " creatures are paralyzed for a turn.");
@@ -1364,6 +1384,7 @@ function game_resolve_moves(_g) {
 
 /// Deferred Bomb Rock / Boulder impact (fired by the bombHit beat after the telegraph).
 function game_bomb_hit(_g, _p, _lane, _idx, _dmg, _bName) {
+    game_sfx(_g, "sfxBombRock");   // the Bomb Rock / Boulder ITEM going off (enemy explosions use sfxGunshot)
     var _space = _g.board.lanes[_lane].spaces[_idx];
     var _boom = false;
     // one blast, one impact: a hazard dropped by the dying enemy (dweevil)
@@ -1388,11 +1409,14 @@ function game_bomb_hit(_g, _p, _lane, _idx, _dmg, _bName) {
         _boom = true;
     }
     if (_hadStructure && _space.structure != undefined) {
+        var _bStructDef = hazard_def_get(_space.structure.structId);
         _space.structure.curHp -= _dmg;
-        game_log(_g, _bName + " damages the " + hazard_def_get(_space.structure.structId).name + "!");
+        game_log(_g, _bName + " damages the " + _bStructDef.name + "!");
         if (_space.structure.curHp <= 0) {
-            game_log(_g, "The " + hazard_def_get(_space.structure.structId).name + " is destroyed!");
+            game_log(_g, "The " + _bStructDef.name + " is destroyed!");
             _space.structure = undefined;
+            // walls + bridges get the heavy destruction crash on top of the blast; emitters don't
+            if (_bStructDef.type == "wall" || _bStructDef.type == "bridge") game_sfx(_g, "sfxDestroyStructure");
         }
         _boom = true;
     }
@@ -1429,6 +1453,7 @@ function game_resolve_step(_g) {
     }
     switch (_beat) {
         case "sprayPop": {
+            game_sfx(_g, "sfxSpicySpray");
             // the spray ignites: red pop at each sprayed space, affected pikmin glow,
             // and the ground tag vanishes (marked popped - the effect entries persist
             // for the spicy beats, they just stop rendering / riding along visibly)
@@ -1620,6 +1645,7 @@ function game_bridge_break_check(_g, _lane, _idx) {
     if (_space.structure == undefined) return;
     if (_space.structure.structId != "bridge") return;
     _space.structure = undefined;
+    game_sfx(_g, "sfxDestroyStructure");   // a bridge collapsing suits the heavy destruction SFX (walls + bridges)
     game_log(_g, "The Bridge collapses as the treasure is hauled off it!");
 }
 
@@ -1639,12 +1665,18 @@ function game_carry_one_space(_g, _p, _t) {
         var _total = 0;
         for (var _c = 0; _c < array_length(_t.cards); _c++) _total += treasure_def_get(_t.cards[_c]).value;
         array_push(_g.departing, { cards: _t.cards, playerIdx: _p, lane: _t.lane, fromIdx: _oldIdx, total: _total });
+        game_sfx(_g, "sfxBank", 1, _t.lane, _oldIdx);   // multiple piles bank together - don't stack, it's loud
         // on-bank powers fire NOW (deterministic, before the enemy beat) - see game_treasure_bank_effects
         game_treasure_bank_effects(_g, _p, _t.cards);
         // no log here - the pile animates home and the bank line reports the score
         for (var _q = 0; _q < 2; _q++) {
             var _riders = game_tokens_at(_g, _q, _hereLoc);
-            for (var _r = 0; _r < array_length(_riders); _r++) _riders[_r].loc = { kind: "home" };
+            for (var _r = 0; _r < array_length(_riders); _r++) {
+                if (token_is_disabled(_riders[_r])) continue; // frozen/buried: not attached, stays put as the pile banks
+                _riders[_r].loc = { kind: "home" };
+                // the owner's carriers escort the pile home before returning to their slot (cosmetic)
+                if (_q == _p) _riders[_r].escort = { lane: _t.lane };
+            }
         }
         for (var _ti = 0; _ti < array_length(_g.treasures); _ti++) {
             if (_g.treasures[_ti] == _t) { array_delete(_g.treasures, _ti, 1); break; }
@@ -1675,6 +1707,7 @@ function game_carry_one_space(_g, _p, _t) {
     }
     var _carriers = game_tokens_at(_g, _p, _hereLoc);
     for (var _r = 0; _r < array_length(_carriers); _r++) {
+        if (token_is_disabled(_carriers[_r])) continue; // frozen/buried: it let go, so it can't stall the haul either
         if (!game_type_can_enter(pikmin_type_get(_carriers[_r].typeId), _destSpace, false)) {
             game_log(_g, "Carry stalled: " + _carriers[_r].typeId + " pikmin can't cross into the next space.");
             return "stalled";
@@ -1689,6 +1722,7 @@ function game_carry_one_space(_g, _p, _t) {
     for (var _q = 0; _q < 2; _q++) {
         var _riders = game_tokens_at(_g, _q, _hereLoc);
         for (var _r = 0; _r < array_length(_riders); _r++) {
+            if (token_is_disabled(_riders[_r])) continue; // frozen (let go) or buried (stuck to the tile) - they stay put
             _riders[_r].loc = { kind: "space", lane: _t.lane, idx: _newIdx };
             _riders[_r].movedThisTurn = true;
             if (_enteredPoison && _q == _p) token_poison_add(_riders[_r], _newKey);
@@ -1898,6 +1932,9 @@ function game_treasure_bank_effects(_g, _p, _cards) {
 function game_treasure_power_apply(_g, _p, _def) {
     var _opp = game_opp(_g, _p);
     var _tag = "[" + _def.effectType + " power] " + _def.name + " (" + _def.effectName + "): ";
+    // cosmetic cue -> the renderer pops a toast (title = power name, body = effect text)
+    array_push(_g.bankCues, { name: _def.effectName, effect: _def.effect, good: (_def.effectType == "Good") });
+    game_sfx(_g, "sfxBankEffect", 1);   // several effects can fire at once - don't stack
     switch (_def.effectName) {
         case "Reverse":
             _g.dayTrack = max(1, _g.dayTrack - 1);
@@ -2100,9 +2137,11 @@ function game_skip_free_hazard(_g) {
 /// Ice Bomb / Lightning Storm: everything on the space is incapacitated for a turn.
 /// Frozen pikmin can't move, fight, or carry; stunned enemies skip their next action.
 /// _kind tags the source ("ice" / "shock" / "bitter") so the renderer can tint.
-function game_freeze_space(_g, _lane, _idx, _kind = "ice") {
+/// _caster (if given) is the player casting it - their OWN pikmin are never frozen.
+function game_freeze_space(_g, _lane, _idx, _kind = "ice", _caster = undefined) {
     var _count = 0;
     for (var _q = 0; _q < 2; _q++) {
+        if (_q == _caster) continue; // your own pikmin don't get caught in your Ice Bomb / Lightning Storm
         var _toks = game_tokens_at(_g, _q, { kind: "space", lane: _lane, idx: _idx });
         for (var _i = 0; _i < array_length(_toks); _i++) { _toks[_i].frozen = 2; _toks[_i].frozenKind = _kind; _count += 1; }
     }
@@ -2140,6 +2179,7 @@ function game_toss_home_tokens(_g, _p, _lane, _idx, _n) {
         var _tok = _tokens[_i];
         if (!game_loc_eq(_tok.loc, _loc)) continue;
         _tok.loc = { kind: "home" };
+        game_sfx(_g, "fall1", 8, _lane, _idx); // blown off - the fall/tumble sound (staggered + pitched in the drain)
         _tossed += 1;
     }
     if (_tossed > 0) game_log(_g, string(_tossed) + " of P" + string(_p + 1) + "'s pikmin are blown all the way back HOME!");
@@ -2162,11 +2202,12 @@ function game_toss_lane_tokens(_g, _p, _lane, _idx, _n, _dir) {
         if (!game_loc_eq(_tok.loc, _loc)) { _i += 1; continue; }
         _tossed += 1;
         if (_offBoard) {
-            if (_g.boardDef.killedIfThrownOut) { array_delete(_tokens, _i, 1); _killed += 1; continue; }
-            _i += 1; // clings to the edge, stays put
+            if (_g.boardDef.killedIfThrownOut) { game_sfx(_g, "fall1", 8, _lane, _idx); array_delete(_tokens, _i, 1); _killed += 1; continue; }
+            _i += 1; // clings to the edge, stays put - NO fall sound (it didn't actually move)
             continue;
         }
         var _destSpace = _g.board.lanes[_destLane].spaces[_idx];
+        game_sfx(_g, "fall1", 8, _lane, _idx); // thrown a lane over - the fall/tumble sound (staggered + pitched in the drain)
         if (!game_type_can_enter(pikmin_type_get(_tok.typeId), _destSpace, false, true)) {
             array_delete(_tokens, _i, 1);
             _killed += 1;
@@ -2237,6 +2278,7 @@ function game_enemy_attack(_g, _p, _f) {
     }
     if (_def.damage > 0) {
         if (_def.attackElement == "explosive") {
+            game_sfx(_g, "sfxGunshot", 3, _f.lane, _f.idx);   // groink / man-at-legs / explosive enemy blast
             game_log(_g, _def.name + " explodes in a + pattern!");
             var _offsets = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
             for (var _o = 0; _o < array_length(_offsets); _o++) {
@@ -2248,6 +2290,10 @@ function game_enemy_attack(_g, _p, _f) {
                 if (global.expRules.explodeEnemies) game_blast_hit_enemies(_g, _bl, _bi, _def.damage, _f.enemy);
             }
         } else {
+            // only sound if there are actually pikmin here to hit (an enemy "attacks" every turn even
+            // with nothing in range - that shouldn't make noise)
+            if (array_length(game_tokens_at(_g, _p, { kind: "space", lane: _f.lane, idx: _f.idx })) > 0)
+                game_sfx(_g, (_def.attackElement == "crush") ? "sfxCrush" : "sfxEnemyAttack", 3, _f.lane, _f.idx);
             game_kill_tokens(_g, _p, _f.lane, _f.idx, game_decoy_absorb(_g, _p, _f.lane, _f.idx, _def.damage), _def, _f);
         }
     }
@@ -2502,6 +2548,9 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
         }
         if (_dmg > 0) {
             _f.enemy.curHp -= _dmg;
+            // with anims on, the cling-scene plays ONE continuous attack loop (Draw), so skip
+            // these discrete swipes to avoid doubling; anims-off still needs the punctuation
+            if (!global.expRules.anims) repeat (min(array_length(_attackers), 3)) game_sfx(_g, "sfxPikAttack"); // only on a real hit; a few offset for a swarm
             game_log(_g, "P" + string(_p + 1) + "'s pikmin hit " + _def.name + " for " + string(_dmg) + " (" + string(max(0, _f.enemy.curHp)) + " hp left).");
         } else if (_blockedGate) {
             if (_req != undefined) game_log(_g, _def.name + " shrugs off the attack (needs at least " + string(_req.count) + " " + _req.typeId + ")!");
@@ -2546,7 +2595,7 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
             if (_f.enemy.attacked) continue; // swift already struck
             var _def = enemy_def_get(_f.enemy.enemyDefId);
             if (!_f.enemy.dead) game_enemy_attack(_g, _p, _f);
-            else if (_def.attackElement == "crush") game_enemy_attack(_g, _p, _f); // crushes even in death
+            else if (_def.attackElement == "crush") game_enemy_attack(_g, _p, _f); // crushes even in death (sound handled inside, gated on hits)
         }
         // ice freeze now takes hold: iced enemies retaliated above, and are now frozen so they
         // skip their NEXT action (rendered light-blue meanwhile)
@@ -2556,6 +2605,7 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
                 _f.enemy.stunned = 1;
                 _f.enemy.stunnedBy = "ice";
                 _f.enemy.iceFreezeNext = false;
+                game_sfx(_g, "sfxFreeze");
             }
         }
     }
@@ -2606,14 +2656,20 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
                 _str += pikmin_type_get(_toksHere[_a].typeId).carry;
             }
             if (_str <= 0) {
-                if (_gated) game_log(_g, "The " + _sDef.name + " shrugs off P" + string(_p + 1) + "'s pikmin - wrong type to destroy it.");
+                if (_gated) { game_sfx(_g, "sfxStructureNoDamage"); game_log(_g, "The " + _sDef.name + " shrugs off P" + string(_p + 1) + "'s pikmin - wrong type to destroy it."); }
                 continue;
             }
             _struct.curHp -= _str;
             if (_struct.curHp <= 0) {
                 _spaces[_spaceIdx].structure = undefined;
+                // the heavy destruction SFX suits WALLS only; an emitter breaking is just the final whack
+                // (with anims on, the Draw-side repeated whacks cover the emitter's final hit)
+                if (_sDef.type == "wall") game_sfx(_g, "sfxDestroyStructure");
+                else if (!global.expRules.anims) repeat (min(array_length(_toksHere), 3)) game_sfx(_g, "sfxPikAttack");
                 game_log(_g, "P" + string(_p + 1) + "'s pikmin tear down the " + _sDef.name + "!");
             } else {
+                // pikmin whacking it (not destroyed) - anims-on plays these as randomised swipes in Draw
+                if (!global.expRules.anims) repeat (min(array_length(_toksHere), 3)) game_sfx(_g, "sfxPikAttack");
                 game_log(_g, "P" + string(_p + 1) + "'s pikmin damage the " + _sDef.name + " (" + string(_struct.curHp) + " hp left).");
             }
             // emitter's element kills the non-immune attackers (they still dealt damage)
@@ -2782,6 +2838,8 @@ function game_discard_choice(_g, _kind, _idx) {
 
 function game_advance_day(_g) {
     _g.dayTrack += 1;
+    // final day's final turn is about to begin: sound the alarm, once
+    if (_g.dayNumber == global.rules.days && _g.dayTrack == _g.dayTrackLength) game_sfx(_g, "sfxTimeAlert");
     if (_g.dayTrack <= _g.dayTrackLength) return;
     _g.dayTrack = 1;
     _g.dayNumber += 1;
@@ -2814,6 +2872,104 @@ function game_advance_day(_g) {
     }
     game_fill_enemy_spaces(_g, true); // flag the fresh arrivals so the cinematic reveals only them
     game_log(_g, "*** Day " + string(_g.dayNumber) + " begins! Pikmin return home, enemies stir anew. ***");
+}
+
+// ========================= DAY-TRACK STEP EVENTS (GROUNDWORK 2026-08-01) =========================
+// New day system (Zak + user): each board's day tracker is a series of SPACES, each carrying a step
+// event that fires at the start of a turn when the marker sits on it. A board has either a 5-space /
+// 3-day track or a 7-space / 2-day track (both defined in the .xlsx "Board Layouts" boards area).
+// Data model (board def / _g): dayTrack = { days, spaces:[ {ev, ...} x N ] }. Event `ev`:
+//   "spawn"  refill all enemy spaces + bosses (the current behaviour)
+//   "pod"    {n}         fill N enemy spaces on YOUR OWN side (no bosses; bosses shuffled back)
+//   "storm"              place an available hazard on YOUR OWN side
+//   "roll" / "draw"      free pellet roll / gather draw before the turn
+//   "raw"                building costs only 1 raw material THIS turn        (flag)
+//   "pellet"             pellets give +1 pikmin THIS turn                    (flag)
+//   "flarlic"            +5 pikmin cap for the REST of the match            (persistent)
+//   "swap"   {from,to,all}  swap one (or all) `from`-type space(s) to `to` on YOUR OWN side
+//   "none"               a regular turn
+// DESIGN (user 2026-08-01): the placement events (pod/storm/swap) all mess with the ACTING PLAYER'S
+// OWN board, and the player should DECIDE WHERE - reuse the boss-bounty `pendingFree` placement flow
+// (a pending choice the human/AI resolves) rather than the auto-placement stubbed below.
+// STATUS: dispatch + helpers below reuse the treasure-power helpers; auto-place for now; NOT yet hooked.
+// STILL TODO: (1) extract per-board dayTrackDef data from the .xlsx (2 rows/board, cols=spaces, SWAP as
+// "FROM\nTO"); (2) call game_day_space_apply at turn start off _g.dayTrackDef.spaces[dayTrack-1] (dayTrack
+// = the within-day counter); (3) make the
+// 5/7-space length drive dayTrackLength + days; (4) WIRE the raw/pellet/flarlic flags into the build-
+// cost, pellet->pikmin, and pikmin-cap checks; (5) the 3 revised layouts (Flooded Garden / Frigid
+// Wasteland / Minefield) now lean on these events. (POD/STORM/SWAP all target the acting player's own
+// side, resolved 2026-08-01 - the .xlsx legend's "opponent's side" wording is superseded.)
+
+/// Default track: 5 spaces / 3 days, SPAWN on space 1, rest regular - reproduces today's behaviour.
+function game_day_track_default() {
+    return { days: global.rules.days, spaces: [ {ev:"spawn"}, {ev:"none"}, {ev:"none"}, {ev:"none"}, {ev:"none"} ] };
+}
+
+/// Apply one day-track space event for the acting player _p (start of their turn).
+function game_day_space_apply(_g, _p, _ev) {
+    switch (_ev.ev) {
+        case "spawn":   game_fill_enemy_spaces(_g, true); break;
+        case "pod":     game_day_pod(_g, _p, _ev.n); break;
+        case "storm":   game_power_place_emitters(_g, _p, game_day_storm_hazard(_g), 1); break;   // YOUR OWN side (auto-placed for now; should be a player choice - see header)
+        case "roll":    game_power_draw_pellet(_g, _p); break;
+        case "draw":    game_power_draw_gather(_g, _p); break;
+        case "raw":     _g.dayRawFree = true; break;         // WIRE: build-cost check
+        case "pellet":  _g.dayPelletBonus = true; break;     // WIRE: pellet->pikmin conversion
+        case "flarlic": _g.flarlicBonus += 5; break;         // WIRE: pikmin cap = base + flarlicBonus
+        case "swap":    game_day_swap(_g, _p, _ev.from, _ev.to, variable_struct_exists(_ev, "all") && _ev.all); break;
+        case "none": default: return;
+    }
+    game_log(_g, "Day event (P" + string(_p + 1) + "): " + string_upper(_ev.ev));
+}
+
+/// Fill up to _n bare enemy spaces on player _p's side (game_spawn_enemy_at shuffles bosses back).
+function game_day_pod(_g, _p, _n) {
+    var _placed = 0;
+    for (var _l = 0; _l < _g.board.laneCount && _placed < _n; _l++) {
+        var _sp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sp) && _placed < _n; _i++) {
+            if (game_side_match(_g, _p, _i) && _sp[_i].kind == "enemy" && _sp[_i].enemy == undefined && game_spawn_enemy_at(_g, _l, _i)) _placed += 1;
+        }
+    }
+}
+
+/// An emitter hazard the board can produce (for STORM). Falls back to a fire geyser.
+function game_day_storm_hazard(_g) {
+    var _em = _g.boardDef.structures.emitters;
+    return (array_length(_em) > 0) ? _em[irandom(array_length(_em) - 1)] : "firegeyser";
+}
+
+/// Does a space match a swap type token ("empty"/"enemy"/"treasure" or a hazard element)?
+function game_space_type_matches(_sp, _type) {
+    switch (_type) {
+        case "empty": case "plain": return _sp.kind == "plain";
+        case "enemy":    return _sp.kind == "enemy";
+        case "treasure": return _sp.kind == "treasure";
+        default:         return _sp.kind == "hazard" && _sp.hazard == _type;
+    }
+}
+/// Rewrite a space to a swap type token (clears enemy/structure).
+function game_space_set_type(_sp, _type) {
+    _sp.enemy = undefined; _sp.structure = undefined;
+    switch (_type) {
+        case "empty": case "plain": _sp.kind = "plain"; _sp.hazard = ""; break;
+        case "enemy":    _sp.kind = "enemy";    _sp.hazard = ""; break;
+        case "treasure": _sp.kind = "treasure"; _sp.hazard = ""; break;
+        default:         _sp.kind = "hazard";   _sp.hazard = _type; break;
+    }
+}
+/// SWAP: turn one (or ALL) `_from`-type space(s) on player _p's side into `_to`.
+function game_day_swap(_g, _p, _from, _to, _all) {
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        var _sp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sp); _i++) {
+            if (!game_side_match(_g, _p, _i)) continue;
+            if (game_space_type_matches(_sp[_i], _from)) {
+                game_space_set_type(_sp[_i], _to);
+                if (!_all) return;
+            }
+        }
+    }
 }
 
 /// Clear the `justSpawned` flags once the day cinematic has revealed the new enemies -

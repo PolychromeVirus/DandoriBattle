@@ -32,6 +32,36 @@ function dtext_height(_str) {
 
 /// dtext with a dark semi-transparent backing strip, so a bare HUD hint stays legible over the
 /// busy 3D board (buttons already have a background; these loose lines did not). _col = text colour.
+/// Draw a nine-slice sprite whose CORNERS are scaled by _scale too. draw_sprite_stretched keeps the
+/// nine-slice corners at native pixel size (chunky/soft when the source is big); wrapping it in a
+/// world-matrix scale shrinks the ENTIRE frame - corners included - so a big soft bubble renders small
+/// and crisp. _x,_y,_w,_h are the ON-SCREEN rect. GUI-event safe (matrix restored after).
+function draw_nineslice_scaled(_spr, _x, _y, _w, _h, _scale, _col, _alpha) {
+    matrix_set(matrix_world, matrix_build(_x, _y, 0, 0, 0, 0, _scale, _scale, 1));
+    draw_sprite_stretched_ext(_spr, 0, 0, 0, _w / _scale, _h / _scale, _col, _alpha);
+    matrix_set(matrix_world, matrix_build_identity());
+}
+
+/// Scaled text with a dark 1px outline (8 offset passes) for readability over busy/transparent art.
+/// Uses the current font + alpha; sets colour internally. _sc = the draw_text_transformed scale.
+function dtext_outline(_x, _y, _str, _sc, _col, _oCol = make_color_rgb(18, 14, 10)) {
+    var _o = max(2, round(_sc * 2.5));
+    draw_set_color(_oCol);
+    for (var _dx = -1; _dx <= 1; _dx++) for (var _dy = -1; _dy <= 1; _dy++)
+        if (_dx != 0 || _dy != 0) draw_text_transformed(_x + _dx * _o, _y + _dy * _o, _str, _sc, _sc, 0);
+    draw_set_color(_col);
+    draw_text_transformed(_x, _y, _str, _sc, _sc, 0);
+}
+/// Wrapped variant of dtext_outline (_sep line-spacing + _w wrap width in FONT units, like the raw call).
+function dtext_outline_ext(_x, _y, _str, _sep, _w, _sc, _col, _oCol = make_color_rgb(18, 14, 10)) {
+    var _o = max(2, round(_sc * 2.5));
+    draw_set_color(_oCol);
+    for (var _dx = -1; _dx <= 1; _dx++) for (var _dy = -1; _dy <= 1; _dy++)
+        if (_dx != 0 || _dy != 0) draw_text_ext_transformed(_x + _dx * _o, _y + _dy * _o, _str, _sep, _w, _sc, _sc, 0);
+    draw_set_color(_col);
+    draw_text_ext_transformed(_x, _y, _str, _sep, _w, _sc, _sc, 0);
+}
+
 function dtext_bg(_x, _y, _str, _col = c_white) {
     var _w = dtext_width(_str), _h = dtext_height(_str), _pad = 5;
     draw_set_alpha(0.6);

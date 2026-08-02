@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"DiscoDancefloor1",
+  "audioGroupId":{
+    "name":"Pikmin3",
+    "path":"audiogroups/Pikmin3",
+  },
+  "bitDepth":1,
+  "channelFormat":1,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":115.0295,
+  "exportDir":"",
+  "name":"DiscoDancefloor1",
+  "parent":{
+    "name":"Music",
+    "path":"folders/Music.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":48000,
+  "soundFile":"DiscoDancefloor1.mp3",
+  "volume":1.0,
+}

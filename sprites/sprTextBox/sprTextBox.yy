@@ -24,15 +24,15 @@
   "name":"sprTextBox",
   "nineSlice":{
     "$GMNineSliceData":"",
-    "bottom":71,
+    "bottom":57,
     "enabled":true,
     "guideColour":[4294902015,4294902015,4294902015,4294902015,],
     "highlightColour":1728023040,
     "highlightStyle":0,
-    "left":92,
+    "left":87,
     "resourceType":"GMNineSliceData",
     "resourceVersion":"2.0",
-    "right":78,
+    "right":72,
     "tileMode":[
       0,
       0,
@@ -40,7 +40,7 @@
       0,
       0,
     ],
-    "top":61,
+    "top":51,
   },
   "origin":0,
   "parent":{

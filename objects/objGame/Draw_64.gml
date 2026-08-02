@@ -1073,6 +1073,76 @@ if (_tStep != undefined) {
     draw_set_font(fntMaru);   // restore the body UI font - fntDialog would otherwise leak into later buttons/text
 }
 
+// ---------- treasure on-bank power toasts ----------
+// A min-height / half-width TITLE bubble stacked directly above (NO overlap) a fixed-width DESCRIPTION
+// bubble that grows only in height to fit its wrapped fntDialog text. Both nine-slice (sprTextBox),
+// outlined text. Cues arrive in a PENDING queue and pop in ONE AT A TIME (slight delay); each slides
+// up from below and pushes the older ones up, fading in/out over its lifetime. (Bottom-left.)
+for (var _bqi = 0; _bqi < array_length(game.bankCues); _bqi++) {
+    var _bqc = game.bankCues[_bqi];
+    array_push(toastQueue, { name: _bqc.name, effect: _bqc.effect, good: _bqc.good });
+}
+game.bankCues = [];
+// release one queued toast every _toSpawnDelay frames (it slides in at the bottom)
+var _toSpawnDelay = 14;
+if (toastSpawnTimer > 0) toastSpawnTimer -= 1;
+if (toastSpawnTimer <= 0 && array_length(toastQueue) > 0) {
+    var _nq = toastQueue[0]; array_delete(toastQueue, 0, 1);
+    array_push(toastList, { name: _nq.name, effect: _nq.effect, good: _nq.good, age: 0, y: _guiH + 70, targetY: _guiH, deH: 108 });
+    toastSpawnTimer = _toSpawnDelay;
+}
+if (array_length(toastList) > 0) {
+    // --- tuning knobs. The nine-slice is drawn at _nsScale so its CORNERS shrink too (small + crisp),
+    // and the bubbles HUG their (bigger) text. min bubble = _nsScale * sprite-min (159x108). ---
+    var _nsScale = 0.5, _nsMinW = 80, _nsMinH = 54;
+    var _toX = 16, _deW = 396;                           // description: fixed on-screen width (~50% wider)
+    var _toLife = 360, _toFadeIn = 12, _toFadeOut = 55;  // longer-lived; fade keyed off age
+    var _tiSc = 2.3 * UI_TS, _deSc = 1.8 * UI_TS, _deSep = 30;   // bigger text than before
+    var _tiPadX = 28, _tiPadY = 13;                      // title hugs its text (less vertical padding)
+    var _dePadX = 28, _dePadTop = 13, _dePadBot = 18;
+    var _gap = 4;
+    var _bottomY = _guiH - 14;
+    draw_set_halign(fa_left); draw_set_valign(fa_top);
+    draw_set_font(fntDialog);
+    // age + cull
+    for (var _ti = array_length(toastList) - 1; _ti >= 0; _ti--) {
+        toastList[_ti].age += 1;
+        if (toastList[_ti].age >= _toLife) array_delete(toastList, _ti, 1);
+    }
+    // layout from the BOTTOM up (newest = last = bottom); size each bubble to hug its text
+    var _deTxtW = _deW - _dePadX * 2;
+    var _cursorY = _bottomY;
+    for (var _li = array_length(toastList) - 1; _li >= 0; _li--) {
+        var _to = toastList[_li];
+        _to.deH = max(_nsMinH, _dePadTop + string_height_ext(_to.effect, _deSep / _deSc, _deTxtW / _deSc) * _deSc + _dePadBot);
+        _to.tiW = max(_nsMinW, string_width(_to.name) * _tiSc + _tiPadX * 2);
+        _to.tiH = _nsMinH + 12;   // one-line title: min height + a little breathing room (fa_middle centres it). Bare min was too tight; string_height's full line-leading was too tall
+        _cursorY -= (_to.tiH + _gap + _to.deH);          // title + gap + description (no overlap)
+        _to.targetY = _cursorY;                           // y of the title bubble top
+        _cursorY -= _gap;
+    }
+    // animate toward targetY (slide-in + push-up) and render
+    for (var _ri = array_length(toastList) - 1; _ri >= 0; _ri--) {
+        var _to = toastList[_ri];
+        _to.y = lerp(_to.y, _to.targetY, 0.22);
+        var _a = clamp(min(_to.age / _toFadeIn, (_toLife - _to.age) / _toFadeOut, 1), 0, 1);
+        var _tiY = _to.y;
+        var _deY = _to.y + _to.tiH + _gap;               // description BELOW the title, no overlap
+        draw_nineslice_scaled(sprTextBox, _toX, _deY, _deW, _to.deH, _nsScale, c_white, _a);
+        draw_nineslice_scaled(sprTextBox, _toX, _tiY, _to.tiW, _to.tiH, _nsScale, c_white, _a);
+        draw_set_alpha(_a);
+        dtext_outline_ext(_toX + _dePadX, _deY + _dePadTop - 4, _to.effect, _deSep / _deSc, _deTxtW / _deSc, _deSc, c_white);   // -4: same ascender-leading nudge as the title
+        // title text, centred. fa_middle centres the whole line box incl. the descender space, so the
+        // visible glyphs land a bit low - nudge up by _tiNudge to optically centre them.
+        var _tiNudge = 5;
+        draw_set_halign(fa_center); draw_set_valign(fa_middle);
+        dtext_outline(_toX + _to.tiW * 0.5, _tiY + _to.tiH * 0.5 - _tiNudge, _to.name, _tiSc, _to.good ? make_color_rgb(140, 240, 140) : make_color_rgb(250, 140, 100));
+        draw_set_halign(fa_left); draw_set_valign(fa_top);
+        draw_set_alpha(1);
+    }
+    draw_set_font(fntMaru); draw_set_color(c_white); draw_set_halign(fa_left); draw_set_valign(fa_top);
+}
+
 // ---------- phase controls (left column) ----------
 var _cy = 44;
 if (_cine) {
@@ -1282,6 +1352,7 @@ if (_numCards > 0 && game.phase != "gameover" && _viewer >= 0) {
                         pendingCard = { handIdx: _hovered, cardId: _gid, effectId: _eff, stage: "space", lane: -1, idx: -1, atHome: false, purples: 0, whites: 0 };
                     }
                 } else {
+                    sfx("sfxError");   // clicked a gather card in a phase it can't be played
                     game_log(game, "Gather cards cannot be played now. (Wrong phase)");
                 }
             }
@@ -1858,7 +1929,8 @@ if (mouse_check_button_pressed(mb_left) && !global.uiMouseConsumed && !_locked &
     } else if (hoverKind == "space") {
         var _spaceLoc = { kind: "space", lane: hoverLane, idx: hoverIdx };
         if (selSrc != undefined && !game_loc_eq(selSrc, _spaceLoc)) {
-            game_order_move(game, selSrc, _spaceLoc, selCounts);
+            // error tone only when pikmin WERE selected but none could reach (not on an empty pick)
+            if (!game_order_move(game, selSrc, _spaceLoc, selCounts) && array_length(variable_struct_get_names(selCounts)) > 0) sfx("sfxError");
             selSrc = undefined;
         } else {
             var _counts = game_counts_struct(game, _p, _spaceLoc);
@@ -1895,7 +1967,8 @@ if (mouse_check_button_pressed(mb_middle) && !global.uiMouseConsumed && !_locked
         var _src = (selSrc != undefined) ? selSrc : { kind: "home" };
         var _dst = (hoverKind == "home") ? { kind: "home" } : { kind: "space", lane: hoverLane, idx: hoverIdx };
         if (!game_loc_eq(_src, _dst)) {
-            game_order_move(game, _src, _dst, game_counts_struct(game, _p, _src));
+            var _sendCnt = game_counts_struct(game, _p, _src);
+            if (!game_order_move(game, _src, _dst, _sendCnt) && array_length(variable_struct_get_names(_sendCnt)) > 0) sfx("sfxError");
             selSrc = undefined;
         }
     }

@@ -625,7 +625,7 @@ function board_spawn_enemies(_boardState, _deck) {
                 var _enemyId = array_pop(_deck);
                 var _enemyDef = enemy_def_get(_enemyId);
                 if (_enemyDef.boss) continue;
-                _space.enemy = { enemyDefId: _enemyId, curHp: _enemyDef.hp };
+                _space.enemy = { enemyDefId: _enemyId, curHp: _enemyDef.hp, dead: false };  // dead: matches game_spawn_enemy_at (renderer reads .dead)
                 break;
             }
         }

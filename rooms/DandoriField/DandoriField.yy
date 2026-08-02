@@ -17,8 +17,8 @@
   ],
   "name":"DandoriField",
   "parent":{
-    "name":"Treasure",
-    "path":"folders/Sprites/Treasure.yy",
+    "name":"Rooms",
+    "path":"folders/Rooms.yy",
   },
   "parentRoom":null,
   "physicsSettings":{

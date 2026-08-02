@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"StoneSweptValley2",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":1,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":160.0,
+  "exportDir":"",
+  "name":"StoneSweptValley2",
+  "parent":{
+    "name":"Music",
+    "path":"folders/Music.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":48000,
+  "soundFile":"StoneSweptValley2.mp3",
+  "volume":1.0,
+}

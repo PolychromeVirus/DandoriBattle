@@ -1,5 +1,44 @@
 frameTick += 1;
 
+music_sync();   // start/stop/switch the map's day track (silent in menus + when the map has no music)
+
+// menu / pause SFX on state change: entering any sub-screen (or opening pause) = open, returning to
+// the title (or resuming) = close.
+if (menuScreen != prevMenuScreen) { sfx(menuScreen == "main" ? "sfxMenuClose" : "sfxMenuOpen"); prevMenuScreen = menuScreen; }
+if (paused != prevPaused)         { sfx(paused ? "sfxMenuOpen" : "sfxMenuClose"); prevPaused = paused; }
+
+// drain queued one-shot SFX (game.sfxCue, pushed by the engine at events). Play only a COUPLE per
+// frame + a slight random pitch, so a burst (e.g. several pikmin dying) lands as offset hits rather
+// than one phase-aligned slam. The rest carry to the next frame(s). Batch runs: no audio, just clear.
+if (game != undefined && variable_struct_exists(game, "sfxCue") && array_length(game.sfxCue) > 0) {
+    if (batchRemaining <= 0) {
+        // banks + on-bank effects are headline events: pull them out and play them NOW at high
+        // priority (12) so a swarm of low-priority attack swipes can't steal their voice, and
+        // don't spend the 2/frame budget on them. Everything else drains a couple per frame.
+        // Entries may be a bare name (centred) or a {n,l,i} struct (positional) - snd_play_cue handles both.
+        var _si = 0;
+        while (_si < array_length(game.sfxCue)) {
+            var _e = game.sfxCue[_si];
+            var _en = is_struct(_e) ? _e.n : _e;
+            if (_en == "sfxBank" || _en == "sfxBankEffect") {
+                snd_play_cue(_e, 12, random_range(0.97, 1.03));
+                array_delete(game.sfxCue, _si, 1);
+            } else _si += 1;
+        }
+        var _sqBudget = min(2, array_length(game.sfxCue));
+        for (var _sq = 0; _sq < _sqBudget; _sq++) {
+            var _ce = game.sfxCue[_sq];
+            var _cn = is_struct(_ce) ? _ce.n : _ce;
+            // 2/frame drain already staggers a burst; fall gets a WIDER pitch spread so tumbling pikmin overlap
+            var _cpitch = (_cn == "fall1") ? random_range(0.82, 1.18) : random_range(0.95, 1.05);
+            snd_play_cue(_ce, 8, _cpitch);
+        }
+        array_delete(game.sfxCue, 0, _sqBudget);
+    } else {
+        game.sfxCue = [];
+    }
+}
+
 // keep the render + GUI at the window's native resolution (crisp fullscreen). MUST
 // sit above the mode!="playing" exit so the board-select menu is sharp too. Fires
 // only when the window size actually changes (startup / F11 / manual resize).
@@ -162,7 +201,8 @@ if (game != undefined && game.phase != "gameover" && game.dayNumber > prevDayNum
     prevDayNumber = game.dayNumber;
     if (global.expRules.anims) {
         dayCine = { phase: "flash", timer: 0, revealN: 0 };
-        // TODO: play the Pikmin 1 whistle SFX here once the sound asset is added
+        music_stop();          // silence the old track; music_sync keeps it quiet until the cinematic ends
+        sfx("sfxWhistle");     // the Pikmin whistle as the day turns over
     } else {
         game_clear_spawn_marks(game); // no cinematic - new enemies just appear
     }
@@ -324,6 +364,12 @@ viewMat = matrix_build_lookat(_camX, _camY, _camZ, camTargetX, camTargetY, camTa
 projMat = matrix_build_projection_perspective_fov(-60, -window_get_width() / window_get_height(), 1, 32000);
 camera_set_view_mat(camera, viewMat);
 camera_set_proj_mat(camera, projMat);
+
+// spatial audio: the ear sits at the camera looking at its target (up = world z). Derived from the
+// real eye->target, so the seat-2 lateral flip is already baked in - left/right pan matches the view.
+audio_listener_position(_camX, _camY, _camZ);
+// up = world -z: GM's audio space is opposite-handed to the render, so this un-mirrors L/R pan
+audio_listener_orientation(camTargetX - _camX, camTargetY - _camY, camTargetZ - _camZ, 0, 0, -1);
 
 // online (authoritative side): broadcast our state whenever it actually changes. Serialize once per
 // frame and only send on a real diff. `_my || netWasMyTurn` covers our whole turn PLUS the turn-flip
