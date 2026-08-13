@@ -4,6 +4,7 @@
 
 #macro TILE_W 90   // landscape card aspect, so card graphics can BE the tile
 #macro TILE_H 64
+#macro BLOWN_SLIDE 11   // slide speed (px/frame) for pikmin SHOVED by an enemy / Oatchi Rush, and the rushed pile - keep them equal
 #macro TILE_GAP 12
 #macro LANE_GAP 40
 
@@ -106,6 +107,7 @@ function board_ground_palette(_setNumber) {
         case 15: return [make_color_rgb(198, 72, 158),  make_color_rgb(74, 158, 206),   // disco!
                          make_color_rgb(226, 196, 84),  make_color_rgb(138, 84, 198)];
         case 16: return [make_color_rgb(150, 188, 150), make_color_rgb(164, 200, 162)]; // pale green
+        case 17: return [make_color_rgb(112, 124, 138), make_color_rgb(140, 152, 166)]; // steel (Beat Processing Zone - brushed blue-grey metal)
         default: return [make_color_rgb(96, 150, 78),   make_color_rgb(108, 168, 88)];  // grass
     }
 }
@@ -158,6 +160,19 @@ function board_space_color(_space) {
 }
 
 /// Sprite for an element/hazard id, or -1 when no token sprite exists.
+/// A representative colour for a hazard/emitter element (fire=red, water=blue, ...). Used to
+/// tint the emitter cone so you can read what it is at a glance.
+function element_color(_element) {
+    switch (_element) {
+        case "fire":     return make_color_rgb(235, 90, 45);
+        case "water":    return make_color_rgb(70, 130, 220);
+        case "electric": return make_color_rgb(240, 210, 70);
+        case "ice":      return make_color_rgb(140, 220, 235);
+        case "poison":   return make_color_rgb(110, 200, 70);   // the poison ICON is green, so the emitter is too
+        default:         return make_color_rgb(170, 170, 178);
+    }
+}
+
 function element_sprite(_element) {
     switch (_element) {
         case "fire":      return TokFire;
@@ -620,7 +635,8 @@ function board_spawn_enemies(_boardState, _deck) {
         var _spaces = _boardState.lanes[_laneIdx].spaces;
         for (var _spaceIdx = 0; _spaceIdx < array_length(_spaces); _spaceIdx++) {
             var _space = _spaces[_spaceIdx];
-            if (_space.kind != "enemy" || _space.enemy != undefined) continue;
+            // skip enemy spaces already occupied by a card (enemy or a structure/emitter on top)
+            if (_space.kind != "enemy" || _space.enemy != undefined || _space.structure != undefined) continue;
             while (array_length(_deck) > 0) {
                 var _enemyId = array_pop(_deck);
                 var _enemyDef = enemy_def_get(_enemyId);

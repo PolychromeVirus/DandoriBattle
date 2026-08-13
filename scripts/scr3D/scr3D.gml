@@ -85,6 +85,25 @@ function vb_disc(_vb, _x, _y, _z, _r, _col, _alpha, _segs = 14) {
     }
 }
 
+/// A flat annulus (ring) on the ground plane: a triangle strip between an inner and outer
+/// radius. Used for expanding energy-pulse FX (e.g. the Onion discard pulse).
+function vb_ring(_vb, _x, _y, _z, _rIn, _rOut, _col, _alpha, _segs = 24) {
+    var _pxi = _x + _rIn,  _pyi = _y;
+    var _pxo = _x + _rOut, _pyo = _y;
+    for (var _i = 1; _i <= _segs; _i++) {
+        var _a = (_i / _segs) * 2 * pi;
+        var _nxi = _x + cos(_a) * _rIn,  _nyi = _y + sin(_a) * _rIn;
+        var _nxo = _x + cos(_a) * _rOut, _nyo = _y + sin(_a) * _rOut;
+        vb_vertex(_vb, _pxi, _pyi, _z, _col, _alpha, 0.5, 0.5);
+        vb_vertex(_vb, _pxo, _pyo, _z, _col, _alpha, 0.5, 0.5);
+        vb_vertex(_vb, _nxo, _nyo, _z, _col, _alpha, 0.5, 0.5);
+        vb_vertex(_vb, _pxi, _pyi, _z, _col, _alpha, 0.5, 0.5);
+        vb_vertex(_vb, _nxo, _nyo, _z, _col, _alpha, 0.5, 0.5);
+        vb_vertex(_vb, _nxi, _nyi, _z, _col, _alpha, 0.5, 0.5);
+        _pxi = _nxi; _pyi = _nyi; _pxo = _nxo; _pyo = _nyo;
+    }
+}
+
 /// A low standing wall across a tile: a lane-blocking box of three faces (front,
 /// back, top) spanning _w along x, _t thick along y, _h tall. Untextured.
 function vb_wall(_vb, _x, _y, _w, _h, _t, _colFront, _alpha = 1) {
@@ -115,6 +134,24 @@ function vb_wall(_vb, _x, _y, _w, _h, _t, _colFront, _alpha = 1) {
     vb_vertex(_vb, _x - _hw, _y + _ht, _h, _colTop, _alpha, 0, 1);
 }
 
+/// A small cone poking straight up out of the ground at _x,_y: base circle (radius _r) on the
+/// z=0 plane, apex at height _h. Untextured, flat-shaded with a lit tip + shaded foot so it
+/// reads as 3D from any camera angle. Used for emitter structures (coloured by their element).
+function vb_cone(_vb, _x, _y, _r, _h, _col, _alpha = 1, _segs = 12) {
+    var _apex = merge_color(_col, c_white, 0.28);   // lit tip
+    var _foot = merge_color(_col, c_black, 0.22);    // shaded base
+    var _px = _x + _r, _py = _y;
+    for (var _i = 1; _i <= _segs; _i++) {
+        var _a = (_i / _segs) * 2 * pi;
+        var _nx = _x + cos(_a) * _r;
+        var _ny = _y + sin(_a) * _r;
+        vb_vertex(_vb, _px, _py, 0,  _foot, _alpha, 0, 0);
+        vb_vertex(_vb, _nx, _ny, 0,  _foot, _alpha, 1, 0);
+        vb_vertex(_vb, _x,  _y,  _h, _apex, _alpha, 0.5, 1);
+        _px = _nx; _py = _ny;
+    }
+}
+
 /// Append one camera-facing untextured rectangle, centred on _x,_y,_z (health bars etc).
 function vb_billboard_rect(_vb, _x, _y, _z, _w, _h, _right, _up, _col, _alpha) {
     var _hw = _w * 0.5;
@@ -129,6 +166,23 @@ function vb_billboard_rect(_vb, _x, _y, _z, _w, _h, _right, _up, _col, _alpha) {
     vb_vertex(_vb, _blx, _bly, _blz, _col, _alpha, 0, 0);
     vb_vertex(_vb, _trx, _try, _trz, _col, _alpha, 1, 1);
     vb_vertex(_vb, _tlx, _tly, _tlz, _col, _alpha, 0, 1);
+}
+
+/// A camera-facing filled circle (triangle-fan) centred on _x,_y,_z. Round, clean-edged - used
+/// for soft-ish particle clouds (poison/ice) where a square billboard would read as blocky.
+function vb_billboard_disc(_vb, _x, _y, _z, _r, _right, _up, _col, _alpha, _segs = 12) {
+    var _pax = _x + _right[0] * _r, _pay = _y + _right[1] * _r, _paz = _z + _right[2] * _r;
+    for (var _i = 1; _i <= _segs; _i++) {
+        var _a = (_i / _segs) * 2 * pi;
+        var _ox = cos(_a) * _r, _oy = sin(_a) * _r;
+        var _nx = _x + _right[0] * _ox + _up[0] * _oy;
+        var _ny = _y + _right[1] * _ox + _up[1] * _oy;
+        var _nz = _z + _right[2] * _ox + _up[2] * _oy;
+        vb_vertex(_vb, _x, _y, _z, _col, _alpha, 0.5, 0.5);
+        vb_vertex(_vb, _pax, _pay, _paz, _col, _alpha, 0.5, 0.5);
+        vb_vertex(_vb, _nx, _ny, _nz, _col, _alpha, 0.5, 0.5);
+        _pax = _nx; _pay = _ny; _paz = _nz;
+    }
 }
 
 /// Flat ground decal for a sprite, centred on _x,_y at height _z, fitted into a

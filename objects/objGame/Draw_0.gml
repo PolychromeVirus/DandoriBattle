@@ -84,6 +84,14 @@ gpu_set_alphatestref(128);
 matrix_set(matrix_world, matrix_build_identity());
 
 // --- grass + board tiles ---
+// a day-swap changed a tile's type (game.tileVersion bumped): rebuild the baked tile-colour
+// mesh so the FLOOR recolours to match (e.g. a swapped-in water tile turns blue, not just an
+// icon on the old floor). Works for anims on OR off - both bump the version.
+if (tileVB != -1 && variable_struct_exists(game, "tileVersion") && game.tileVersion != tileVersionSeen) {
+    vertex_delete_buffer(tileVB);
+    tileVB = board_build_tile_vb(board, game.solo);
+    tileVersionSeen = game.tileVersion;
+}
 vertex_submit(groundVB, pr_trianglelist, -1);
 vertex_submit(tileVB, pr_trianglelist, -1);
 
@@ -94,12 +102,108 @@ var _camFwd   = [viewMat[2], viewMat[6], viewMat[10]];
 if (_camUp[2] < 0) { _camUp[0] = -_camUp[0]; _camUp[1] = -_camUp[1]; _camUp[2] = -_camUp[2]; }
 
 var _spriteBatches = sprite_batches_create();
-var _fxBatches = sprite_batches_create();   // death FX - flushed with alpha BLENDING (fades), not cutout
+var _fxCardBatches = sprite_batches_create(); // death CARDS/bodies (ground-level) - blend, flushed UNDER the souls
+var _fxBatches = sprite_batches_create();   // death FX souls/spirits - flushed with alpha BLENDING (fades), not cutout
 var _overlayVB = vertex_create_buffer();   // rings, bars, highlights (drawn without alpha-test)
 vertex_begin(_overlayVB, vformat_3d());
+var _partVB = vertex_create_buffer();      // ambient particles - submitted with depth-WRITE OFF so
+vertex_begin(_partVB, vformat_3d());       // overlapping transparent discs blend instead of z-rejecting each other
 var _labels = [];
 
 // --- hover / selection highlights ---
+// targeting a space with a gather card: light up EVERY eligible target in the same yellow
+// as a selected space, so the legal spots read at a glance. Drawn a touch lower than the
+// hover/selection tiles so those still show on top.
+if (pendingCard != undefined && pendingCard.stage == "space") {
+    if (pendingCard.effectId == "oatchirush") {
+        // whole-LANE target: light every space of each legal rush lane (not per-space)
+        for (var _tl = 0; _tl < board.laneCount; _tl++) {
+            if (!game_oatchirush_lane_ok(game, game.activePlayer, _tl)) continue;
+            for (var _ti2 = 0; _ti2 < array_length(board.lanes[_tl].spaces); _ti2++) {
+                var _ep = board_space_xy(board, _tl, _ti2);
+                vb_tile(_overlayVB, _ep[0], _ep[1], 1.71, TILE_W + 8, TILE_H + 8, make_color_rgb(255, 215, 90), 0.3);
+            }
+        }
+    } else {
+    for (var _tl = 0; _tl < board.laneCount; _tl++) {
+        var _tSpaces = board.lanes[_tl].spaces;
+        for (var _ti2 = 0; _ti2 < array_length(_tSpaces); _ti2++) {
+            if (game_gather_target_eligible(game, game.activePlayer, pendingCard.effectId, _tl, _ti2)) {
+                var _ep = board_space_xy(board, _tl, _ti2);
+                vb_tile(_overlayVB, _ep[0], _ep[1], 1.71, TILE_W + 8, TILE_H + 8, make_color_rgb(255, 215, 90), 0.3);
+            }
+        }
+    }
+    }
+    // candypop buds / ivory & violet also convert pikmin AT HOME - light the active
+    // player's home strip when it holds any of their pikmin
+    var _homeEff = pendingCard.effectId;
+    if ((_homeEff == "candypopbud" || _homeEff == "queencandypopbud" || _homeEff == "candypopbud2" || _homeEff == "ivoryandviolet")
+        && array_length(game_tokens_at(game, game.activePlayer, { kind: "home" })) > 0) {
+        vb_tile(_overlayVB, 0, board_home_y(board, game.activePlayer), 1.71, board.laneCount * (TILE_W + LANE_GAP), TILE_H, make_color_rgb(255, 215, 90), 0.3);
+    }
+}
+// day-track SWAP choice: light up every eligible OWN tile of the swap's from-type
+if (game.pendingDaySwap != undefined) {
+    for (var _tl = 0; _tl < board.laneCount; _tl++) {
+        for (var _ti2 = 0; _ti2 < array_length(board.lanes[_tl].spaces); _ti2++) {
+            if (game_day_swap_target_ok(game, _tl, _ti2)) {
+                var _ep = board_space_xy(board, _tl, _ti2);
+                vb_tile(_overlayVB, _ep[0], _ep[1], 1.71, TILE_W + 8, TILE_H + 8, make_color_rgb(255, 215, 90), 0.3);
+            }
+        }
+    }
+}
+// day-track POD / STORM choice: light up every eligible placement space
+if (game.pendingDayPlace != undefined) {
+    for (var _tl = 0; _tl < board.laneCount; _tl++) {
+        for (var _ti2 = 0; _ti2 < array_length(board.lanes[_tl].spaces); _ti2++) {
+            if (game_day_place_target_ok(game, _tl, _ti2)) {
+                var _ep = board_space_xy(board, _tl, _ti2);
+                vb_tile(_overlayVB, _ep[0], _ep[1], 1.71, TILE_W + 8, TILE_H + 8, make_color_rgb(255, 215, 90), 0.3);
+            }
+        }
+    }
+}
+// adventure EVENT space pick: light up every eligible space (destroy/soil/spicy target)
+if (variable_struct_exists(game, "pendingEvent") && game.pendingEvent != undefined) {
+    for (var _tl = 0; _tl < board.laneCount; _tl++) {
+        for (var _ti2 = 0; _ti2 < array_length(board.lanes[_tl].spaces); _ti2++) {
+            if (game_event_target_ok(game, _tl, _ti2)) {
+                var _ep = board_space_xy(board, _tl, _ti2);
+                vb_tile(_overlayVB, _ep[0], _ep[1], 1.71, TILE_W + 8, TILE_H + 8, make_color_rgb(255, 215, 90), 0.3);
+            }
+        }
+    }
+}
+// adventure LOSE-pikmin pick: light up every space holding the player's pikmin (Onion/home too, clickable)
+if (variable_struct_exists(game, "pendingLose") && game.pendingLose != undefined) {
+    for (var _tl = 0; _tl < board.laneCount; _tl++) {
+        for (var _ti2 = 0; _ti2 < array_length(board.lanes[_tl].spaces); _ti2++) {
+            if (game_lose_target_ok(game, { kind: "space", lane: _tl, idx: _ti2 })) {
+                var _ep = board_space_xy(board, _tl, _ti2);
+                vb_tile(_overlayVB, _ep[0], _ep[1], 1.71, TILE_W + 8, TILE_H + 8, make_color_rgb(232, 92, 88), 0.32);
+            }
+        }
+    }
+    // the Onion/home reserve is a valid sink too (click handler already accepts hoverKind=="home")
+    // - highlight the whole home strip so the player can SEE it's pickable
+    if (game_lose_target_ok(game, { kind: "home" })) {
+        var _lhy = board_home_y(board, game.pendingLose.playerIdx);
+        vb_tile(_overlayVB, 0, _lhy, 1.71, board.laneCount * (TILE_W + LANE_GAP), TILE_H + 8, make_color_rgb(232, 92, 88), 0.3);
+    }
+}
+// Reveal phase A: light up every reorderable treasure pile the chooser can pick
+if (game.pendingReveal != undefined && game.pendingReveal.lane < 0) {
+    for (var _tl = 0; _tl < board.laneCount; _tl++) {
+        for (var _ti2 = 0; _ti2 < array_length(board.lanes[_tl].spaces); _ti2++) {
+            if (game_reveal_pile_ok(game, _tl, _ti2)) {
+                var _ep = board_space_xy(board, _tl, _ti2);
+                vb_tile(_overlayVB, _ep[0], _ep[1], 1.71, TILE_W + 8, TILE_H + 8, make_color_rgb(255, 215, 90), 0.3);
+            }
+        }
+    }
+}
 if (hoverKind == "space") {
     if (pendingCard != undefined && pendingCard.effectId == "storm" && pendingCard.stage == "space") {
         // Lightning Storm strikes a 2x2 block anchored here (clamped like the engine):
@@ -110,6 +214,12 @@ if (hoverKind == "space") {
             var _hp2 = board_space_xy(board, _stL + (_so mod 2), _stI + (_so div 2));
             vb_tile(_overlayVB, _hp2[0], _hp2[1], 1.72, TILE_W + 8, TILE_H + 8, make_color_rgb(255, 232, 90), 0.3);
         }
+    } else if (pendingCard != undefined && pendingCard.effectId == "oatchirush" && pendingCard.stage == "space") {
+        // Oatchi Rush targets a whole LANE - light the entire hovered lane white
+        for (var _ol = 0; _ol < array_length(board.lanes[hoverLane].spaces); _ol++) {
+            var _hp3 = board_space_xy(board, hoverLane, _ol);
+            vb_tile(_overlayVB, _hp3[0], _hp3[1], 1.72, TILE_W + 8, TILE_H + 8, c_white, 0.3);
+        }
     } else {
         var _hp2 = board_space_xy(board, hoverLane, hoverIdx);
         vb_tile(_overlayVB, _hp2[0], _hp2[1], 1.72, TILE_W + 8, TILE_H + 8, c_white, 0.28);
@@ -117,12 +227,14 @@ if (hoverKind == "space") {
 } else if (hoverKind == "home") {
     vb_tile(_overlayVB, 0, board_home_y(board, hoverIdx), 1.72, board.laneCount * (TILE_W + LANE_GAP), TILE_H, c_white, 0.2);
 }
+// SELECTED source turns WHITE (brighter than hover) so it's clearly distinct from the YELLOW
+// "selectable" target tiles, which were too close in colour before.
 if (selSrc != undefined) {
     if (selSrc.kind == "space") {
         var _sp2 = board_space_xy(board, selSrc.lane, selSrc.idx);
-        vb_tile(_overlayVB, _sp2[0], _sp2[1], 1.74, TILE_W + 8, TILE_H + 8, make_color_rgb(255, 215, 90), 0.35);
+        vb_tile(_overlayVB, _sp2[0], _sp2[1], 1.74, TILE_W + 8, TILE_H + 8, c_white, 0.42);
     } else {
-        vb_tile(_overlayVB, 0, board_home_y(board, game.activePlayer), 1.74, board.laneCount * (TILE_W + LANE_GAP), TILE_H, make_color_rgb(255, 215, 90), 0.25);
+        vb_tile(_overlayVB, 0, board_home_y(board, game.activePlayer), 1.74, board.laneCount * (TILE_W + LANE_GAP), TILE_H, c_white, 0.32);
     }
 }
 
@@ -160,7 +272,10 @@ for (var _ti = 0; _ti < array_length(game.treasures); _ti++) {
     // zips along near pikmin walking pace. The hint clears once the pile arrives.
     if (!variable_struct_exists(_t, "vx")) { _t.vx = _tPos[0]; _t.vy = _tPos[1]; }
     var _pd = point_distance(_t.vx, _t.vy, _tPos[0], _tPos[1]);
-    var _pileSpd = (variable_struct_exists(_t, "rushMove") && _t.rushMove) ? 3.8 : 2.6;
+    // Oatchi Rush SLIDES the pile at the same speed the shoved pikmin slide (BLOWN_SLIDE), so the
+    // treasure keeps up with them. A weight-RUSH zips near walking pace; a normal haul lumbers.
+    var _pileSpd = (variable_struct_exists(_t, "rushSlide") && _t.rushSlide) ? BLOWN_SLIDE
+                 : ((variable_struct_exists(_t, "rushMove") && _t.rushMove) ? 3.8 : 2.6);
     _t.vmoving = (_pd > 0.5);   // riders read this to move locked to the pile
     _t.vspdCur = _pileSpd;
     if (_t.vmoving) { _carryNow[$ "t" + string(_t.lane)] = carry_asset_for(_t.lane, _t.idx); _carryPos[$ "t" + string(_t.lane)] = [_t.vx, _t.vy - 6]; }
@@ -168,9 +283,9 @@ for (var _ti = 0; _ti < array_length(game.treasures); _ti++) {
         var _ps = min(_pd, _pileSpd);
         _t.vx += (_tPos[0] - _t.vx) / _pd * _ps;
         _t.vy += (_tPos[1] - _t.vy) / _pd * _ps;
-        if (_pd <= _pileSpd) _t.rushMove = false; // arrived - drop the rush hint
+        if (_pd <= _pileSpd) { _t.rushMove = false; _t.rushSlide = false; } // arrived - drop the rush hints
     } else {
-        _t.rushMove = false;
+        _t.rushMove = false; _t.rushSlide = false;
     }
     var _tSpr = data_sprite(_topDef, sprFRIEND);
     vb_billboard(sprite_batches_vb(_spriteBatches, _tSpr), _tSpr, 0, _t.vx, _t.vy - 6, 1, 40, _camRight, _camUp, c_white, 1);
@@ -228,7 +343,7 @@ if (batchRemaining <= 0) {
         var _cem = emitter_moving(_k, _cpos[0], _cpos[1]); // follow the pile across the board each frame
         if (!variable_struct_exists(carrySnds, _k) || carrySnds[$ _k] == -1 || !audio_is_playing(carrySnds[$ _k])) {
             var _cAsset = _carryNow[$ _k];
-            carrySnds[$ _k] = (_cAsset != -1) ? audio_play_sound_on(_cem, _cAsset, true, 5, 1, 0, random_range(0.92, 1.08)) : -1;
+            carrySnds[$ _k] = (_cAsset != -1) ? audio_play_sound_on(_cem, _cAsset, true, 5, sfxGain, 0, random_range(0.92, 1.08)) : -1;
         }
     }
     var _cHeld = variable_struct_get_names(carrySnds);
@@ -279,14 +394,92 @@ for (var _laneIdx = 0; _laneIdx < board.laneCount; _laneIdx++) {
                 vb_tile(_overlayVB, _sPos[0], _sPos[1], 1.66, TILE_W - 12, TILE_H - 12, make_color_rgb(152, 106, 58), 1);
                 array_push(_displayStructs, { sx: _sPos[0], sy: _sPos[1], sz: 24, hp: _struct.curHp });
             }
-        } else { // emitter: its element decal IS the visual
-            if (_sDef.element != "") {
-                var _eSpr = element_sprite(_sDef.element);
-                if (_eSpr != -1) vb_tile_sprite(sprite_batches_vb(_spriteBatches, _eSpr), _eSpr, 0, _sPos[0], _sPos[1], 1.62, 44, c_white, 1, _spaceIdx > _oppHalf);
+        } else { // emitter: a small cone poking out of the ground, coloured by its element
+            var _emEl = _sDef.element;
+            var _emCol = element_color(_emEl);
+            // element-specific tile treatment
+            if (_emEl == "water") {
+                // a deep-blue pool RAISED off the floor, so the space reads as water you wade INTO
+                vb_tile(_overlayVB, _sPos[0], _sPos[1], 3.5, TILE_W, TILE_H, make_color_rgb(40, 92, 178), 0.7);
+            } else if (_emEl == "fire") {
+                // a flat, opaque HOT tile at ground level - same colour as a fire HAZARD tile
+                // (board_space_color "fire"), so the space reads as a hot area, not a raised layer
+                vb_tile(_overlayVB, _sPos[0], _sPos[1], 1.6, TILE_W, TILE_H, make_color_rgb(235, 140, 70), 0.95);
+            // poison has NO tile layer - the clouds ARE the whole effect (and it isn't a blocking hazard)
+            } else if (_emEl == "ice") {
+                vb_tile(_overlayVB, _sPos[0], _sPos[1], 1.6, TILE_W, TILE_H, make_color_rgb(205, 238, 252), 0.95); // bright, opaque: a sheet of ice frozen over the panel
+            } else if (_emEl == "electric") {
+                vb_tile(_overlayVB, _sPos[0], _sPos[1], 1.6, TILE_W, TILE_H, make_color_rgb(150, 120, 20), 0.9);   // darker amber so the bright sparks read against it
             }
-            array_push(_displayStructs, { sx: _sPos[0], sy: _sPos[1], sz: 28, hp: _struct.curHp });
+            vb_disc(_overlayVB, _sPos[0], _sPos[1], 1.62, 7, merge_color(_emCol, c_black, 0.45), 1); // dark base ring, so it reads as sitting IN the ground
+            vb_cone(_overlayVB, _sPos[0], _sPos[1], 5, 12, _emCol, 1);   // same taper as before, ~1/3 height: "poking out", not a spire
+            // ambient particles - each element gets its own feel.
+            if (array_length(partList) < 400) {
+                if (_emEl == "water" && irandom(1) == 0) {
+                    // droplets spurt up off the spout tip and rain back down under gravity
+                    array_push(partList, { x: _sPos[0] + random_range(-3, 3), y: _sPos[1] + random_range(-3, 3), z: 11,
+                        vx: random_range(-0.6, 0.6), vy: random_range(-0.6, 0.6), vz: random_range(2.0, 3.2), g: 0.26,
+                        age: 0, life: 46, r: random_range(2.5, 4), col: _emCol });
+                } else if (_emEl == "fire") {
+                    // a plume of flame: tight upward flecks with almost no gravity, short-lived, flickering red-orange
+                    repeat (irandom_range(1, 2)) {
+                        array_push(partList, { x: _sPos[0] + random_range(-2, 2), y: _sPos[1] + random_range(-2, 2), z: 8,
+                            vx: random_range(-0.3, 0.3), vy: random_range(-0.3, 0.3), vz: random_range(1.1, 2.1), g: 0.03,
+                            age: 0, life: irandom_range(16, 26), r: random_range(3, 5),
+                            col: merge_color(make_color_rgb(255, 150, 40), make_color_rgb(240, 55, 25), random(1)) });
+                    }
+                } else if (_emEl == "poison" && irandom(5) == 0) {
+                    // thick green clouds all OVER the space: big soft discs at random spots, low to the
+                    // ground (things stand IN them), slowly billowing + fading in and back out
+                    array_push(partList, { x: _sPos[0] + random_range(-22, 22), y: _sPos[1] + random_range(-15, 15), z: random_range(3, 10),
+                        vx: random_range(-0.15, 0.15), vy: random_range(-0.15, 0.15), vz: random_range(0.04, 0.18), g: 0,
+                        age: 0, life: irandom_range(80, 130), r: random_range(12, 20),
+                        col: make_color_rgb(78, 158, 44), a0: 0.62, soft: true, shape: "disc" });
+                } else if (_emEl == "ice" && irandom(1) == 0) {
+                    // visible COLD AIR venting out as slow low FOG: SMALL, long-lived puffs drift gently
+                    // out from the vent and spread thin over the tile (not a dense dome at the nozzle)
+                    var _iceA = random(360), _iceSpd = random_range(0.12, 0.28);
+                    array_push(partList, { x: _sPos[0] + random_range(-4, 4), y: _sPos[1] + random_range(-4, 4), z: random_range(6, 10),
+                        vx: lengthdir_x(_iceSpd, _iceA), vy: lengthdir_y(_iceSpd, _iceA) * 0.7, vz: random_range(-0.05, -0.005), g: 0,
+                        age: 0, life: irandom_range(200, 300), r: random_range(4, 8),
+                        col: merge_color(make_color_rgb(200, 240, 255), c_white, 0.4), a0: 0.38, soft: true, shape: "disc" });
+                } else if (_emEl == "electric" && irandom(22) == 0) {
+                    // intermittent crackle: a small BURST of bright sparks at random spots across the
+                    // whole tile, each a quick bright pop (very short life)
+                    repeat (irandom_range(2, 4)) {
+                        array_push(partList, { x: _sPos[0] + random_range(-24, 24), y: _sPos[1] + random_range(-17, 17), z: random_range(2, 15),
+                            vx: random_range(-0.5, 0.5), vy: random_range(-0.5, 0.5), vz: random_range(-0.2, 0.6), g: 0,
+                            age: 0, life: irandom_range(5, 9), r: random_range(2, 4),
+                            col: merge_color(make_color_rgb(255, 240, 120), c_white, 0.5) });
+                    }
+                }
+            }
+            // HP as a billboarded circle (fntPikmin, HUD pass): CENTERED on the tile, floated high
+            // above the space so it clears the cone/particles rather than sitting beside it.
+            array_push(_displayStructs, { sx: _sPos[0], sy: _sPos[1], sz: 44, hp: _struct.curHp });
         }
     }
+}
+
+// --- ambient particles (emitter FX): integrate under gravity + draw as small camera-facing
+// --- quads, fading out over life. Cosmetic - lives on the controller, drained only when drawn. ---
+var _partJ = 0;
+while (_partJ < array_length(partList)) {
+    var _pt = partList[_partJ];
+    _pt.age += 1;
+    _pt.vz -= _pt.g;
+    _pt.x += _pt.vx; _pt.y += _pt.vy; _pt.z += _pt.vz;
+    if (_pt.age >= _pt.life || _pt.z <= 0) { array_delete(partList, _partJ, 1); continue; }
+    var _pT = _pt.age / _pt.life;
+    var _pBase = variable_struct_exists(_pt, "a0") ? _pt.a0 : 1;
+    // soft = fade IN then OUT (clouds); otherwise fade out only (droplets/sparks)
+    var _pa = (variable_struct_exists(_pt, "soft") && _pt.soft) ? _pBase * sin(pi * _pT) : _pBase * (1 - _pT);
+    _pa = clamp(_pa, 0, 1);
+    if (variable_struct_exists(_pt, "shape") && _pt.shape == "disc")
+        vb_billboard_disc(_partVB, _pt.x, _pt.y, 1 + _pt.z, _pt.r, _camRight, _camUp, _pt.col, _pa);
+    else
+        vb_billboard_rect(_partVB, _pt.x, _pt.y, 1 + _pt.z, _pt.r, _pt.r, _camRight, _camUp, _pt.col, _pa);
+    _partJ += 1;
 }
 
 // --- Bomb Rock / Boulder telegraph: pulsing white-hot ring on the target space ---
@@ -361,7 +554,9 @@ for (var _ti = 0; _ti < array_length(game.treasures); _ti++) {
 }
 for (var _ei = 0; _ei < array_length(_displayEnemies); _ei++) {
     var _de = _displayEnemies[_ei];
-    var _enemyDef = enemy_def_get(_de.inst.enemyDefId);
+    // effective def so the attack wind-up (swift crouch / crush leap / explosive strobe) and the
+    // height-gated latch match any active adventure event this turn, same as the stat readout
+    var _enemyDef = game_enemy_def_eff(game, _de.inst.enemyDefId);
     var _bbHeight = clamp(36 + _enemyDef.hp * 1.6, 36, 90);
     _de.hudZ = 1 + _bbHeight + 12;
     var _bodySpr = data_sprite(_enemyDef, sprFRIEND);
@@ -423,16 +618,39 @@ for (var _ei = 0; _ei < array_length(_displayEnemies); _ei++) {
     }
     if (_isCrush && _atkSection && _canBite && _engaged) {
         // crush foe: instead of leaning in to eat, it LEAPS skyward with the pikmin still
-        // clinging, then slams back down - it deals its crush damage and takes the pikmin's
-        // at the same instant (the flavour of it landing on you as it dies).
+        // clinging, then slams down - dealing its crush damage and taking the pikmin's at
+        // the same instant. Deliberately NOT a smooth sine bob: it's a 4-step punch -
+        // spring up from its EXACT spot -> hang at the top -> drop FAST and drive slightly
+        // into the ground -> hold buried a beat, then ease back to rest as the pikmin regroup.
+        var _apex = _bbHeight * 0.55;   // height at the top of the leap
+        var _bury = _bbHeight * 0.12;   // how far it punches below rest on impact
         var _cf = clamp(resolveHold / 34, 0, 1);
-        var _rise = 0;
-        if (game.jumpCue == "pik") _rise = _cf;                                       // gathering for the leap
-        else if (game.jumpCue == "enemy") _rise = 1 - _cf;                            // slamming back down
-        else if (_hasBitten) _rise = biteT * 0.12;                                    // slammed home: grounded, tiny residual jitter
-        else if (game.jumpCue == "") _rise = 1;                                       // hang at apex while the pikmin bite
-        _jz = 1 + dsin(_rise * 90) * (_bbHeight * 0.55);
-        _jsx = dsin(frameTick * 14) * 2.5 * _rise;
+        var _zoff = 0;                   // vertical offset from the resting z (=1); + is up
+        if (game.jumpCue == "pik") {
+            // WIND UP: launch up, reaching the apex in the first part of the beat, then hang
+            var _up = clamp(_cf / 0.55, 0, 1);
+            _up = 1 - sqr(1 - _up);                  // ease-out: quick launch that settles at the top
+            _zoff = _apex * _up;
+        } else if (_frontBeat == "jumpEnemy") {
+            _zoff = _apex;                           // wound up, waiting to slam - hang at the apex
+        } else if (game.jumpCue == "enemy") {
+            // SLAM: keep HANGING at the apex through the first half of the beat, then a quick
+            // accelerating drop through the second half that BOTTOMS OUT right as the beat
+            // ends - the instant it punches into the ground is the instant the pikmin are
+            // flung (the throw fires on the very next beat, which lands exactly here). All the
+            // fall is packed into that back half, so it reads as a fast slam, not a slow glide.
+            var _hang = 0.5;                                 // hover at the top for the first half
+            var _dn = clamp((_cf - _hang) / (1 - _hang), 0, 1);
+            _dn = _dn * _dn;                                 // accelerate through the short drop window
+            _zoff = _apex + (-_bury - _apex) * _dn;          // apex -> buried, bottoming out at _cf=1
+        } else if (_hasBitten) {
+            // LANDED: hold buried a beat, then ease back up to rest. biteT is pinned to 1
+            // through the slam, then decays ~0.022/frame - drive the settle off its tail.
+            var _settle = clamp(biteT / 0.55, 0, 1); // buried while biteT 1..0.55, then eases up
+            _zoff = -_bury * _settle;
+        }
+        _jz = 1 + _zoff;
+        _jsx = 0;   // a clean vertical leap - no lateral sine tremble
     } else if (_sink > 0) {
         _jz = 1 - _sink * (_bbHeight * 0.22);
         _jsx = dsin(frameTick * 11) * 3.5 * _sink; // continuous tremble phase (no snap at the beat)
@@ -452,6 +670,21 @@ var _clusterSlots = {};
 // rather than spread to a full-board width.
 var _homeStripW = board.laneCount * (TILE_W + LANE_GAP);
 var _homeMaxCols = max(1, floor(_homeStripW / 36));
+// which spaces hold BOTH players' pikmin - a contested space splits the two clumps onto
+// their own halves instead of letting them bunch together over the centre. Bit 0 = P1, bit 1 = P2.
+var _spaceOcc = {};
+// per-(player,space) head-count, so pile carriers can ring EVENLY around the treasure
+var _clusterCount = {};
+for (var _op = 0; _op < 2; _op++) {
+    var _oToks = game.players[_op].tokens;
+    for (var _oi = 0; _oi < array_length(_oToks); _oi++) {
+        if (_oToks[_oi].loc.kind != "space") continue;
+        var _ok = string(_oToks[_oi].loc.lane) + "_" + string(_oToks[_oi].loc.idx);
+        _spaceOcc[$ _ok] = (variable_struct_exists(_spaceOcc, _ok) ? _spaceOcc[$ _ok] : 0) | (1 << _op);
+        var _ck = string(_op) + "_" + _ok;
+        _clusterCount[$ _ck] = (variable_struct_exists(_clusterCount, _ck) ? _clusterCount[$ _ck] : 0) + 1;
+    }
+}
 for (var _p = 0; _p < 2; _p++) {
     // player-tinted shadow disc under each token (dark, semi-transparent)
     var _shadowCol = player_shadow(_p);
@@ -462,7 +695,12 @@ for (var _p = 0; _p < 2; _p++) {
     for (var _i = 0; _i < array_length(_tokens); _i++) {
         var _tok = _tokens[_i];
         var _key, _baseX, _baseY, _dx, _dy, _slot;
-        if (_tok.loc.kind == "home") {
+        if (_tok.loc.kind == "onion") {
+            // being discarded: walk to the Onion disc (not the home cluster), then shrink + poof
+            _baseX = (_p == 0) ? 440 : -440;
+            _baseY = board_home_y(board, _p) * 0.86;
+            _dx = 0; _dy = 0;
+        } else if (_tok.loc.kind == "home") {
             _key = string(_p) + "_home";
             _slot = variable_struct_exists(_clusterSlots, _key) ? _clusterSlots[$ _key] : 0;
             _clusterSlots[$ _key] = _slot + 1;
@@ -474,10 +712,45 @@ for (var _p = 0; _p < 2; _p++) {
             _slot = variable_struct_exists(_clusterSlots, _key) ? _clusterSlots[$ _key] : 0;
             _clusterSlots[$ _key] = _slot + 1;
             var _sPos = board_space_xy(board, _tok.loc.lane, _tok.loc.idx);
+            var _sk = string(_tok.loc.lane) + "_" + string(_tok.loc.idx);
+            var _contested = (variable_struct_exists(_spaceOcc, _sk) && _spaceOcc[$ _sk] == 3);
+            var _hasPile = (game_treasure_at(game, _tok.loc.lane, _tok.loc.idx) != undefined);
+            if (!variable_struct_exists(_tok, "clumpJx")) { _tok.clumpJx = random_range(-2.5, 2.5); _tok.clumpJy = random_range(-2, 2); } // once-off organic jitter
             _baseX = _sPos[0];
-            _baseY = _sPos[1] + ((_p == 0) ? -16 : 16);
-            _dx = ((_slot mod 4) - 1.5) * 15;
-            _dy = (_slot div 4) * 13 - 6;
+            if (_hasPile && !_contested) {
+                // carrying a treasure (uncontested): RING evenly around the pile at the centre,
+                // facing in, rather than clumping to one side of it
+                var _ringN = max(1, _clusterCount[$ string(_p) + "_" + _sk]);
+                var _ringR = 16 + max(0, _ringN - 8) * 0.7;             // grows a touch for a big crew
+                var _ringA = (_slot / _ringN) * 360 + _tok.clumpJx * 3; // even spokes + a little wobble
+                _baseY = _sPos[1];
+                _dx = lengthdir_x(_ringR, _ringA);
+                _dy = lengthdir_y(_ringR, _ringA) * 0.66;              // squash Y for the board's tilt
+            } else {
+                // bunch into an organic clump instead of a grid. A phyllotaxis (sunflower) spiral
+                // packs them tight: slot 0 near the centre, each next one a golden-angle step out.
+                // solo: hug the centre. contested: shove to your own side of the space.
+                var _sideOff = _contested ? 20 : 6;
+                var _clumpSp = 7;   // packing spacing - bigger = looser clump
+                var _gAng = 137.508 * _slot;
+                var _gRad = _clumpSp * sqrt(_slot);
+                _baseY = _sPos[1] + ((_p == 0) ? -_sideOff : _sideOff);
+                _dx = lengthdir_x(_gRad, _gAng) + _tok.clumpJx;
+                _dy = lengthdir_y(_gRad, _gAng) * 0.66 + _tok.clumpJy;   // squash Y for the board's tilt
+                // on a contested space, fold the spiral onto this player's half so the two groups
+                // don't interleave over the middle - they read as clumps facing off across the space
+                if (_contested) _dy = ((_p == 0) ? -1 : 1) * abs(_dy);
+                // MID-TILE WALL: latched on a blocker THIS pikmin can't pass -> bunch on the
+                // HALF we cling to, not centred over it as if we'd crossed. Uses the same
+                // predicate as the mover, so an immune type (e.g. a blue on a water emitter)
+                // reads as free and stands wherever - it isn't walled. Treasures are excluded:
+                // a pile-carrier logically sits on the front but still rings the pile as before.
+                if (!_hasPile && game_tile_blocks_pass(game, pikmin_type_get(_tok.typeId), _tok.loc.lane, _tok.loc.idx)) {
+                    var _wside = game_token_side(_tok, _p);   // -1 = low-idx half, +1 = high-idx half
+                    _baseY = _sPos[1] + _wside * (TILE_H * 0.28);
+                    _dy = _wside * abs(_dy);                   // fold the clump onto that half
+                }
+            }
         }
         var _tx = _baseX + _dx;
         var _ty = _baseY + _dy;
@@ -508,6 +781,12 @@ for (var _p = 0; _p < 2; _p++) {
             var _rideT = game_treasure_at(game, _tok.loc.lane, _tok.loc.idx);
             if (_rideT != undefined && variable_struct_exists(_rideT, "vmoving") && _rideT.vmoving) _mySpd = _rideT.vspdCur;
         }
+        // BLOWN: shoved by an enemy (tossed / dragged) or an Oatchi Rush - NOT walking under
+        // its own power. Freeze the walk bob (below) and SLIDE fast + straight to sell the
+        // knock-back; the scream fires from the engine at the shove. Clears on arrival so
+        // normal walking resumes.
+        var _blown = variable_struct_exists(_tok, "blown") && _tok.blown;
+        if (_blown) _mySpd = max(_mySpd, BLOWN_SLIDE);
         var _travel = point_distance(_tok.vx, _tok.vy, _tx, _ty);
         // while clinging to a foe, FREEZE the ground position (vx/vy) so any deaths this beat
         // don't quietly re-slot the survivors mid-air - they should still be spread the OLD way
@@ -529,6 +808,13 @@ for (var _p = 0; _p < 2; _p++) {
             _tok.vx += (_tx - _tok.vx) / _travel * _stepD;
             _tok.vy += (_ty - _tok.vy) / _travel * _stepD;
         }
+        if (_blown && _travel <= _mySpd) _tok.blown = false; // landed - back to walking under its own power
+        // discarded pikmin walking to the Onion: once it reaches the disc, rapidly shrink; when it
+        // vanishes, flag it so Step sweeps it (fires game_fx_onion + sfxPikDiscard + deletes it).
+        if (_tok.loc.kind == "onion" && _travel <= _mySpd + 0.5) {
+            _tok.onionShrink = min(1, (variable_struct_exists(_tok, "onionShrink") ? _tok.onionShrink : 0) + 0.14);
+            if (_tok.onionShrink >= 1) _tok.onionDone = true;
+        }
         var _rx = _tok.vx;
         var _ry = _tok.vy;
         var _typeDef = pikmin_type_get(_tok.typeId);
@@ -538,6 +824,7 @@ for (var _p = 0; _p < 2; _p++) {
         var _hopZ = abs(sin(frameTick * 0.09 + _i * 1.31 + _p * 2.2)) * 3;
         var _moveF = clamp(_travel / 30, 0, 1);
         if (_moveF > 0.05) _hopZ = max(_hopZ, abs(sin(frameTick * 0.3 + _i)) * 11 * _moveF);
+        if (_blown) _hopZ = 0; // rigid slide, no walk bob - it's being flung, not strolling
         // --- combat cling: an attacking pikmin LEAPS onto its foe at a random spot on the
         // sprite and rides there for the whole strike scene (swift -> pik -> enemy -> red),
         // dropping straight off at the end or the instant the foe dies - then the walk
@@ -553,10 +840,7 @@ for (var _p = 0; _p < 2; _p++) {
             // ones still get clung to at 0 damage - matches the damage step's own gate)
             if (_foeVis != undefined && !_foeVis.dead) {
                 _wantLatch = true;
-                if (_foeVis.heightGated) {
-                    var _jtr = pikmin_type_get(_tok.typeId).traits;
-                    if (!arr_has(_jtr, "climbs_height") && !arr_has(_jtr, "flies_over_hazards")) _wantLatch = false;
-                }
+                if (_foeVis.heightGated && !(!game_no_imm(game) && arr_has(pikmin_type_get(_tok.typeId).immunities, "height"))) _wantLatch = false;
             }
             if (_wantLatch) {
                 if (_lt <= 0) { _tok.latchU = random_range(-0.34, 0.34); _tok.latchV = random_range(0.24, 0.9); } // pick a cling spot once
@@ -644,8 +928,10 @@ for (var _p = 0; _p < 2; _p++) {
         }
         // shadow stays on the ground and shrinks a touch as the token hops; while clinging
         // to a foe it lifts off the floor, so fade the shadow out as it climbs
-        vb_disc(_overlayVB, _rx, _ry, 1.68, 7 - _hopZ * 0.4, _shadowCol, 0.5 * (1 - _lt));
-        vb_billboard(sprite_batches_vb(_spriteBatches, _tokSpr), _tokSpr, 0, _rx, _ry, 1 + _hopZ - _sunk + _bornZ + _latchZ, 30, _camRight, _camUp, _tokTint, 1);
+        // discard shrink: a pikmin arriving at the Onion scales down to nothing as it "goes inside"
+        var _oScale = (_tok.loc.kind == "onion" && variable_struct_exists(_tok, "onionShrink")) ? max(0, 1 - _tok.onionShrink) : 1;
+        vb_disc(_overlayVB, _rx, _ry, 1.68, (7 - _hopZ * 0.4) * _oScale, _shadowCol, 0.5 * (1 - _lt));
+        vb_billboard(sprite_batches_vb(_spriteBatches, _tokSpr), _tokSpr, 0, _rx, _ry, 1 + _hopZ - _sunk + _bornZ + _latchZ, 30 * _oScale, _camRight, _camUp, _tokTint, 1);
         if (_fk != "") {
             // flat decal on the floor at the token's feet (over the shadow), not on the sprite
             var _fSpr = (_fk == "shock") ? TokElectric : ((_fk == "bitter") ? TokBitter : TokIce);
@@ -801,6 +1087,14 @@ for (var _op = 0; _op < (game.solo ? 1 : 2); _op++) {   // solo/adventure: no fa
 // --- wiggles; enemies squash + fade while an enemy spirit rises, then the card fades. ---
 for (var _fi = 0; _fi < array_length(game.fx); _fi++) {
     var _ev = game.fx[_fi];
+    if (_ev.kind == "onionpop") {
+        // Onion dismiss (home-anchored, no lane/idx): an energy pulse radiating from the disc's rim,
+        // tinted to the discarded pikmin's colour
+        var _opX = (_ev.playerIdx == 0) ? 440 : -440;
+        var _opY = board_home_y(board, _ev.playerIdx) * 0.86;
+        array_push(fxList, { kind: "onionpulse", x: _opX, y: _opY, age: 0, col: pikmin_tint(_ev.typeId) });
+        continue;
+    }
     var _fpos = board_space_xy(board, _ev.lane, _ev.idx);
     if (_ev.kind == "pik") {
         // rise from EXACTLY where the pikmin stood (its render pos, carried on the
@@ -808,13 +1102,34 @@ for (var _fi = 0; _fi < array_length(game.fx); _fi++) {
         var _sx = (_ev.px != undefined) ? _ev.px : _fpos[0] + random_range(-9, 9);
         var _sy = (_ev.py != undefined) ? _ev.py : _fpos[1] + random_range(-5, 5);
         // per-soul rise speed so a batch staggers apart in mid-air (like the walk trickle)
-        array_push(fxList, { kind: "pik", x: _sx, y: _sy, col: pikmin_tint(_ev.typeId), rspd: random_range(0.35, 0.6), age: 0 });
+        if (variable_struct_exists(_ev, "crush") && _ev.crush) {
+            // crushed: FLUNG off the beast. Launch from the cling pose (or the space centre),
+            // sail out on a little gravity arc to a scattered landing spot AWAY from the enemy
+            // centre, then lie there dazed for a couple of seconds before the soul pops. The
+            // outward throw (from the space centre, random heading) is what sells the crush.
+            var _cz = variable_struct_exists(_ev, "cz") ? _ev.cz : 20;
+            var _startx = variable_struct_exists(_ev, "cx") ? _ev.cx : _fpos[0];
+            var _starty = variable_struct_exists(_ev, "cy") ? _ev.cy : _fpos[1];
+            var _ang = random(360);
+            var _dist = random_range(40, 70);
+            var _lx = _fpos[0] + lengthdir_x(_dist, _ang);
+            var _ly = _fpos[1] + lengthdir_y(_dist, _ang) * 0.72; // flatten Y for the board's tilt
+            array_push(fxList, { kind: "pikcrush", sx: _startx, sy: _starty, z0: _cz, lx: _lx, ly: _ly,
+                arc: random_range(16, 26), typeId: _ev.typeId, col: pikmin_tint(_ev.typeId), rspd: random_range(0.35, 0.6), age: 0 });
+        } else {
+            array_push(fxList, { kind: "pik", x: _sx, y: _sy, col: pikmin_tint(_ev.typeId), rspd: random_range(0.35, 0.6), age: 0 });
+        }
     } else if (_ev.kind == "boom") {
         array_push(fxList, { kind: "boom", x: _fpos[0], y: _fpos[1], age: 0 });
     } else if (_ev.kind == "spicy") {
         array_push(fxList, { kind: "spicy", x: _fpos[0], y: _fpos[1], age: 0 });
+    } else if (_ev.kind == "swap") {
+        array_push(fxList, { kind: "swap", x: _fpos[0], y: _fpos[1], lane: _ev.lane, idx: _ev.idx, to: _ev.to, applied: false, age: 0 });
     } else {
-        array_push(fxList, { kind: "enemy", x: _fpos[0], y: _fpos[1] + (_ev.isBoss ? 16 : 0), enemyDefId: _ev.enemyDefId, age: 0 });
+        // capture the card's facing so the death fade flips to match the LIVE enemy card (~:536),
+        // not the default player-1 orientation - same _oppHalf test used there
+        var _eFlip = _ev.idx > (game.solo ? 100000 : board.centerRow);
+        array_push(fxList, { kind: "enemy", x: _fpos[0], y: _fpos[1] + (_ev.isBoss ? 16 : 0), enemyDefId: _ev.enemyDefId, flip: _eFlip, age: 0 });
     }
 }
 game.fx = [];
@@ -832,6 +1147,34 @@ while (_fj < array_length(fxList)) {
         _fj += 1;
         continue;
     }
+    if (_fx.kind == "swap") {
+        // tile swap: the OLD tile fades out to full white, the tile FLIPS under the white at
+        // the peak, then the white fades away revealing the NEW tile. The engine left the tile
+        // unchanged (anims on) so the flip is hidden - we apply it here at the peak.
+        var _swUp = 14, _swDown = 20;
+        var _swLife = _swUp + _swDown;
+        if (_fx.age >= _swLife) { array_delete(fxList, _fj, 1); continue; }
+        if (!_fx.applied && _fx.age >= _swUp) { game_space_set_type(board.lanes[_fx.lane].spaces[_fx.idx], _fx.to); _fx.applied = true; game.tileVersion += 1; }
+        var _swA = (_fx.age < _swUp) ? (_fx.age / _swUp) : (1 - (_fx.age - _swUp) / _swDown);
+        vb_tile(_overlayVB, _fx.x, _fx.y, 1.73, TILE_W + 6, TILE_H + 6, c_white, clamp(_swA, 0, 1));
+        _fj += 1;
+        continue;
+    }
+    if (_fx.kind == "onionpulse") {
+        // Onion discard: a ring of energy pulses OUT from the rim as the pikmin is taken in.
+        var _oplife = 30;
+        if (_fx.age >= _oplife) { array_delete(fxList, _fj, 1); continue; }
+        var _opt = _fx.age / _oplife;
+        var _opEase = 1 - sqr(1 - _opt);                                  // fast out, easing to a stop
+        var _opRin = 76 + _opEase * 72;                                   // starts at the rim, expands outward
+        var _opThick = 11 * (1 - _opt) + 3;                              // thins as it grows
+        // the pikmin's own colour, glowing bright (near-white) at ignition then settling to its hue
+        var _opCol = merge_color(merge_color(_fx.col, c_white, 0.55), _fx.col, _opt);
+        vb_ring(_overlayVB, _fx.x, _fx.y, 2.3, _opRin, _opRin + _opThick, _opCol, 0.82 * (1 - _opt), 30);
+        if (_fx.age < 7) vb_ring(_overlayVB, _fx.x, _fx.y, 2.31, 62, 76, c_white, 0.5 * (1 - _fx.age / 7), 30); // charge flash at the rim
+        _fj += 1;
+        continue;
+    }
     if (_fx.kind == "boom") {
         // procedural blast: white core flash, then an expanding fiery ring on the ground
         var _blife = 32;
@@ -839,6 +1182,43 @@ while (_fj < array_length(fxList)) {
         var _bt = _fx.age / _blife;
         if (_fx.age < 8) vb_disc(_overlayVB, _fx.x, _fx.y, 1.80, 30 * (1 - _fx.age / 8) + 8, c_white, 0.85);
         vb_disc(_overlayVB, _fx.x, _fx.y, 1.79, 12 + _bt * 46, merge_color(make_color_rgb(255, 186, 64), make_color_rgb(198, 44, 22), _bt), 0.7 * (1 - _bt));
+        _fj += 1;
+        continue;
+    }
+    if (_fx.kind == "pikcrush") {
+        // a crush kill in three beats: FLUNG off the beast on a gravity arc -> lie dazed in
+        // the new spot for ~2 full seconds -> soul pops. The pump waits on fxList, so the
+        // downed pikmin rest visibly on the board before play moves on.
+        var _throwLife = 18, _restLife = 120, _soulLife = 84;
+        var _cLife = _throwLife + _restLife + _soulLife;
+        if (_fx.age >= _cLife) { array_delete(fxList, _fj, 1); continue; }
+        var _cSpr = data_sprite(pikmin_type_get(_fx.typeId), sprFRIEND);
+        var _cLiveTint = (_cSpr == sprFRIEND) ? _fx.col : c_white;
+        if (_fx.age < _throwLife) {
+            // THROWN: sail from the launch point out to the landing spot, decelerating, on a
+            // little up-and-over arc that ends on the ground
+            var _tt = _fx.age / _throwLife;
+            var _ease = 1 - sqr(1 - _tt);                        // decelerate outward
+            var _px = lerp(_fx.sx, _fx.lx, _ease);
+            var _py = lerp(_fx.sy, _fx.ly, _ease);
+            var _pz = _fx.z0 * (1 - _tt) + _fx.arc * sin(_tt * pi); // arc up, then down to 0
+            vb_disc(_overlayVB, _px, _py, 1.68, 5 + _tt * 4, make_color_rgb(24, 20, 16), 0.35 * _tt);
+            vb_billboard(sprite_batches_vb(_fxBatches, _cSpr), _cSpr, 0, _px, _py, 1 + _pz, 30, _camRight, _camUp, _cLiveTint, 1);
+        } else if (_fx.age < _throwLife + _restLife) {
+            // DOWNED: slumped where it landed, dimmed, dead still (a faint settle on impact)
+            var _rf = (_fx.age - _throwLife) / _restLife;
+            var _land = clamp(1 - (_fx.age - _throwLife) / 5, 0, 1);   // tiny bounce-settle
+            vb_disc(_overlayVB, _fx.lx, _fx.ly, 1.68, 8, make_color_rgb(24, 20, 16), 0.4);
+            vb_billboard(sprite_batches_vb(_fxBatches, _cSpr), _cSpr, 0, _fx.lx, _fx.ly, 1, 30 * (0.72 - 0.10 * _land), _camRight, _camUp, merge_color(_cLiveTint, make_color_rgb(96, 88, 92), 0.45), 1, 1.12);
+        } else {
+            // the soul lifts off and rises from the resting spot, same as any death
+            var _uf = _fx.age - (_throwLife + _restLife);
+            var _upt = _uf / _soulLife;
+            var _upz = 4 + _uf * _fx.rspd;
+            var _upwig = dsin(_uf * 9) * 5 * (1 - _upt);
+            var _upin = clamp(_uf / 16, 0, 1);
+            vb_billboard(sprite_batches_vb(_fxBatches, spirPik), spirPik, 0, _fx.lx + _upwig, _fx.ly, _upz, 24 * (0.5 + 0.5 * _upin), _camRight, _camUp, _fx.col, _upin * (1 - _upt * _upt));
+        }
         _fj += 1;
         continue;
     }
@@ -857,7 +1237,7 @@ while (_fj < array_length(fxList)) {
         // card below: solid until the spirit is gone (~62), then fades away over the rest
         var _cardA = (_fx.age < 62) ? 1 : clamp(1 - (_fx.age - 62) / 30, 0, 1);
         var _cardSpr = card_sprite_get(card_enemy_alias(_fx.enemyDefId, boardDef.setNumber));
-        if (_cardSpr != -1 && _cardA > 0) vb_tile_sprite(sprite_batches_vb(_fxBatches, _cardSpr), _cardSpr, 0, _fx.x, _fx.y, 1.55, TILE_W, c_white, _cardA);
+        if (_cardSpr != -1 && _cardA > 0) vb_tile_sprite(sprite_batches_vb(_fxCardBatches, _cardSpr), _cardSpr, 0, _fx.x, _fx.y, 1.55, TILE_W, c_white, _cardA, _fx.flip);
         // standing body squashes down slowly (shrinks) + fades while the spirit rises
         if (_fx.age < 58) {
             var _sq = _fx.age / 58;
@@ -865,7 +1245,7 @@ while (_fj < array_length(fxList)) {
             var _bodyTint = (_bodySpr == sprFRIEND) ? make_color_rgb(150, 84, 72) : c_white;
             var _bh = clamp(36 + _edef.hp * 1.6, 36, 90) * (1 - _sq * 0.85);
             // splat: widen as it flattens, like it's being squashed underfoot
-            vb_billboard(sprite_batches_vb(_fxBatches, _bodySpr), _bodySpr, 0, _fx.x, _fx.y, 1, _bh, _camRight, _camUp, _bodyTint, 1 - _sq * _sq, 1 + _sq * 1.1);
+            vb_billboard(sprite_batches_vb(_fxCardBatches, _bodySpr), _bodySpr, 0, _fx.x, _fx.y, 1, _bh, _camRight, _camUp, _bodyTint, 1 - _sq * _sq, 1 + _sq * 1.1);
         }
         // enemy spirit rises + wiggles + fades (always the same colour)
         var _et = _fx.age / 62;
@@ -885,7 +1265,8 @@ sprite_batches_flush(_spriteBatches);
 // on it instead of rendering over everything
 gpu_set_alphatestenable(false);
 gpu_set_zwriteenable(false);
-sprite_batches_flush(_fxBatches);
+sprite_batches_flush(_fxCardBatches);   // death cards/bodies FIRST - so rising souls paint OVER them, not under
+sprite_batches_flush(_fxBatches);       // then souls/spirits (the "ghosts") on top of the fading cards
 gpu_set_zwriteenable(true);
 gpu_set_alphatestenable(true);
 
@@ -912,7 +1293,9 @@ if (array_length(_displayEnemies) > 0 || array_length(_displayStructs) > 0) {
     }
     for (var _ei = 0; _ei < array_length(_displayEnemies); _ei++) {
         var _de = _displayEnemies[_ei];
-        var _enemyDef = enemy_def_get(_de.inst.enemyDefId);
+        // effective def so the readout (attack/defense element + damage) matches any active
+        // adventure event this turn (e.g. "Jump, Fly, Climb, Attack!" => every enemy shows height defence)
+        var _enemyDef = game_enemy_def_eff(game, _de.inst.enemyDefId);
         matrix_set(matrix_world, billboard_matrix(_de.ex, _de.ey, _de.hudZ, _hudScale, _camRight, _camUp, _camFwd));
 
         var _hpFrac = clamp(_de.inst.curHp / _enemyDef.hp, 0, 1);
@@ -1008,6 +1391,14 @@ gpu_set_alphatestenable(false);
 vertex_end(_overlayVB);
 vertex_submit(_overlayVB, pr_trianglelist, -1);
 vertex_delete_buffer(_overlayVB);
+
+// --- ambient particles: submitted AFTER everything (cones, tile bases, units) so the fog/clouds
+// sit in FRONT of the whole emitter. Depth-test still on (nearer opaque geometry occludes them),
+// depth-WRITE off so overlapping transparent discs blend instead of z-rejecting each other. ---
+gpu_set_zwriteenable(false);
+vertex_end(_partVB);
+vertex_submit(_partVB, pr_trianglelist, -1);
+vertex_delete_buffer(_partVB);
 
 gpu_set_ztestenable(false);
 gpu_set_zwriteenable(false);

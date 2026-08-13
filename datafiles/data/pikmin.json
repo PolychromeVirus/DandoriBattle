@@ -28,11 +28,10 @@
       "class": "basic",
       "carry": 1,
       "immunities": [
-        "electric"
+        "electric",
+        "height"
       ],
-      "traits": [
-        "climbs_height"
-      ],
+      "traits": [],
       "sprite": "yellow"
     },
     {
@@ -108,11 +107,12 @@
       "name": "Winged",
       "class": "special",
       "carry": 1,
-      "immunities": [],
+      "immunities": [
+        "height"
+      ],
       "traits": [
         "flies_over_hazards",
-        "blocked_by_walls",
-        "climbs_height"
+        "blocked_by_walls"
       ],
       "sprite": "winged"
     }

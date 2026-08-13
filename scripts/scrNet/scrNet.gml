@@ -16,6 +16,7 @@ enum NETMSG {
     board,     // host   -> joiner: the board id the host is currently previewing
     start,     // host   -> joiner: launch THIS board id now
     state,     // either -> either: full game-state JSON (in-game sync)
+    chat,      // either -> either: a pre-formatted "<name>: <message>" log line
 }
 
 /// Initialise the global connection state. Called once at boot (objGame Create).
@@ -37,27 +38,29 @@ function net_init() {
 /// True while a session is host or join (not "off").
 function net_online() { return variable_global_exists("net") && global.net.mode != "off"; }
 
-/// HOST: open a server and wait for a joiner (result arrives as network_type_connect).
-function net_host(_name) {
+/// HOST: open a server and wait for a joiner (result arrives as network_type_connect). _port
+/// defaults to NET_PORT but the lobby can override it (both sides must use the same port).
+function net_host(_name, _port = NET_PORT) {
     net_close();
     global.net.mode = "host";
     global.net.localName = _name;
     global.net.localSeat = 0;
-    global.net.server = network_create_server(network_socket_tcp, NET_PORT, 1);
+    global.net.server = network_create_server(network_socket_tcp, _port, 1);
     global.net.status = (global.net.server >= 0) ? "listening" : "failed";
     return global.net.server >= 0;
 }
 
 /// JOIN: connect to a host by IP. Blocking connect (instant on LAN; on a bad IP it stalls briefly
 /// then reports "failed"). On success we introduce ourselves with HELLO; the host replies WELCOME.
-function net_join(_ip, _name) {
+/// _port must match the host's chosen port (defaults to NET_PORT).
+function net_join(_ip, _name, _port = NET_PORT) {
     net_close();
     global.net.mode = "join";
     global.net.localName = _name;
     global.net.localSeat = 1;
     global.net.peer = network_create_socket(network_socket_tcp);
     if (global.net.peer < 0) { global.net.status = "failed"; return false; }
-    if (network_connect(global.net.peer, _ip, NET_PORT) < 0) { global.net.status = "failed"; return false; }
+    if (network_connect(global.net.peer, _ip, _port) < 0) { global.net.status = "failed"; return false; }
     global.net.status = "connecting";      // socket open; handshake completes on WELCOME
     net_send(NETMSG.hello, global.net.localName);
     return true;
@@ -102,8 +105,21 @@ function net_rehydrate(_g) {
     if (!variable_struct_exists(_g, "sfxCue"))         _g.sfxCue = [];
     if (!variable_struct_exists(_g, "dayRawFree"))     _g.dayRawFree = false;
     if (!variable_struct_exists(_g, "dayPelletBonus")) _g.dayPelletBonus = false;
-    if (!variable_struct_exists(_g, "flarlicBonus"))   _g.flarlicBonus = 0;
+    for (var _fp = 0; _fp < array_length(_g.players); _fp++) {
+        if (!variable_struct_exists(_g.players[_fp], "flarlicBonus")) _g.players[_fp].flarlicBonus = 0;
+        if (!variable_struct_exists(_g.players[_fp], "wildCount")) _g.players[_fp].wildCount = 0;
+        if (!variable_struct_exists(_g.players[_fp], "glowUp")) _g.players[_fp].glowUp = false;
+    }
     if (!variable_struct_exists(_g, "dayTrackDef"))    _g.dayTrackDef = game_day_track_default();
+    if (!variable_struct_exists(_g, "pendingDaySwap")) _g.pendingDaySwap = undefined;
+    if (!variable_struct_exists(_g, "pendingDayPlace")) _g.pendingDayPlace = undefined;
+    if (!variable_struct_exists(_g, "pendingEvent"))    _g.pendingEvent = undefined;
+    if (!variable_struct_exists(_g, "eventPending"))    _g.eventPending = [];
+    if (!variable_struct_exists(_g, "pendingTypePick")) _g.pendingTypePick = undefined;
+    if (!variable_struct_exists(_g, "pendingLose"))     _g.pendingLose = undefined;
+    if (!variable_struct_exists(_g, "tileVersion")) _g.tileVersion = 0;
+    if (!variable_struct_exists(_g, "pendingSpy")) _g.pendingSpy = undefined;
+    if (!variable_struct_exists(_g, "pendingReveal")) _g.pendingReveal = undefined;
     for (var _i = 0; _i < array_length(_g.treasures); _i++) {
         if (!variable_struct_exists(_g.treasures[_i], "boss")) _g.treasures[_i].boss = undefined;
     }
@@ -124,6 +140,7 @@ function net_handle_message(_type, _str) {
         case NETMSG.board:  global.net.previewBoard = _str; break;
         case NETMSG.start:  global.net.startBoard   = _str; break;
         case NETMSG.state:  global.net.pendingState = _str; break;
+        case NETMSG.chat:   if (variable_instance_exists(id, "game") && game != undefined) game_log(game, chr(1) + _str); break; // opponent's chat -> our log (chr(1) = chat marker)
     }
 }
 

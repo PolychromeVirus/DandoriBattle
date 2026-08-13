@@ -2,15 +2,15 @@
   "$GMSound":"v2",
   "%Name":"Results",
   "audioGroupId":{
-    "name":"audiogroup_default",
-    "path":"audiogroups/audiogroup_default",
+    "name":"BGM",
+    "path":"audiogroups/BGM",
   },
   "bitDepth":1,
   "channelFormat":1,
-  "compression":0,
+  "compression":1,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":122.022,
+  "duration":122.02202,
   "exportDir":"",
   "name":"Results",
   "parent":{
@@ -20,7 +20,7 @@
   "preload":false,
   "resourceType":"GMSound",
   "resourceVersion":"2.0",
-  "sampleRate":48000,
+  "sampleRate":44100,
   "soundFile":"Results.mp3",
   "volume":1.0,
 }

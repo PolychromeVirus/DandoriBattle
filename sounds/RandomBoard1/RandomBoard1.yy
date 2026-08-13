@@ -2,15 +2,15 @@
   "$GMSound":"v2",
   "%Name":"RandomBoard1",
   "audioGroupId":{
-    "name":"audiogroup_default",
-    "path":"audiogroups/audiogroup_default",
+    "name":"BGM",
+    "path":"audiogroups/BGM",
   },
   "bitDepth":1,
   "channelFormat":1,
-  "compression":0,
+  "compression":1,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":129.99838,
+  "duration":129.99837,
   "exportDir":"",
   "name":"RandomBoard1",
   "parent":{
@@ -20,7 +20,7 @@
   "preload":false,
   "resourceType":"GMSound",
   "resourceVersion":"2.0",
-  "sampleRate":48000,
+  "sampleRate":44100,
   "soundFile":"RandomBoard1.mp3",
   "volume":1.0,
 }

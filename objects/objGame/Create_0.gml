@@ -5,15 +5,65 @@ data_load_all();
 randomize();
 net_init();             // P2P connection state (global.net); Async - Networking event drives it
 
-// --- audio: the Pikmin 3 OST group is quiet, so load it at boot + boost its gain (tuning knob) ---
+// --- audio GROUPS: BGM + Pikmin3 = music (Pikmin3's OST is quiet -> 2x base); audiogroup_default +
+// --- Explosions + QuietSounds = SFX (the latter two carry a gain cut). Load the non-default groups so
+// --- their sounds can play; the volume sliders scale each group via apply_audio_settings (below). ---
+audio_group_load(BGM);
 audio_group_load(Pikmin3);
-audio_group_set_gain(Pikmin3, 2.0, 0);
-
 audio_group_load(Explosions);
-audio_group_set_gain(Explosions, 0.75, 0);
-
 audio_group_load(QuietSounds);
-audio_group_set_gain(QuietSounds, 0.25, 0);
+
+// per-group BASE gains (tuning knobs). Music family is scaled by the BGM slider, SFX family by the SFX
+// slider; masterVol is the global gain on top. (Explosions/QuietSounds bases = their built-in cuts.)
+AUD_BGM_BASE     = 1.0;   // BGM group - normal-volume background tracks
+AUD_PIKMIN3_BASE = 2.0;   // Pikmin 3 OST is quiet -> boosted
+AUD_SFX_BASE     = 1.0;   // audiogroup_default - main SFX
+AUD_EXPL_BASE    = 0.6;   // Explosions - SFX with a gain cut (TUNE to taste)
+AUD_QUIET_BASE   = 0.25;  // QuietSounds - SFX with a lighter cut
+sfxGain = 1;             // legacy per-play SFX multiplier - now always 1 (group gains do the work)
+// apply the saved sliders to the audio groups. Master = global gain; BGM slider scales both music
+// groups; SFX slider scales all three SFX groups (preserving their relative base cuts).
+apply_audio_settings = function() {
+    var _m = clamp(global.settings.masterVol, 0, 1);
+    var _b = clamp(global.settings.bgmVol, 0, 1);
+    var _s = clamp(global.settings.sfxVol, 0, 1);
+    audio_master_gain(_m);
+    audio_group_set_gain(BGM,                AUD_BGM_BASE     * _b, 0);
+    audio_group_set_gain(Pikmin3,            AUD_PIKMIN3_BASE * _b, 0);
+    audio_group_set_gain(audiogroup_default, AUD_SFX_BASE     * _s, 0);
+    audio_group_set_gain(Explosions,         AUD_EXPL_BASE    * _s, 0);
+    audio_group_set_gain(QuietSounds,        AUD_QUIET_BASE   * _s, 0);
+};
+apply_audio_settings();
+audioDirty = false;      // a slider changed this drag; write settings.ini once on mouse release
+
+// Draw the "Audio" heading + Master/BGM/SFX sliders into a column at (_x,_y,_w). Shared by the main
+// Options screen and the in-game pause Options. Applies live; persists once when the drag releases.
+draw_audio_controls = function(_x, _y, _w) {
+    draw_set_font(fntMaru);
+    // heading matches the other section headings (Gameplay/Graphics/Interface): centred, all-caps, same size
+    draw_set_halign(fa_center); draw_set_color(make_color_rgb(200, 210, 205));
+    draw_text_transformed(_x + _w * 0.5, _y, "Audio", 1.5 * UI_TS, 1.5 * UI_TS, 0);
+    draw_set_halign(fa_left); draw_set_color(c_white);
+    var _keys  = ["masterVol", "bgmVol", "sfxVol"];
+    var _names = ["Master", "BGM", "SFX"];
+    var _ry = _y + 36;
+    for (var _i = 0; _i < 3; _i++) {
+        draw_set_halign(fa_left); draw_set_color(make_color_rgb(210, 220, 214));
+        dtext(_x, _ry + 2, _names[_i]);
+        var _sx = _x + 96, _sw = _w - 96 - 62;
+        var _old = global.settings[$ _keys[_i]];
+        var _new = ui_slider(_sx, _ry, _sw, 24, _old, _keys[_i]);
+        draw_set_halign(fa_right); draw_set_color(make_color_rgb(200, 210, 205));
+        dtext(_x + _w, _ry + 2, string(round(_new * 100)) + "%");
+        draw_set_halign(fa_left);
+        if (_new != _old) { global.settings[$ _keys[_i]] = _new; apply_audio_settings(); audioDirty = true; }
+        _ry += 40;
+    }
+    // one ini write when the drag ends (not every frame while dragging)
+    if (audioDirty && !mouse_check_button(mb_left)) { save_settings(); audioDirty = false; }
+    draw_set_color(c_white);
+};
 
 mode = "menu";          // "menu" | "playing"
 menuScreen = "main";    // when mode=="menu": "main" (title) | "board" (board select) | "options" | "online" | "adventure"
@@ -25,7 +75,8 @@ menuAdvIdx = 0;         // chapter-select: index of the previewed adventure boar
 menuAdvScroll = 0;      // chapter-select: top row index of the scrolling chapter/board list
 menuNetName = "Player"; // online lobby: local player name field
 menuNetIP   = "127.0.0.1"; // online lobby: host IP to join
-menuNetField = "";      // which lobby text field has focus: "" | "name" | "ip"
+menuNetPort = string(NET_PORT); // online lobby: TCP port (host + join), editable; defaults to NET_PORT
+menuNetField = "";      // which lobby text field has focus: "" | "name" | "ip" | "port"
 netLastSent = "";       // serialized state we last broadcast/adopted (only re-send on real change)
 netWasMyTurn = false;   // was it our seat's turn last frame (so we still broadcast the turn-flip state)
 netResolveSent = false; // we've broadcast the committed pre-resolve state; hush during the pump
@@ -107,7 +158,7 @@ music_want = function(_asset) {
 // optional _pitch (1 = normal) - the SFX drain passes a slight random pitch so repeats don't phase-align.
 sfx = function(_name, _pitch = 1) {
     var _s = asset_get_index(_name);
-    if (_s != -1) audio_play_sound(_s, 8, false, 1, 0, _pitch);
+    if (_s != -1) audio_play_sound(_s, 8, false, sfxGain, 0, _pitch);
 };
 // --- spatial audio: an emitter per board SPACE (+ home strips), so combat/carry/death sounds
 // come from where they happen and pan across the stereo field. Mono sources only (all ours are).
@@ -154,16 +205,23 @@ emitters_free = function() {
 sfx_at = function(_name, _lane, _idx, _pitch = 1, _priority = 8) {
     var _s = asset_get_index(_name);
     if (_s == -1) return -1;
-    if (_lane == undefined || _idx == undefined) { audio_play_sound(_s, _priority, false, 1, 0, _pitch); return -1; }
-    return audio_play_sound_on(emitter_at(_lane, _idx), _s, false, _priority, 1, 0, _pitch);
+    if (_lane == undefined || _idx == undefined) { audio_play_sound(_s, _priority, false, sfxGain, 0, _pitch); return -1; }
+    return audio_play_sound_on(emitter_at(_lane, _idx), _s, false, _priority, sfxGain, 0, _pitch);
 };
 // play one drained sfxCue entry: a bare string is flat/centred, a {n,l,i} struct is positional
 snd_play_cue = function(_entry, _priority, _pitch) {
     if (is_struct(_entry)) sfx_at(_entry.n, _entry.l, _entry.i, _pitch, _priority);
-    else { var _s = asset_get_index(_entry); if (_s != -1) audio_play_sound(_s, _priority, false, 1, 0, _pitch); }
+    else { var _s = asset_get_index(_entry); if (_s != -1) audio_play_sound(_s, _priority, false, sfxGain, 0, _pitch); }
 };
 // pick + (re)start the track for the current map/day; no-ops while it's already the right one.
 music_sync = function() {
+    // the "Board Complete!" flash is SILENT (Step already played the whistle + stopped the track)
+    if (advBanner != "") { music_stop(); return; }
+    // between-mission screens - the results/pop-graph AND the deck-cull menu - FADE IN the Results track
+    if (advResults != "" || (mode == "menu" && menuScreen == "advCull")) {
+        music_want(asset_get_index("Results"));   // crossfades in (no-op once it's already playing)
+        return;
+    }
     if (mode != "playing" || game == undefined || batchRemaining > 0) {
 		if (musicAsset != TitleScreen || musicInst == -1 || !audio_is_playing(musicInst)) {
 			music_stop();
@@ -173,11 +231,18 @@ music_sync = function() {
 		return;
 	}  // in-game only, not batch runs
     if (dayCine != undefined) { music_stop(); return; }  // silent through the day transition (whistle + respawn); the new track starts when it ends
-    var _base  = string_replace_all(boardDef.name, " ", "");                 // "Familiar Grotto" -> "FamiliarGrotto"
-    // key off prevDayNumber (the day the cinematic has revealed), not game.dayNumber - the latter
-    // ticks over mid-resolution, which would start the next track a few frames early
-    var _track = music_track_for_day(prevDayNumber, global.rules.days);
-    var _asset = asset_get_index(_base + string(_track));                    // -1 if this map has no music yet
+    var _asset;
+    if (variable_struct_exists(boardDef, "music") && boardDef.music != "") {
+        // a board/scenario can name its own LOOPING track (adventure scenarios do). Single song, no
+        // per-day variation - and it rides across the scenario's boards unbroken (same asset = no restart).
+        _asset = asset_get_index(boardDef.music);
+    } else {
+        var _base  = string_replace_all(boardDef.name, " ", "");             // "Familiar Grotto" -> "FamiliarGrotto"
+        // key off prevDayNumber (the day the cinematic has revealed), not game.dayNumber - the latter
+        // ticks over mid-resolution, which would start the next track a few frames early
+        var _track = music_track_for_day(prevDayNumber, global.rules.days);
+        _asset = asset_get_index(_base + string(_track));                    // -1 if this map has no music yet
+    }
     if (_asset == musicAsset) return;                                        // already correct (incl. both -1 = stay silent)
     music_stop();
     musicAsset = _asset;
@@ -248,6 +313,7 @@ hoverLane = -1;
 hoverIdx = -1;
 showDebug = false;
 paused = false;         // Esc opens the in-game pause menu (game frozen while up)
+pauseScreen = "";       // "" = pause info panel | "options" = the pared-down in-game options (audio + anims)
 tutorial = undefined;   // undefined | {steps:[{text,done}], cur} - guided tutorial overlay
 tutorialSavedExpRules = undefined; // snapshot of global.expRules while the tutorial forces its preset
 compactBoard = false;   // tutorial's clean lesson view: strip ALL table dressing (onions/decks/hordes/hands).
@@ -255,6 +321,18 @@ compactBoard = false;   // tutorial's clean lesson view: strip ALL table dressin
                         // NOT solo - adventure/co-op keeps its own onion + gather deck (only P2's onion is 2-player).
 showCollection = false; // V toggles the dual collected-treasure side panels
 logScroll = 0;          // pixels the log is scrolled UP from newest-at-bottom (wheel over the panel)
+logRowsPrev = 0;        // last frame's log row count - lets a scrolled-up view stay put as rows arrive
+partList = [];          // world-space ambient particles (emitter FX): {x,y,z,vx,vy,vz,g,age,life,r,col}
+chatText = "";          // the chat input buffer (box below the log)
+chatFocused = false;    // typing in the chat box (gates gameplay hotkeys while true)
+// Send a chat line: format "<name>: <msg>", drop it in our own log, and (online) to the peer,
+// who mirrors it into their log. Works in singleplayer too (name = "You", no send) for testing.
+chat_send = function(_msg) {
+    var _name = (net_online() && global.net.localName != "") ? global.net.localName : "You";
+    var _line = _name + ": " + _msg;
+    if (game != undefined) game_log(game, chr(1) + _line);   // chr(1) = chat marker (renderer cyans the name, strips the marker)
+    if (net_online()) net_send(NETMSG.chat, _line);          // peer re-marks it on receipt
+};
 
 // --- camera (spherical orbit around the board centre) ---
 camYaw    = 270;
@@ -279,6 +357,7 @@ projMat = matrix_build_identity();
 // --- static geometry ---
 groundVB = build_ground(20, 14, 64, board_ground_palette(1)); // menu default; retinted per board
 tileVB   = -1; // rebuilt per board when a game starts
+tileVersionSeen = 0; // last game.tileVersion the tile-colour mesh was built for; a swap bumps it -> rebuild
 
 // --- living title background: a decorative 3D checker field with Pikmin wandering
 // --- across it, drawn behind the main menu (see title_scene_* in scr3D). Built once,
@@ -381,8 +460,12 @@ start_game = function(_boardId, _ctl = undefined, _scenario = undefined, _keepTu
     ai_dbg("");
     ai_dbg("### GAME START  board " + _bid + "  P1=" + _seatLbl(_seats[0], ctl[0]) + "  P2=" + _seatLbl(_seats[1], ctl[1]) + " ###");
     mode = "playing";
-    paused = false;
+    paused = false; pauseScreen = "";
     if (!_keepTutorial) { tutorial = undefined; compactBoard = false; }   // a normal game clears the tutorial overlay + clean-board view; a tutorial scene-load keeps them
+    // clear any ADVENTURE run/banner state - a normal (or batch/CPU) game must never inherit a stale
+    // run, or its gameover would show the adventure "OUT OF DAYS" banner. adventure_launch_board
+    // restores advRun right after this call.
+    advRun = undefined; advBanner = ""; advBannerHold = 0; advResults = ""; advCull = undefined;
     selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined; freeBuild = "";
     dayCine = undefined; prevDayNumber = 1;
     fxList = [];
@@ -412,10 +495,193 @@ start_advtest = function() {
     frame_board();
 };
 
-// Launch an ADVENTURE board (from the chapter select) as a solo home-anchored game, framed to fit.
+// Launch a SINGLE adventure board (dev / direct play) as a solo home-anchored game.
 start_adventure = function(_advBoard) {
     start_game(undefined, ["human", "human"], scenario_adventure(_advBoard), false);
     frame_board();
+};
+
+// ===================== ADVENTURE CAMPAIGN =====================
+// 3 independent campaigns; each mission unlocks the next. Progress lives in 3 save LOGS (slots) -
+// global.advSaves, see scrGameData. advSlot = the selected log tab. A RUN plays one campaign's
+// missions in sequence on its day budget, checkpointing the days-left at each mission start so you
+// can resume/replay from any unlocked mission. advRun = { slot, scen, board, daysLeft, daysUsed,
+// cfg, boards[], name } | undefined. advBanner drives the between-mission / result overlay.
+advRun = undefined;
+advBanner = "";       // "" | "cleared" | "complete" | "failed" (the brief flash)
+advBannerHold = 0;
+advResults = "";      // "" | "cleared" | "complete" | "failed" - the interactive results screen (pop graph) after the flash
+resultsSeat = 0;      // which seat the population graph is showing (versus toggle; solo = 0)
+advSlot = 0;          // which of the 3 logs is selected in the menu
+advSaveConfirm = undefined; // save-management modal: undefined | {action:"erase"|"copyPick"|"copy", from, to?}
+
+// Draw the pikmin-population line graph for the just-ended game into a rect, with a seat toggle
+// (versus) above it and a colour legend below. Shared by the adventure results screen + versus gameover.
+draw_results_graph = function(_gx, _gy, _gw, _gh) {
+    if (game == undefined) return;
+    // solo (adventure / tutorial) has a dummy P2 - only ever graph seat 0 there
+    var _seats = (variable_struct_exists(game, "solo") && game.solo) ? 1 : array_length(game.players);
+    resultsSeat = clamp(resultsSeat, 0, _seats - 1);
+    draw_set_font(fntMaru);
+    if (_seats > 1) {
+        for (var _s = 0; _s < _seats; _s++)
+            if (ui_button(_gx + _s * 88, _gy - 40, 80, 30, (resultsSeat == _s ? "> P" : "P") + string(_s + 1), fntMaru)) resultsSeat = _s;
+    }
+    var _cols = pop_graph_draw(game, resultsSeat, _gx, _gy, _gw, _gh);
+    if (is_array(_cols)) {
+        draw_set_halign(fa_left);
+        var _lx = _gx, _ly = _gy + _gh + 20;
+        for (var _c = 0; _c < array_length(_cols); _c++) {
+            var _lbl = _cols[_c];
+            draw_set_color(pikmin_tint(_lbl)); draw_circle(_lx + 7, _ly + 8, 7, false);
+            draw_set_color(make_color_rgb(20, 24, 20)); draw_circle(_lx + 7, _ly + 8, 7, true);
+            draw_set_color(make_color_rgb(210, 218, 214)); dtext(_lx + 18, _ly, _lbl);
+            _lx += 18 + dtext_width(_lbl) + 20;
+        }
+        draw_set_color(c_white);
+    }
+};
+// between-mission enemy-deck CULL (menuScreen "advCull"): the player cuts <need> matching cards from
+// the carried deck before the next map's advanced cards are added. undefined when not culling.
+// { carry:[ids], rule, rows:[{id,avail,rm}], addFlat:[ids], addRows:[{id,n}], need, poolTotal }
+advCull = undefined;
+
+// launch a specific mission of a campaign in the CURRENT log, from its saved day checkpoint.
+adventure_play_mission = function(_scen, _board) {
+    if (!adventure_mission_unlocked(advSlot, _scen, _board)) return;
+    var _cp = adventure_mission_checkpoint(advSlot, _scen, _board);   // {daysLeft, daysUsed}
+    var _scenData = global.adventureData.scenarios[_scen];
+    var _cfg = adventure_day_config(_scen, array_length(_scenData.boards));
+    advRun = { slot: advSlot, scen: _scen, board: _board, daysLeft: _cp.daysLeft, daysUsed: _cp.daysUsed,
+               cfg: _cfg, boards: _scenData.boards, name: _scenData.name };
+    var _slot = global.advSaves[advSlot];
+    _slot.curScen = _scen; _slot.curBoard = _board;   // remember the furthest-touched mission for Continue
+    // playing THIS mission overwrites the timeline from here on, so the population graphs stored on any
+    // LATER checkpoints will never be shown again (they'll be re-derived when re-cleared) - drop them now.
+    var _camp = _slot.campaigns[_scen];
+    for (var _b = _board + 1; _b < array_length(_camp); _b++)
+        if (variable_struct_exists(_camp[_b], "popHistory")) variable_struct_remove(_camp[_b], "popHistory");
+    adventure_saves_save();
+    advBanner = ""; advBannerHold = 0;
+    adventure_launch_board();
+};
+
+// "New Adventure": wipe the selected campaign's progress in the current log and start it from board 0
+// with base stats (full day budget, starting deck). Only touches that one campaign.
+adventure_new = function(_scen) {
+    adventure_campaign_reset(advSlot, _scen);
+    adventure_play_mission(_scen, 0);
+};
+
+// "Continue Adventure": resume the current log's last-played mission (or campaign 0 mission 0).
+adventure_continue = function() {
+    var _slot = global.advSaves[advSlot];
+    var _scen = (_slot.curScen >= 0) ? _slot.curScen : 0;
+    var _board = (_slot.curBoard >= 0) ? _slot.curBoard : 0;
+    if (!adventure_mission_unlocked(advSlot, _scen, _board)) { _scen = 0; _board = 0; }
+    adventure_play_mission(_scen, _board);
+};
+
+// (re)launch the run's current mission with the remaining day budget.
+adventure_launch_board = function() {
+    var _run = advRun;   // start_game clears adventure state - keep our run and restore it after
+    var _deck = adventure_checkpoint_deck(_run.slot, _run.scen, _run.board);   // the map's evolved enemy deck
+    start_game(undefined, ["human", "human"], scenario_adventure(_run.boards[_run.board], _run.daysLeft, _deck), false);
+    advRun = _run;
+    game.advDayPerTreasure = _run.cfg.dayPerTreasure;   // Glutton's: bank a treasure -> +1 day (see game_carry_one_space)
+    frame_board();
+};
+
+// current mission cleared: bank the day cost, apply the bonus, checkpoint the NEXT mission (which
+// also unlocks it) and truncate any re-derived future. Returns "next" or "complete".
+adventure_on_clear = function() {
+    var _spent = max(0, game.dayNumber - 1);         // completed days spent on this mission
+    advRun.daysUsed += _spent;                        // cumulative campaign days elapsed (for the HUD)
+    // carry the remaining budget from game.dayLimit (which includes any mid-mission treasure bonus for
+    // Glutton's dayPerTreasure), then add the flat per-clear bonus. Equivalent to daysLeft-=spent for
+    // the non-treasure scenarios (dayLimit started == daysLeft).
+    advRun.daysLeft = max(0, game.dayLimit - _spent) + advRun.cfg.perClear;
+    var _carry = adventure_checkpoint_deck(advRun.slot, advRun.scen, advRun.board);   // deck just played
+    // stash this play's population history onto the mission we just cleared, so the menu can graph it
+    var _playedCp = global.advSaves[advRun.slot].campaigns[advRun.scen][advRun.board];
+    if (_playedCp != undefined && variable_struct_exists(game, "popHistory")) _playedCp.popHistory = game.popHistory;
+    advRun.board += 1;
+    var _camp = global.advSaves[advRun.slot].campaigns[advRun.scen];
+    array_resize(_camp, advRun.board);                // keep missions 0..board-1; drop re-derived future
+    if (advRun.board >= array_length(advRun.boards)) {
+        global.advSaves[advRun.slot].done[advRun.scen] = true;   // whole campaign beaten
+        adventure_saves_save();
+        return "complete";
+    }
+    // evolve the deck for the next map. If that map has a cull rule, hand off to the interactive
+    // cull menu (which commits the checkpoint on confirm); otherwise just add its cards and commit.
+    var _next = advRun.boards[advRun.board];
+    var _rule = variable_struct_exists(_next, "cullBefore") ? _next.cullBefore : undefined;
+    if (_rule != undefined) { adventure_cull_begin(_carry, _next, _rule); return "cull"; }
+    adventure_cull_commit(adventure_deck_advance(_carry, _next));
+    return "next";
+};
+
+// commit the evolved deck as the next mission's checkpoint (also unlocks it) and persist.
+adventure_cull_commit = function(_deck) {
+    var _camp = global.advSaves[advRun.slot].campaigns[advRun.scen];
+    _camp[advRun.board] = { daysLeft: advRun.daysLeft, daysUsed: advRun.daysUsed, enemyDeck: _deck };
+    var _slot = global.advSaves[advRun.slot];
+    _slot.curScen = advRun.scen; _slot.curBoard = advRun.board;
+    adventure_saves_save();
+    advCull = undefined;
+};
+
+// set up the between-mission cull picker: aggregate the carried deck's cards matching the rule into
+// removable rows, and the next map's additions into a preview. The checkpoint is NOT written until
+// the player confirms (adventure_cull_confirm).
+adventure_cull_begin = function(_carry, _next, _rule) {
+    var _agg = {}; var _order = [];   // matching removable cards, aggregated by id (preserve first-seen order)
+    for (var _i = 0; _i < array_length(_carry); _i++) {
+        var _id = _carry[_i];
+        if (!adventure_cull_match(_id, _rule)) continue;
+        if (!variable_struct_exists(_agg, _id)) { _agg[$ _id] = { id: _id, avail: 0, rm: 0 }; array_push(_order, _id); }
+        _agg[$ _id].avail += 1;
+    }
+    var _rows = []; var _poolTotal = 0;
+    for (var _o = 0; _o < array_length(_order); _o++) { array_push(_rows, _agg[$ _order[_o]]); _poolTotal += _agg[$ _order[_o]].avail; }
+    var _addAgg = {}; var _addOrder = [];   // preview of the advanced cards being added
+    for (var _a = 0; _a < array_length(_next.enemyDeck); _a++) {
+        var _e = _next.enemyDeck[_a];
+        if (!variable_struct_exists(_addAgg, _e.id)) { _addAgg[$ _e.id] = { id: _e.id, n: 0 }; array_push(_addOrder, _e.id); }
+        _addAgg[$ _e.id].n += _e.count;
+    }
+    var _addRows = [];
+    for (var _ao = 0; _ao < array_length(_addOrder); _ao++) array_push(_addRows, _addAgg[$ _addOrder[_ao]]);
+    advCull = { carry: _carry, rule: _rule, rows: _rows, addFlat: adventure_deck_expand(_next),
+                addRows: _addRows, need: min(_rule.remove, _poolTotal), poolTotal: _poolTotal };
+};
+
+// how many cards the player has marked for removal so far.
+adventure_cull_removed = function() {
+    if (advCull == undefined) return 0;
+    var _n = 0;
+    for (var _i = 0; _i < array_length(advCull.rows); _i++) _n += advCull.rows[_i].rm;
+    return _n;
+};
+
+// finalize: delete the chosen copies from the carried deck, add the map's advanced cards, commit,
+// and launch the next board.
+adventure_cull_confirm = function() {
+    if (advCull == undefined || adventure_cull_removed() != advCull.need) return;
+    var _c = advCull;
+    var _rm = {};   // id -> remaining copies to drop
+    for (var _r = 0; _r < array_length(_c.rows); _r++) if (_c.rows[_r].rm > 0) _rm[$ _c.rows[_r].id] = _c.rows[_r].rm;
+    var _final = [];
+    for (var _i = 0; _i < array_length(_c.carry); _i++) {
+        var _id = _c.carry[_i];
+        if (variable_struct_exists(_rm, _id) && _rm[$ _id] > 0) { _rm[$ _id] -= 1; continue; }
+        array_push(_final, _id);
+    }
+    for (var _a = 0; _a < array_length(_c.addFlat); _a++) array_push(_final, _c.addFlat[_a]);
+    adventure_cull_commit(_final);
+    advBanner = ""; advBannerHold = 0;
+    adventure_launch_board();
 };
 
 // Adopt a full game state received from the peer (the mirror side). boardDef travels in the state,
@@ -526,6 +792,8 @@ tutorial_enter_step = function() {
     var _s = tutorial_step();
     if (_s == undefined) return;
     if (variable_struct_exists(_s, "checkpoint") && _s.checkpoint) tutorial.checkpoint = variable_clone(game);
+    // mirror the instruction into the log so players can read past messages back
+    if (variable_struct_exists(_s, "text") && _s.text != "") game_log(game, _s.text);
 };
 
 // advance one step; roll into the next scene (loading its game) when a scene's steps run out, and
@@ -723,6 +991,9 @@ return_to_menu = function() {
     mode = "menu";
     menuScreen = "main";
     tutorial = undefined;
+    advRun = undefined; advBanner = ""; advBannerHold = 0;   // leaving any adventure run
+    advCull = undefined;   // abandon any pending between-mission deck cull
+    advResults = "";
     compactBoard = false;
     if (tutorialSavedExpRules != undefined) { global.expRules = tutorialSavedExpRules; tutorialSavedExpRules = undefined; } // restore the player's ruleset after a tutorial
     if (batchRemaining > 0) { batchRemaining = 0; global.expRules.anims = batchSavedAnims; } // cancel a running batch

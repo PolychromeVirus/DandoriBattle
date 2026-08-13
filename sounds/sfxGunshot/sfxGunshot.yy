@@ -7,7 +7,7 @@
   },
   "bitDepth":1,
   "channelFormat":0,
-  "compression":0,
+  "compression":3,
   "compressionQuality":4,
   "conversionMode":0,
   "duration":1.1421316,
@@ -22,5 +22,5 @@
   "resourceVersion":"2.0",
   "sampleRate":44100,
   "soundFile":"sfxGunshot.wav",
-  "volume":1.0,
+  "volume":0.61,
 }

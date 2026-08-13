@@ -14,6 +14,77 @@ function dtext(_x, _y, _str) {
     draw_text_transformed(_x, _y, _str, UI_TS, UI_TS, 0);
 }
 
+/// Draw one LOG row with inline colour (fntMaru, UI_TS scale). _cat: "chat" = cyan "name:" +
+/// white message (first row of a chat line); "chatcont" = plain white (wrapped chat continuation);
+/// "game" = muted-yellow base with highlighted chips for P1 / P2 (muted blue / red) and [Good] /
+/// [Bad] (bright green / red). Chip text stays white.
+function log_draw_line(_x, _y, _row, _cat) {
+    draw_set_font(fntMaru);
+    draw_set_halign(fa_left);
+    draw_set_valign(fa_top);
+    var _rowH = string_height("Ag") * UI_TS;
+    if (_cat == "chatcont") {
+        draw_set_color(c_white);
+        draw_text_transformed(_x, _y, _row, UI_TS, UI_TS, 0);
+        return;
+    }
+    if (_cat == "chat") {
+        var _cp = string_pos(":", _row);
+        if (_cp > 0) {
+            var _nm = string_copy(_row, 1, _cp);
+            draw_set_color(make_color_rgb(80, 220, 235));   // cyan sender name
+            draw_text_transformed(_x, _y, _nm, UI_TS, UI_TS, 0);
+            draw_set_color(c_white);
+            draw_text_transformed(_x + string_width(_nm) * UI_TS, _y, string_delete(_row, 1, _cp), UI_TS, UI_TS, 0);
+        } else {
+            draw_set_color(c_white);
+            draw_text_transformed(_x, _y, _row, UI_TS, UI_TS, 0);
+        }
+        draw_set_color(c_white);
+        return;
+    }
+    // treasure-power lines ("power", flagged per-entry so wrapped rows match) get a brighter base
+    var _base = (_cat == "power") ? make_color_rgb(240, 230, 182) : make_color_rgb(206, 192, 116);
+    var _cursor = _x, _seg = "", _i = 1;
+    var _len = string_length(_row);
+    while (_i <= _len) {
+        // card-name span (wrapped in chr(2) markers by the logger) -> grey chip, white name
+        if (string_char_at(_row, _i) == chr(2)) {
+            var _j = _i + 1;
+            while (_j <= _len && string_char_at(_row, _j) != chr(2)) _j += 1;
+            var _nm = string_copy(_row, _i + 1, _j - _i - 1);
+            if (_seg != "") { draw_set_color(_base); draw_text_transformed(_cursor, _y, _seg, UI_TS, UI_TS, 0); _cursor += string_width(_seg) * UI_TS; _seg = ""; }
+            var _nw = string_width(_nm) * UI_TS;
+            draw_set_color(make_color_rgb(72, 72, 80)); draw_rectangle(_cursor - 1, _y, _cursor + _nw + 1, _y + _rowH, false);
+            draw_set_color(c_white); draw_text_transformed(_cursor, _y, _nm, UI_TS, UI_TS, 0);
+            _cursor += _nw;
+            _i = _j + 1;
+            continue;
+        }
+        // token -> coloured TEXT (no coloured background). [Good]/[Bad] keep a neutral GREY chip so
+        // the tag reads as a badge, but the meaning is in the text colour. P1/P2 are just tinted text.
+        var _ts = "", _tcol = c_white, _chip = false;
+        if      (string_copy(_row, _i, 6) == "[Good]") { _ts = "[Good]"; _tcol = make_color_rgb(0, 255, 0);   _chip = true; }
+        else if (string_copy(_row, _i, 5) == "[Bad]")  { _ts = "[Bad]";  _tcol = make_color_rgb(255, 70, 70); _chip = true; }
+        else if (string_copy(_row, _i, 2) == "P1")     { _ts = "P1";     _tcol = make_color_rgb(110, 150, 225); }
+        else if (string_copy(_row, _i, 2) == "P2")     { _ts = "P2";     _tcol = make_color_rgb(225, 115, 115); }
+        if (_ts != "") {
+            if (_seg != "") { draw_set_color(_base); draw_text_transformed(_cursor, _y, _seg, UI_TS, UI_TS, 0); _cursor += string_width(_seg) * UI_TS; _seg = ""; }
+            var _tw = string_width(_ts) * UI_TS;
+            if (_chip) { draw_set_color(make_color_rgb(72, 72, 80)); draw_rectangle(_cursor - 1, _y, _cursor + _tw + 1, _y + _rowH, false); }
+            draw_set_color(_tcol);
+            draw_text_transformed(_cursor, _y, _ts, UI_TS, UI_TS, 0);
+            _cursor += _tw;
+            _i += string_length(_ts);
+        } else {
+            _seg += string_char_at(_row, _i);
+            _i += 1;
+        }
+    }
+    if (_seg != "") { draw_set_color(_base); draw_text_transformed(_cursor, _y, _seg, UI_TS, UI_TS, 0); }
+    draw_set_color(c_white);
+}
+
 /// GUI-space wrapped text at the compensated scale (drop-in for draw_text_ext).
 /// _sep (line spacing) and _w (wrap width) are given in on-screen pixels.
 function dtext_ext(_x, _y, _str, _sep, _w) {
@@ -44,6 +115,87 @@ function draw_nineslice_scaled(_spr, _x, _y, _w, _h, _scale, _col, _alpha) {
 
 /// Scaled text with a dark 1px outline (8 offset passes) for readability over busy/transparent art.
 /// Uses the current font + alpha; sets colour internally. _sc = the draw_text_transformed scale.
+/// Can this hand entry be played RIGHT NOW? Gates the hand's dim + hover-zoom so a card
+/// only lights up when it's actually usable: the viewer's own actionable turn (_interactive),
+/// AND the right phase for that card - gather cards in MOVE, pellets in ORDERS, and Color
+/// Changing Posy uniquely in EITHER move OR orders (it can play as a gather or as a pellet).
+function hand_card_playable(_entry, _phase, _interactive) {
+    if (!_interactive) return false;   // opponent's turn / resolving / locked: whole hand is dead
+    if (_entry.kind == "gather") {
+        if (_entry.cardId == "colorchangingposy") return (_phase == "move" || _phase == "orders");
+        return (_phase == "move");
+    }
+    return (_phase == "orders");   // pellets
+}
+
+/// Map a day-track space event {ev, ...} to its DAY* symbol sprite. Blank turns show
+/// DAYNothing; SPAWN = DAYRespawn; POD{n} = DAYSpawn_n; SWAP{from,to,all} builds the
+/// "DAY<From>To<To>[ALL]" name (e.g. DAYFireToEnemy, DAYWaterToFireALL). Falls back to
+/// DAYNothing for anything unmapped so the strip always renders something.
+function day_event_sprite(_ev) {
+    var _name;
+    switch (_ev.ev) {
+        case "spawn":   _name = "DAYRespawn"; break;
+        case "pod":     _name = "DAYSpawn_" + string(clamp(variable_struct_exists(_ev, "n") ? _ev.n : 3, 2, 5)); break;
+        case "storm":   _name = "DAYHazard"; break;
+        case "roll":    _name = "DAYRoll"; break;
+        case "draw":    _name = "DAYGather"; break;
+        case "raw":     _name = "DAYRaw"; break;
+        case "pellet":  _name = "DAYPellets"; break;
+        case "flarlic": _name = "DAYFlarlic"; break;
+        case "swap":
+            // "DAY<From>To<To>" with an optional ALL suffix. Some swaps only ship as the ALL
+            // art (the total-conversion board), so try both variants regardless of the flag.
+            var _cf = string_upper(string_char_at(_ev.from, 1)) + string_delete(_ev.from, 1, 1);
+            var _ct = string_upper(string_char_at(_ev.to, 1)) + string_delete(_ev.to, 1, 1);
+            var _base = "DAY" + _cf + "To" + _ct;
+            var _isAll = (variable_struct_exists(_ev, "all") && _ev.all);
+            var _first = _isAll ? (_base + "ALL") : _base;
+            var _second = _isAll ? _base : (_base + "ALL");
+            if (asset_get_index(_first) != -1) return asset_get_index(_first);
+            if (asset_get_index(_second) != -1) return asset_get_index(_second);
+            _name = "DAYNothing";
+            break;
+        default:        _name = "DAYNothing"; break;
+    }
+    var _spr = asset_get_index(_name);
+    return (_spr != -1) ? _spr : asset_get_index("DAYNothing");
+}
+
+/// Draw a small swatch for a board TILE TYPE ("empty"/"plain"/"enemy"/"treasure" or a hazard
+/// element) at (_x,_y), size _sz: a colour block + the hazard's element decal + a name label.
+/// Used by the day-swap prompt to show the FROM and TO tiles.
+function tile_swatch_draw(_x, _y, _sz, _type) {
+    var _col;
+    switch (_type) {
+        case "empty": case "plain": _col = make_color_rgb(104, 142, 88); break;
+        case "enemy":    _col = make_color_rgb(150, 150, 150); break;
+        case "treasure": _col = make_color_rgb(232, 210, 66); break;
+        case "fire":     _col = make_color_rgb(210, 70, 50);  break;
+        case "water":    _col = make_color_rgb(70, 120, 200); break;
+        case "height":   _col = make_color_rgb(226, 205, 170); break;
+        case "ice":      _col = make_color_rgb(120, 220, 230); break;
+        case "poison":   _col = make_color_rgb(150, 110, 190); break;
+        case "chasm":    _col = make_color_rgb(120, 80, 40);  break;
+        default:         _col = make_color_rgb(90, 90, 90);   break;
+    }
+    draw_set_alpha(1);
+    draw_set_color(_col);
+    draw_rectangle(_x, _y, _x + _sz, _y + _sz, false);
+    var _spr = element_sprite(_type);   // hazards have an element decal; other kinds return -1
+    if (_spr != -1) {
+        var _s = _sz / max(sprite_get_width(_spr), sprite_get_height(_spr));
+        draw_sprite_ext(_spr, 0, _x + _sz * 0.5 - (sprite_get_width(_spr) * 0.5 - sprite_get_xoffset(_spr)) * _s,
+            _y + _sz * 0.5 - (sprite_get_height(_spr) * 0.5 - sprite_get_yoffset(_spr)) * _s, _s, _s, 0, c_white, 1);
+    }
+    draw_set_color(c_black);
+    draw_rectangle(_x, _y, _x + _sz, _y + _sz, true);
+    draw_set_color(c_white);
+    draw_set_halign(fa_center); draw_set_font(fntMaru);
+    dtext_outline(_x + _sz * 0.5, _y + _sz + 2, string_upper(string_char_at(_type, 1)) + string_delete(_type, 1, 1), 0.5, c_white);
+    draw_set_halign(fa_left);
+}
+
 function dtext_outline(_x, _y, _str, _sc, _col, _oCol = make_color_rgb(18, 14, 10)) {
     var _o = max(2, round(_sc * 2.5));
     draw_set_color(_oCol);
@@ -152,6 +304,108 @@ function ui_button(_x, _y, _w, _h, _label, _font = undefined) {
     draw_set_valign(fa_top);
     if (_font != undefined) draw_set_font(_prevFont);
     return (_hover && mouse_check_button_pressed(mb_left));
+}
+
+/// Horizontal 0..1 slider. Click or drag anywhere on the track sets the value; returns the (possibly
+/// updated) value so the caller can detect a change and persist. Caller sets the font for any label.
+function ui_slider(_x, _y, _w, _h, _value, _id = undefined) {
+    if (!variable_global_exists("uiSliderDrag")) global.uiSliderDrag = undefined;
+    var _key = (_id != undefined) ? _id : (string(_x) + "_" + string(_y));
+    var _mx = device_mouse_x_to_gui(0), _my = device_mouse_y_to_gui(0);
+    var _cy = _y + _h * 0.5;
+    var _over = (_mx >= _x - 8 && _mx <= _x + _w + 8 && _my >= _y - 4 && _my <= _y + _h + 6);
+    // DRAG LATCH: grab the slider on a press that starts over it, then keep tracking until the button
+    // releases - even when the cursor wanders off the track (the old code only moved while over it).
+    if (global.uiSliderDrag == _key && !mouse_check_button(mb_left)) global.uiSliderDrag = undefined;
+    if (_over && mouse_check_button_pressed(mb_left)) global.uiSliderDrag = _key;
+    var _active = (global.uiSliderDrag == _key);
+    if (_over || _active) global.uiMouseConsumed = true;
+    var _v = clamp(_value, 0, 1);
+    if (_active) _v = clamp((_mx - _x) / max(1, _w), 0, 1);
+    draw_set_alpha(0.9); draw_set_color(make_color_rgb(40, 48, 66));
+    draw_roundrect(_x, _cy - 4, _x + _w, _cy + 4, false);
+    draw_set_color(make_color_rgb(120, 200, 140));
+    if (_v > 0) draw_roundrect(_x, _cy - 4, _x + _w * _v, _cy + 4, false);
+    draw_set_color(c_white);
+    draw_circle(_x + _w * _v, _cy, 8, false);
+    draw_set_color(make_color_rgb(60, 70, 90));
+    draw_circle(_x + _w * _v, _cy, 8, true);
+    draw_set_alpha(1);
+    return _v;
+}
+
+/// Pikmin-POPULATION line graph (Pikmin-3-style results): one coloured line per pikmin type showing
+/// that colour's count across _g.popHistory's phase snapshots, for one seat, drawn into (_x,_y,_w,_h).
+/// Vertical day-boundary gridlines + a 0..peak y-axis. Returns the array of colour ids plotted (for a
+/// legend), or undefined when there aren't yet 2 points. Caller sets the font.
+function pop_graph_draw(_g, _seat, _x, _y, _w, _h) {
+    var _hist = (variable_struct_exists(_g, "popHistory") && is_array(_g.popHistory)) ? _g.popHistory : [];
+    var _n = array_length(_hist);
+    draw_set_alpha(0.5); draw_set_color(make_color_rgb(14, 18, 22));
+    draw_rectangle(_x, _y, _x + _w, _y + _h, false); draw_set_alpha(1);
+    draw_set_color(make_color_rgb(70, 80, 90));
+    draw_rectangle(_x, _y, _x + _w, _y + _h, true);
+    draw_set_color(c_white);
+    if (_n < 2 || _seat < 0 || _seat >= array_length(_hist[0].seats)) {
+        draw_set_halign(fa_center); draw_set_color(make_color_rgb(170, 175, 180));
+        dtext(_x + _w * 0.5, _y + _h * 0.5 - 8, "Not enough data yet.");
+        draw_set_halign(fa_left); draw_set_color(c_white);
+        return undefined;
+    }
+    // colours ever present for this seat. y-axis is fixed at 25 (a stable reference across boards);
+    // only stretches beyond that in the rare case a colour somehow exceeds 25, so lines never clip.
+    var _cols = []; var _maxV = 25;
+    for (var _i = 0; _i < _n; _i++) {
+        var _s = _hist[_i].seats[_seat];
+        var _names = variable_struct_get_names(_s);
+        for (var _k = 0; _k < array_length(_names); _k++) {
+            if (!arr_has(_cols, _names[_k])) array_push(_cols, _names[_k]);
+            _maxV = max(_maxV, _s[$ _names[_k]]);
+        }
+    }
+    var _padL = 30, _padB = 22, _padT = 8, _padR = 8;
+    var _px = _x + _padL, _py = _y + _padT;
+    var _pw = _w - _padL - _padR, _ph = _h - _padT - _padB;
+    var _xat = function(_i, _px, _pw, _n) { return _px + ((_n <= 1) ? 0 : _pw * _i / (_n - 1)); };
+    // horizontal gridlines (0 / mid / peak) + y labels
+    draw_set_color(make_color_rgb(44, 52, 60));
+    for (var _gyi = 0; _gyi <= 2; _gyi++) { var _yy = _py + _ph * _gyi / 2; draw_line(_px, _yy, _px + _pw, _yy); }
+    draw_set_color(make_color_rgb(150, 160, 168)); draw_set_halign(fa_right);
+    dtext(_px - 4, _py - 6, string(_maxV));
+    dtext(_px - 4, _py + _ph - 12, "0");
+    draw_set_halign(fa_left);
+    // faint vertical slice at EVERY snapshot (each phase point) - unlabeled, for reading off when
+    // each gather/orders/combat step happened
+    draw_set_color(make_color_rgb(22, 27, 32));
+    for (var _i = 0; _i < _n; _i++) { var _sx = _xat(_i, _px, _pw, _n); draw_line(_sx, _py, _sx, _py + _ph); }
+    // vertical day-boundary lines + "D<n>" labels (brighter, over the slices)
+    var _prevDay = -999;
+    for (var _i = 0; _i < _n; _i++) {
+        if (_hist[_i].day != _prevDay) {
+            _prevDay = _hist[_i].day;
+            var _xx = _xat(_i, _px, _pw, _n);
+            draw_set_color(make_color_rgb(90, 104, 120)); draw_line(_xx, _py, _xx, _py + _ph);
+            draw_set_color(make_color_rgb(150, 160, 168)); draw_set_halign(fa_center);
+            dtext(_xx, _py + _ph + 3, "D" + string(_prevDay));
+            draw_set_halign(fa_left);
+        }
+    }
+    // one polyline per colour (draw thick; identical stacks overlap harmlessly)
+    for (var _c = 0; _c < array_length(_cols); _c++) {
+        var _id = _cols[_c];
+        var _tint = pikmin_tint(_id);
+        for (var _i = 1; _i < _n; _i++) {
+            var _sa = _hist[_i - 1].seats[_seat], _sb = _hist[_i].seats[_seat];
+            var _v0 = variable_struct_exists(_sa, _id) ? _sa[$ _id] : 0;
+            var _v1 = variable_struct_exists(_sb, _id) ? _sb[$ _id] : 0;
+            var _x0 = _xat(_i - 1, _px, _pw, _n), _x1 = _xat(_i, _px, _pw, _n);
+            var _y0 = _py + _ph - _ph * _v0 / _maxV, _y1 = _py + _ph - _ph * _v1 / _maxV;
+            draw_set_color(_tint);
+            draw_line_width(_x0, _y0, _x1, _y1, 3);
+        }
+    }
+    draw_set_color(c_white);
+    return _cols;
 }
 
 /// On-screen width of a tag chip for _label. _el = an element key for a leading icon, or ""
@@ -333,6 +587,34 @@ function draw_collection_panel(_g, _p, _x, _y, _w, _h, _mgx, _mgy, _brain = "") 
                 draw_set_alpha(1);
                 draw_set_color(c_white);
             }
+            // poko value stamped over the card in the pikmin font (white, black outline).
+            // _base is the card's printed worth; _val is what it'll actually score. They match
+            // today, but once banked powers like Glow Up are wired to bump a collected piece's
+            // worth, set _val from that and the number tints YELLOW when the price is raised.
+            var _tdefV = treasure_def_get(_grp.ids[_ci]);
+            var _base = _tdefV.value;
+            var _val = _base;
+            // Glow Up passive: this player's sub-100p treasures score a flat +100
+            if (variable_struct_exists(_g.players[_p], "glowUp") && _g.players[_p].glowUp && _base < 100) _val = _base + 100;
+            var _valCol = (_val > _base) ? make_color_rgb(255, 224, 90)   // raised price -> yellow
+                        : ((_val < _base) ? make_color_rgb(250, 120, 110) : c_white);
+            draw_set_font(fntPikmin);
+            draw_set_halign(fa_center);
+            draw_set_valign(fa_middle);
+            dtext_outline(_tx + _thumbW * 0.5 - 3, _cy + _thumbH * 0.5, string(_val), 0.55, _valCol);
+            // good/bad on-bank power badge: a small green (Good) or red (Bad) dot, top-right
+            if (_tdefV.effectType == "Good" || _tdefV.effectType == "Bad") {
+                var _dotCol = (_tdefV.effectType == "Good") ? make_color_rgb(90, 220, 90) : make_color_rgb(230, 70, 60);
+                var _dcx = _tx + _thumbW - 7, _dcy = _cy + 7;
+                draw_set_color(make_color_rgb(12, 12, 12));
+                draw_circle(_dcx, _dcy, 5.5, false);   // dark rim for contrast on any art
+                draw_set_color(_dotCol);
+                draw_circle(_dcx, _dcy, 4, false);
+            }
+            draw_set_halign(fa_left);
+            draw_set_valign(fa_top);
+            draw_set_font(fntMaru);
+            draw_set_color(c_white);
             if (_mgx >= _tx && _mgx < _tx + _thumbW && _mgy >= _cy && _mgy < _cy + _thumbH) _hoverAlias = _grp.ids[_ci];
             _tx += _thumbW + 4;
         }

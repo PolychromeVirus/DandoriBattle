@@ -2,15 +2,15 @@
   "$GMSound":"v2",
   "%Name":"HighScores",
   "audioGroupId":{
-    "name":"audiogroup_default",
-    "path":"audiogroups/audiogroup_default",
+    "name":"BGM",
+    "path":"audiogroups/BGM",
   },
   "bitDepth":1,
   "channelFormat":1,
-  "compression":0,
+  "compression":1,
   "compressionQuality":4,
   "conversionMode":0,
-  "duration":122.78858,
+  "duration":122.788574,
   "exportDir":"",
   "name":"HighScores",
   "parent":{
@@ -20,7 +20,7 @@
   "preload":false,
   "resourceType":"GMSound",
   "resourceVersion":"2.0",
-  "sampleRate":48000,
+  "sampleRate":44100,
   "soundFile":"HighScores.mp3",
   "volume":1.0,
 }

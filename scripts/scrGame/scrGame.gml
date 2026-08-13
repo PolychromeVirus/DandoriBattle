@@ -95,12 +95,19 @@ function game_trace(_g, _str) {
 /// Emit a death FX event (drained by the controller into an animated spirit). Cosmetic
 /// only - the rules never read _g.fx. A dying pikmin releases a type-coloured spirit;
 /// a dying enemy squashes down + releases an enemy spirit, then its card fades.
-function game_fx_pik(_g, _tok, _lane, _idx) {
+function game_fx_pik(_g, _tok, _lane, _idx, _crush = false) {
     // carry the token's render position (vx/vy, if the renderer has set it) so the
     // soul rises from exactly where the pikmin was standing
     var _hasV = variable_struct_exists(_tok, "vx");
-    array_push(_g.fx, { kind: "pik", typeId: _tok.typeId, lane: _lane, idx: _idx,
-        px: _hasV ? _tok.vx : undefined, py: _hasV ? _tok.vy : undefined });
+    var _ev = { kind: "pik", typeId: _tok.typeId, lane: _lane, idx: _idx,
+        px: _hasV ? _tok.vx : undefined, py: _hasV ? _tok.vy : undefined, crush: _crush };
+    // crush deaths get knocked off the beast: carry the token's last cling pose (set by
+    // the renderer while it rode the foe) so the corpse drops from the body, flattens on
+    // the dirt where it was crushed, THEN its soul pops - the visible tell the crush hit
+    if (_crush && variable_struct_exists(_tok, "lclX")) {
+        _ev.cx = _tok.lclX; _ev.cy = _tok.lclY; _ev.cz = _tok.lclZ;
+    }
+    array_push(_g.fx, _ev);
     game_sfx(_g, "sfxPikDeath", 3, _lane, _idx);
 }
 function game_fx_enemy(_g, _enemyDefId, _lane, _idx, _isBoss) {
@@ -109,6 +116,23 @@ function game_fx_enemy(_g, _enemyDefId, _lane, _idx, _isBoss) {
 }
 function game_fx_boom(_g, _lane, _idx) {
     array_push(_g.fx, { kind: "boom", lane: _lane, idx: _idx });
+}
+/// Energy pulse at player _p's Onion (home-anchored, no lane/idx) - fired when a manually-discarded
+/// pikmin reaches the Onion and is dismissed. _typeId tints the ring to the pikmin's colour. Draw
+/// resolves the world position from _p.
+function game_fx_onion(_g, _p, _typeId) {
+    array_push(_g.fx, { kind: "onionpop", playerIdx: _p, typeId: _typeId });
+}
+/// Apply a tile swap with the fade-to-white animation: with anims on, the renderer flips the
+/// tile UNDER the white at the peak (old fades out -> white -> new fades in); anims off (sim/
+/// batch, no Draw) flips it immediately. The `to` type rides the fx so Draw can apply it.
+function game_apply_swap_animated(_g, _lane, _idx, _to) {
+    if (global.expRules.anims) {
+        array_push(_g.fx, { kind: "swap", lane: _lane, idx: _idx, to: _to }); // Draw flips + bumps tileVersion at the peak
+    } else {
+        game_space_set_type(_g.board.lanes[_lane].spaces[_idx], _to);
+        _g.tileVersion += 1;   // anims off: flip now + mark the tile mesh stale for the renderer
+    }
 }
 function game_fx_spicy(_g, _lane, _idx) {
     array_push(_g.fx, { kind: "spicy", lane: _lane, idx: _idx });
@@ -120,7 +144,9 @@ function game_fx_spicy(_g, _lane, _idx) {
 /// would get LOUD stacked (banks, on-bank effects). Capped overall so headless sims don't grow it.
 /// Queue a one-shot SFX for the presentation to play (headless-safe: just names + optional position).
 /// Pass _lane/_idx to make it POSITIONAL - the drain plays it on that space's emitter so it pans.
-function game_sfx(_g, _name, _maxDup = 3, _lane = undefined, _idx = undefined) {
+/// _pitch (optional) sets a BASE playback pitch for this cue (the drain still adds a small
+/// random wobble on top); undefined = the drain's default per-name pitch.
+function game_sfx(_g, _name, _maxDup = 3, _lane = undefined, _idx = undefined, _pitch = undefined) {
     if (array_length(_g.sfxCue) >= 24) return;
     var _same = 0;
     for (var _i = 0; _i < array_length(_g.sfxCue); _i++) {
@@ -128,8 +154,15 @@ function game_sfx(_g, _name, _maxDup = 3, _lane = undefined, _idx = undefined) {
         if ((is_struct(_e) ? _e.n : _e) == _name) _same += 1;
     }
     if (_same >= _maxDup) return;
-    if (_lane != undefined && _idx != undefined) array_push(_g.sfxCue, { n: _name, l: _lane, i: _idx });
-    else array_push(_g.sfxCue, _name);
+    var _positional = (_lane != undefined && _idx != undefined);
+    if (_positional || _pitch != undefined) {
+        var _cue = { n: _name };
+        if (_positional) { _cue.l = _lane; _cue.i = _idx; }
+        if (_pitch != undefined) _cue.p = _pitch;
+        array_push(_g.sfxCue, _cue);
+    } else {
+        array_push(_g.sfxCue, _name);
+    }
 }
 
 /// Index of a lane's treasure space, or -1 if it has none. Lanes vary in length (the tutorial's
@@ -156,7 +189,7 @@ function game_setup(_g) {
         }
         array_push(_g.treasures, { cards: _pile, lane: _laneIdx, idx: _trIdx, boss: undefined });
     }
-    game_fill_enemy_spaces(_g);
+    if (game_day_day_spawns(_g)) game_fill_enemy_spaces(_g);   // POD-driven boards start bare (enemies placed via day events)
     // starting pikmin: 1 of each basic colour per HOME
     for (var _p = 0; _p < 2; _p++) {
         var _cols = _g.boardDef.basicColors;
@@ -238,30 +271,51 @@ function game_fill_enemy_spaces(_g, _markNew = false) {
 // when you hold at least rules.setThreshold pieces of that series - then ALL
 // held pieces of the series count.
 
-function game_treasures_realized(_cardIds) {
+/// _glowUp: sub-100p treasures score a flat +100 (90p -> 190p; still only count in a satisfied
+/// set / as loose). _wildCount: each banked Wild is a wildcard set-member that can COMPLETE an
+/// incomplete set - spent on the highest-value sets it can finish given the wilds available.
+function game_treasures_realized(_cardIds, _wildCount = 0, _glowUp = false) {
     var _loose = 0;
     var _seriesCount = {};
     var _seriesVal = {};
     for (var _i = 0; _i < array_length(_cardIds); _i++) {
         var _def = treasure_def_get(_cardIds[_i]);
+        var _v = _def.value;
+        if (_glowUp && _v < 100) _v += 100;   // Glow Up: flat +100 to sub-100 treasures
         if (_def.effectType == "Set") {
             var _k = _def.effect;
             _seriesCount[$ _k] = (variable_struct_exists(_seriesCount, _k) ? _seriesCount[$ _k] : 0) + 1;
-            _seriesVal[$ _k] = (variable_struct_exists(_seriesVal, _k) ? _seriesVal[$ _k] : 0) + _def.value;
+            _seriesVal[$ _k] = (variable_struct_exists(_seriesVal, _k) ? _seriesVal[$ _k] : 0) + _v;
         } else {
-            _loose += _def.value;
+            _loose += _v;
         }
     }
     var _total = _loose;
+    var _threshold = global.rules.setThreshold;
     var _names = variable_struct_get_names(_seriesCount);
+    var _incomplete = [];   // sets short of the threshold: { val, need }
     for (var _i = 0; _i < array_length(_names); _i++) {
-        if (_seriesCount[$ _names[_i]] >= global.rules.setThreshold) _total += _seriesVal[$ _names[_i]];
+        var _c = _seriesCount[$ _names[_i]];
+        if (_c >= _threshold) _total += _seriesVal[$ _names[_i]];
+        else array_push(_incomplete, { val: _seriesVal[$ _names[_i]], need: _threshold - _c });
+    }
+    // Wild: spend wildcard members to finish incomplete sets, highest value first
+    if (_wildCount > 0 && array_length(_incomplete) > 0) {
+        array_sort(_incomplete, function(_a, _b) { return _b.val - _a.val; });
+        var _wl = _wildCount;
+        for (var _i = 0; _i < array_length(_incomplete) && _wl > 0; _i++) {
+            if (_wl >= _incomplete[_i].need) { _wl -= _incomplete[_i].need; _total += _incomplete[_i].val; }
+        }
     }
     return _total;
 }
 
+/// A player's realized score, applying their persistent Wild / Glow Up hoard passives.
 function game_realized_score(_g, _p) {
-    return game_treasures_realized(_g.players[_p].collected);
+    var _pl = _g.players[_p];
+    var _wild = variable_struct_exists(_pl, "wildCount") ? _pl.wildCount : 0;
+    var _glow = variable_struct_exists(_pl, "glowUp") ? _pl.glowUp : false;
+    return game_treasures_realized(_pl.collected, _wild, _glow);
 }
 
 /// Group a player's collected treasures for display: loose group first, then each
@@ -269,11 +323,16 @@ function game_realized_score(_g, _p) {
 /// Returns { score, groups: [ { name, isLoose, ids, count, value, active } ] }.
 function game_collection_summary(_g, _p) {
     var _coll = _g.players[_p].collected;
+    var _pl = _g.players[_p];
+    var _glow = variable_struct_exists(_pl, "glowUp") ? _pl.glowUp : false;
     var _loose = { name: "Loose Treasures", isLoose: true, ids: [], count: 0, value: 0, active: true };
     var _seriesMap = {};
     var _order = [];
     for (var _i = 0; _i < array_length(_coll); _i++) {
         var _def = treasure_def_get(_coll[_i]);
+        // apply the persistent Glow Up passive so group subtotals match the realized score
+        var _v = _def.value;
+        if (_glow && _v < 100) _v += 100;
         if (_def.effectType == "Set") {
             var _k = _def.effect;
             if (!variable_struct_exists(_seriesMap, _k)) {
@@ -284,11 +343,11 @@ function game_collection_summary(_g, _p) {
             var _s = _seriesMap[$ _k];
             array_push(_s.ids, _coll[_i]);
             _s.count += 1;
-            _s.value += _def.value;
+            _s.value += _v;
         } else {
             array_push(_loose.ids, _coll[_i]);
             _loose.count += 1;
-            _loose.value += _def.value;
+            _loose.value += _v;
         }
     }
     var _threshold = global.rules.setThreshold;
@@ -324,6 +383,55 @@ function game_tokens_at(_g, _p, _loc) {
         if (game_loc_eq(_tokens[_i].loc, _loc)) array_push(_out, _tokens[_i]);
     }
     return _out;
+}
+
+/// Read-only: may player _p's pending gather card (_effectId) legally target space
+/// (_lane,_idx)? Mirrors the space-stage validity checks in game_play_gather so the UI can
+/// light up every eligible target. Cards that genuinely accept ANY space return true (the
+/// whole board lights); the rest gate to their real footprint. Never mutates state.
+function game_gather_target_eligible(_g, _p, _effectId, _lane, _idx) {
+    if (_lane < 0 || _lane >= _g.board.laneCount) return false;
+    var _spaces = _g.board.lanes[_lane].spaces;
+    if (_idx < 0 || _idx >= array_length(_spaces)) return false;
+    var _space = _spaces[_idx];
+    var _hasCard = game_space_has_card(_g, _lane, _idx);
+    var _tre = game_treasure_at(_g, _lane, _idx);
+    var _loc = { kind: "space", lane: _lane, idx: _idx };
+    switch (_effectId) {
+        case "phosbatpod":  // spawns an enemy on an empty enemy-kind space
+            return (_space.kind == "enemy" && _space.enemy == undefined && _tre == undefined && _space.structure == undefined);
+        case "rawmaterial": // builds a wall/bridge on an empty space
+            return (!_hasCard && _space.structure == undefined);
+        case "rockstorm":   // drops an emitter on a non-hazard empty space
+            return (_space.kind != "hazard" && !_hasCard && _space.structure == undefined);
+        case "candypopbud": case "queencandypopbud": case "candypopbud2": case "ivoryandviolet":
+            return (array_length(game_tokens_at(_g, _p, _loc)) > 0); // needs your pikmin there
+        case "bitterspray": // petrifies an enemy/boss on the space
+            return (_space.enemy != undefined || (_tre != undefined && _tre.boss != undefined));
+        case "surveydrone": // shuffles a pile of 2+
+            return (_tre != undefined && array_length(_tre.cards) >= 2);
+        case "icebomb":     // freezes any creatures standing on the space
+            return (_space.enemy != undefined || (_tre != undefined && _tre.boss != undefined)
+                    || array_length(game_tokens_at(_g, 0, _loc)) > 0 || array_length(game_tokens_at(_g, 1, _loc)) > 0);
+        default:            // bomb rock / boulder / spicy spray / storm anchor / etc: any space
+            return true;
+    }
+}
+
+/// Is (lane) a legal Oatchi Rush target for player _p? A non-boss treasure on the OPPONENT'S side
+/// with a clear path from your end to it. Mirrors the gate in game_play_gather's oatchirush case;
+/// used by the UI to light the whole target lane.
+function game_oatchirush_lane_ok(_g, _p, _lane) {
+    if (_lane < 0 || _lane >= _g.board.laneCount) return false;
+    var _t = undefined;
+    for (var _i = 0; _i < array_length(_g.treasures); _i++) if (_g.treasures[_i].lane == _lane) { _t = _g.treasures[_i]; break; }
+    if (_t == undefined || _t.boss != undefined) return false;
+    if (_p == 0 && _t.idx <= 3) return false;
+    if (_p == 1 && _t.idx >= 3) return false;
+    var _dir = (_p == 0) ? 1 : -1;
+    var _s = (_p == 0) ? 0 : 6;
+    while (_s != _t.idx) { if (game_space_has_card(_g, _lane, _s)) return false; _s += _dir; }
+    return true;
 }
 
 function token_is_frozen(_tok) {
@@ -365,13 +473,51 @@ function game_space_has_card(_g, _lane, _idx) {
     return game_treasure_at(_g, _lane, _idx) != undefined;
 }
 
+/// Does the card/blocker on this tile stop THIS type from passing THROUGH it?
+/// This is the "wall in the middle of the tile": a token latched on such a blocker
+/// stands on the half it approached from and cannot cross to the far side while the
+/// blocker lives (mirrors game_dest_legal's pass-through gates: enemies and carried
+/// treasure hard-block everyone; walls block everyone; emitters/hazards only gate
+/// non-immune). Bridges and cards this type walks over freely are NOT walls.
+function game_tile_blocks_pass(_g, _typeDef, _lane, _idx, _waterOk = false) {
+    var _space = _g.board.lanes[_lane].spaces[_idx];
+    if (_space.enemy != undefined) return true;
+    if (game_treasure_at(_g, _lane, _idx) != undefined) return true;
+    // _towardCenter is irrelevant for real cards (walls/emitters gate both ways); pass
+    // false. Bare directional terrain (height) carries no card, so it isn't a wall here.
+    if (_space.structure != undefined) return !game_type_can_enter(_typeDef, _space, false, false, _waterOk, game_no_imm(_g));
+    return false;
+}
+
+/// The half of a blocker tile a token occupies: -1 = the low-index (idx-1) half,
+/// +1 = the high-index (idx+1) half. Stored on the token when it latches. Absent /
+/// 0 defaults to the type's HOME-facing half (the overwhelmingly common latch), so
+/// legacy tokens and mid-game saves still can't cross a card they're stuck against.
+function game_token_side(_tok, _p) {
+    if (variable_struct_exists(_tok, "side") && _tok.side != 0) return _tok.side;
+    return (_p == 0) ? -1 : 1;
+}
+
+/// Representative latch-side of the group standing at _loc (for reachability queries
+/// that only have a location, e.g. the AI's move planning). Empty / non-space locs
+/// give 0 = no confinement.
+function game_loc_side(_g, _p, _loc) {
+    if (_loc.kind != "space") return 0;
+    var _here = game_tokens_at(_g, _p, _loc);
+    if (array_length(_here) == 0) return 0;
+    return game_token_side(_here[0], _p);
+}
+
 /// Can this pikmin type stand on / pass this space? Height is one-way (gated only
 /// when heading toward the treasure space). Structures: bridges carry anyone over;
 /// walls block passage but can be attacked as a destination; emitters behave as a
 /// floor hazard of their element (immune pass free) but can be ATTACKED by anyone
 /// (non-immune die doing so - handled in combat), so they're legal destinations.
 /// _isDest: this is the final target square (attacking), not a pass-through.
-function game_type_can_enter(_typeDef, _space, _towardCenter, _isDest = false, _waterOk = false) {
+/// _noImm (adventure "Rebooting..." event): elemental IMMUNITIES don't function this turn, so an
+/// immune type is blocked by the hazard/emitter as if it weren't immune. TRAITS (winged flight,
+/// rock climbing) are NOT immunities and still work.
+function game_type_can_enter(_typeDef, _space, _towardCenter, _isDest = false, _waterOk = false, _noImm = false) {
     if (_space.structure != undefined) {
         var _sDef = hazard_def_get(_space.structure.structId);
         if (_sDef.type == "bridge") return true;
@@ -381,28 +527,38 @@ function game_type_can_enter(_typeDef, _space, _towardCenter, _isDest = false, _
         // POISON never blocks - anyone walks over it (it damages on passing, not here)
         if (_sDef.element == "poison") return true;
         // ...other emitters block passage for non-immune (floor-hazard element gate)
-        if (_sDef.element != "" && !arr_has(_typeDef.immunities, _sDef.element)
+        if (_sDef.element != "" && !(!_noImm && arr_has(_typeDef.immunities, _sDef.element))
             && !arr_has(_typeDef.traits, "flies_over_hazards")) return false;
         return true;
     }
     if (_space.kind != "hazard") return true;
-    if (arr_has(_typeDef.traits, "flies_over_hazards")) return (_space.hazard != "height") || !_towardCenter || arr_has(_typeDef.traits, "climbs_height");
+    var _fly = arr_has(_typeDef.traits, "flies_over_hazards");   // winged: ignores GROUND hazards (a TRAIT, not a chip - Rebooting keeps it)
     switch (_space.hazard) {
-        case "height": return !_towardCenter || arr_has(_typeDef.traits, "climbs_height");
-        // yellow (experimental): thrown across a chasm, but only heading toward the
-        // centre - they can't climb back out the far side
-        case "chasm":  return (global.expRules.yellow && _typeDef.id == "yellow" && _towardCenter);
-        // blue (experimental): a lifeguard-covered group crosses water (_waterOk set
-        // by game_lifeguard_ok for the whole move); otherwise only water-immune pass
-        case "water":  return arr_has(_typeDef.immunities, "water") || _waterOk;
-        case "poison": return true;         // non-blocking; damages on pass (game_poison_step)
-        default:       return arr_has(_typeDef.immunities, _space.hazard);
+        // HEIGHT is an ELEMENT/chip (yellow, winged): one-way - free downhill; uphill / toward-centre
+        // needs the Height element (so Rebooting, which suppresses chips, blocks it).
+        case "height": return !_towardCenter || (!_noImm && arr_has(_typeDef.immunities, "height"));
+        // CHASM is only ever a GROUND hazard: winged flies over it; yellow's experimental throw crosses inward.
+        case "chasm":  return _fly || (global.expRules.yellow && _typeDef.id == "yellow" && _towardCenter);
+        // ground element (water/fire/electric/ice): the matching element (chip) OR winged flying over.
+        // blue lifeguard (_waterOk) crosses a covered group over water.
+        case "water":  return (!_noImm && arr_has(_typeDef.immunities, "water")) || _waterOk || _fly;
+        case "poison": return true;         // non-blocking; damages on pass (game_poison_step / poison_resolve)
+        default:       return (!_noImm && arr_has(_typeDef.immunities, _space.hazard)) || _fly;
     }
+}
+
+/// True while the "Rebooting..." event is suppressing elemental immunities this turn.
+function game_no_imm(_g) {
+    return variable_struct_exists(_g, "advNoImmunities") && _g.advNoImmunities;
 }
 
 /// A space is poisonous if it's a poison map-hazard or holds a Poison Emitter.
 function game_space_is_poison(_g, _lane, _idx) {
     var _sp = _g.board.lanes[_lane].spaces[_idx];
+    // a bridge laid over the space carries pikmin ABOVE the poison floor - safe for everyone,
+    // immunity or not (bridging a hazard is exactly what neutralizes it). This is immunity-
+    // independent, so it still protects under the "Rebooting..." (immunities-off) event.
+    if (_sp.structure != undefined && hazard_def_get(_sp.structure.structId).type == "bridge") return false;
     if (_sp.kind == "hazard" && _sp.hazard == "poison") return true;
     if (_sp.structure != undefined) {
         var _d = hazard_def_get(_sp.structure.structId);
@@ -411,10 +567,11 @@ function game_space_is_poison(_g, _lane, _idx) {
     return false;
 }
 
-/// Poison-immune = white/bulbmin (immunity) or winged (flies over).
-function game_type_poison_immune(_typeId) {
+/// Poison-immune = white/bulbmin (immunity) or winged (flies over). _noImm ("Rebooting...")
+/// suppresses the poison IMMUNITY, but winged flight is a TRAIT and still avoids it.
+function game_type_poison_immune(_typeId, _noImm = false) {
     var _d = pikmin_type_get(_typeId);
-    return arr_has(_d.immunities, "poison") || arr_has(_d.traits, "flies_over_hazards");
+    return (!_noImm && arr_has(_d.immunities, "poison")) || arr_has(_d.traits, "flies_over_hazards");
 }
 
 /// Every space an orders move from _src to _dst makes the group EXIT
@@ -480,13 +637,13 @@ function game_dest_legal(_g, _p, _typeId, _lane, _idx, _waterOk = false) {
         var _space = _g.board.lanes[_lane].spaces[_s];
         if (_space.enemy != undefined) return false;                 // fight it, or stop short of it
         if (game_treasure_at(_g, _lane, _s) != undefined) return false;
-        if (!game_type_can_enter(_typeDef, _space, _toward, false, _waterOk)) return false; // wall / non-immune hazard
+        if (!game_type_can_enter(_typeDef, _space, _toward, false, _waterOk, game_no_imm(_g))) return false; // wall / non-immune hazard
         _prevDist = abs(_s - _peak);
         _s += _dir;
         if (_s < 0 || _s >= _laneLen) return false;
     }
     var _towardDest = abs(_idx - _peak) < _prevDist;
-    return game_type_can_enter(_typeDef, _g.board.lanes[_lane].spaces[_idx], _towardDest, true, _waterOk);
+    return game_type_can_enter(_typeDef, _g.board.lanes[_lane].spaces[_idx], _towardDest, true, _waterOk, game_no_imm(_g));
 }
 
 /// Blue lifeguard (experimental): may this move's group cross water? True when the
@@ -542,7 +699,7 @@ function game_can_reach_home(_g, _p, _typeId, _lane, _srcIdx, _waterOk = false) 
         var _space = _g.board.lanes[_lane].spaces[_s];
         if (_space.enemy != undefined) return false;
         if (game_treasure_at(_g, _lane, _s) != undefined) return false;
-        if (!game_type_can_enter(_typeDef, _space, _toward, false, _waterOk)) return false;
+        if (!game_type_can_enter(_typeDef, _space, _toward, false, _waterOk, game_no_imm(_g))) return false;
         _prevDist = abs(_s - _peak);
     }
     return true;
@@ -551,9 +708,14 @@ function game_can_reach_home(_g, _p, _typeId, _lane, _srcIdx, _waterOk = false) 
 /// Can a field token walk straight along its lane from src to dst (no home trip)?
 /// Used for the "attach to a card behind/ahead of you" exception: intermediate
 /// spaces must be standable and unblocked, and the destination enterable/attackable.
-function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx) {
+function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx, _srcSide = 0) {
     if (_srcIdx == _dstIdx) return true;
     var _typeDef = pikmin_type_get(_typeId);
+    // MID-TILE WALL: when the caller knows which half of the src blocker this token
+    // sits on (_srcSide != 0), it can't cross to the far side. Callers that don't
+    // track a side (the human group gate) pass 0 and enforce per-token in the mover.
+    if (_srcSide != 0 && game_tile_blocks_pass(_g, _typeDef, _lane, _srcIdx)
+        && sign(_dstIdx - _srcIdx) != _srcSide) return false;
     var _peak = _g.board.peakRow;
     var _dir = (_dstIdx > _srcIdx) ? 1 : -1;
     var _s = _srcIdx;
@@ -566,8 +728,8 @@ function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx) {
         if (!_isDest) {
             if (_space.enemy != undefined) return false;
             if (game_treasure_at(_g, _lane, _s) != undefined) return false;
-            if (!game_type_can_enter(_typeDef, _space, _toward, false)) return false;
-        } else if (!game_type_can_enter(_typeDef, _space, _toward, true)) {
+            if (!game_type_can_enter(_typeDef, _space, _toward, false, false, game_no_imm(_g))) return false;
+        } else if (!game_type_can_enter(_typeDef, _space, _toward, true, false, game_no_imm(_g))) {
             return false;
         }
         _prevDist = abs(_s - _peak);
@@ -579,9 +741,12 @@ function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx) {
 /// deploy path from home. From home: the usual deploy check. From the field: it
 /// must be able to retreat home AND deploy, OR (if trapped) walk directly to a card
 /// on its own lane. Moving TO home requires being able to reach home at all.
-function game_move_legal(_g, _p, _typeId, _src, _dst, _waterOk = false) {
+function game_move_legal(_g, _p, _typeId, _src, _dst, _waterOk = false, _srcSide = 0) {
     if (_dst.kind == "home") {
         if (_src.kind == "home") return true;
+        // a token pinned to the far (centre) half of a blocker can't retreat across it
+        if (_srcSide != 0 && game_tile_blocks_pass(_g, pikmin_type_get(_typeId), _src.lane, _src.idx)
+            && ((_p == 0) ? -1 : 1) != _srcSide) return false;
         return game_can_reach_home(_g, _p, _typeId, _src.lane, _src.idx, _waterOk);
     }
     if (_src.kind == "home") {
@@ -590,10 +755,12 @@ function game_move_legal(_g, _p, _typeId, _src, _dst, _waterOk = false) {
     // field -> space
     if (game_can_reach_home(_g, _p, _typeId, _src.lane, _src.idx, _waterOk)
         && game_dest_legal(_g, _p, _typeId, _dst.lane, _dst.idx, _waterOk)) return true;
-    // trapped, but may still attach to a card it can walk to along this lane
+    // trapped, but may still walk to any space it can reach along this lane - a card
+    // to attach to, OR an empty space to reposition onto (game_direct_reachable already
+    // proves the destination is standable and nothing blocks the path). _srcSide (when
+    // the caller tracks it) keeps a latched token on its own half of a blocker.
     if (_src.lane == _dst.lane
-        && game_space_has_card(_g, _dst.lane, _dst.idx)
-        && game_direct_reachable(_g, _p, _typeId, _src.lane, _src.idx, _dst.idx)) return true;
+        && game_direct_reachable(_g, _p, _typeId, _src.lane, _src.idx, _dst.idx, _srcSide)) return true;
     return false;
 }
 
@@ -603,9 +770,33 @@ function game_args_loc(_args) {
     return { kind: "space", lane: _args.lane, idx: _args.idx };
 }
 
+// ---------- population history (end-of-run graph) ----------
+
+/// Total population by pikmin type for one seat (home reserves + field, the whole colour count).
+function game_pop_counts(_g, _p) {
+    var _c = {};
+    var _toks = _g.players[_p].tokens;
+    for (var _i = 0; _i < array_length(_toks); _i++) {
+        var _t = _toks[_i].typeId;
+        _c[$ _t] = (variable_struct_exists(_c, _t) ? _c[$ _t] : 0) + 1;
+    }
+    return _c;
+}
+
+/// Append a phase snapshot of every seat's colour counts (skips a no-op duplicate of the last one
+/// with the same label, so repeated gather rolls don't spam points). Guarded for old/partial states.
+function game_pop_snapshot(_g, _label) {
+    if (!variable_struct_exists(_g, "popHistory") || !is_array(_g.popHistory)) _g.popHistory = [];
+    var _seats = [];
+    for (var _p = 0; _p < array_length(_g.players); _p++) array_push(_seats, game_pop_counts(_g, _p));
+    array_push(_g.popHistory, { label: _label, day: _g.dayNumber, seats: _seats });
+}
+
 // ---------- turn flow ----------
 
 function game_begin_turn(_g) {
+    // baseline point at the very start of the game, so every colour's line begins at its kit count
+    if (!variable_struct_exists(_g, "popHistory") || array_length(_g.popHistory) == 0) game_pop_snapshot(_g, "Start");
     _g.phase = "gather";
     _g.soothed = false;   // a Soothe power only lasts the turn it was banked
     _g.dayRawFree = false; _g.dayPelletBonus = false;   // per-turn day-event modifiers (flarlicBonus persists)
@@ -635,6 +826,11 @@ function game_begin_turn(_g) {
         + " (" + string(_g.dayTrack) + "/" + string(_g.dayTrackLength) + ")  score "
         + string(game_realized_score(_g, _g.activePlayer)) + " vs " + string(game_realized_score(_g, 1 - _g.activePlayer)) + " =====");
     game_log(_g, "== Day " + string(_g.dayNumber) + " (" + string(_g.dayTrack) + "/" + string(_g.dayTrackLength) + ") - Player " + string(_g.activePlayer + 1) + "'s turn ==");
+    // AFTER the turn header, fire + log this segment's day-track event (if any). _phaseStart
+    // (round's first player) gates the AUTOMATIC/global events so they land + log once.
+    game_day_track_fire(_g, _g.activePlayer == _g.firstPlayer);
+    // ADVENTURE: draw + apply this turn's random event (replaces the blanked day-track events)
+    game_adv_event_step(_g);
     // remove this player's leftover spray tokens from a previous turn
     var _si = 0;
     while (_si < array_length(_g.sprays)) {
@@ -682,7 +878,7 @@ function game_gather_roll(_g) {
 
 function game_spend_gather_action(_g) {
     _g.gatherActionsLeft -= 1;
-    if (_g.gatherActionsLeft <= 0) _g.phase = "orders"; // phase shown in the UI; no log line
+    if (_g.gatherActionsLeft <= 0) { _g.phase = "orders"; game_pop_snapshot(_g, "Gather"); } // phase shown in the UI; no log line
 }
 
 /// Spaces a token ENTERS along its committed net route (src exclusive, dst inclusive).
@@ -736,6 +932,7 @@ function game_orders_done(_g) {
         game_trace(_g, "ORDERS LOCKED (homeStr left=" + string(_homeStr) + ")");
     }
     _g.phase = "move";
+    game_pop_snapshot(_g, "Orders");
 }
 
 /// Reassign tokens (per-colour counts struct) from _src to _dst. Illegal colours
@@ -747,6 +944,12 @@ function game_order_move(_g, _src, _dst, _counts) {
     // blue lifeguard: decide once for the whole group whether it can ford water
     var _waterOk = game_lifeguard_ok(_g, _p, _dst, _counts);
     var _colors = variable_struct_get_names(_counts);
+    // order-reaction "ah" budget: cap the whole order at ~5 sounds, but GUARANTEE one per type
+    // present (that guarantee can push past 5). Extras beyond the per-type guarantee share what's
+    // left up to 5, spent first-come across the type loop below.
+    var _ahTypes = 0;
+    for (var _c = 0; _c < array_length(_colors); _c++) if (_counts[$ _colors[_c]] > 0) _ahTypes += 1;
+    var _ahExtra = max(0, 5 - _ahTypes);
     for (var _c = 0; _c < array_length(_colors); _c++) {
         var _typeId = _colors[_c];
         var _want = _counts[$ _typeId];
@@ -766,15 +969,51 @@ function game_order_move(_g, _src, _dst, _counts) {
             if (_mn != undefined) array_push(_mineRefs, _mn);
         }
         var _tokens = _g.players[_p].tokens;
+        var _typeDef = pikmin_type_get(_typeId);
+        var _srcBlocks = (_src.kind == "space") && game_tile_blocks_pass(_g, _typeDef, _src.lane, _src.idx, _waterOk);
+        var _homeDir = (_p == 0) ? -1 : 1;   // step direction toward this player's home edge
         var _moved = 0;
+        var _wallBlocked = 0;
         for (var _i = 0; _i < array_length(_tokens) && _moved < _want; _i++) {
             var _tok = _tokens[_i];
             if (_tok.typeId != _typeId || !game_loc_eq(_tok.loc, _src)) continue;
             if (variable_struct_exists(_tok, "stunned") && _tok.stunned > 0) continue; // tossed by a snitchbug
             if (token_is_frozen(_tok)) continue;                                       // iced solid
+            // MID-TILE WALL: a token latched on a blocking card sits on the half it
+            // approached from; it may exit only toward that half. Crossing to the far
+            // side (e.g. past the card it's stuck against) is illegal while the card lives.
+            if (_srcBlocks) {
+                // a move HOME or to ANOTHER LANE routes through the home edge, so it exits toward
+                // home; only a straight in-lane move exits along the lane. (Comparing idx across
+                // different lanes is meaningless - that let a back-side token escape to a forward space.)
+                var _exitDir = (_dst.kind == "home" || _dst.lane != _src.lane) ? _homeDir : sign(_dst.idx - _src.idx);
+                // A TREASURE is CARRIED, not an impassable wall: it only blocks going DEEPER (past it,
+                // toward centre). Retreating toward home is always allowed - the pikmin haul it home or
+                // drop it and leave. A wall/enemy uses the latched half (a token trapped BEHIND it can't
+                // cross back).
+                var _blocked;
+                if (game_treasure_at(_g, _src.lane, _src.idx) != undefined) _blocked = (_exitDir != _homeDir && _dst.kind == "space");
+                else _blocked = (_exitDir != game_token_side(_tok, _p));
+                if (_blocked) { _wallBlocked += 1; continue; }
+            }
             _tok.loc = (_dst.kind == "home") ? { kind: "home" } : { kind: "space", lane: _dst.lane, idx: _dst.idx };
             _tok.movedThisTurn = true;
+            // record which half of a destination card this token now clings to (else clear).
+            // A straight IN-LANE move approaches from where it stood (_src.idx); a HOME deploy OR a
+            // LANE CHANGE routes through home, so it approaches the card from the HOME edge - use that,
+            // not the old lane's idx (which put a cross-lane attacker on the wrong/back half).
+            if (_dst.kind == "space" && game_space_has_card(_g, _dst.lane, _dst.idx)) {
+                var _sameLane = (_src.kind == "space" && _src.lane == _dst.lane);
+                var _fromIdx = _sameLane ? _src.idx : ((_p == 0) ? -1 : array_length(_g.board.lanes[_dst.lane].spaces));
+                _tok.side = sign(_fromIdx - _dst.idx);
+            } else {
+                _tok.side = 0;
+            }
             _moved += 1;
+        }
+        if (_moved == 0 && _wallBlocked > 0) {
+            var _wName = string_upper(string_char_at(_typeId, 1)) + string_delete(_typeId, 1, 1);
+            game_log(_g, _wName + " pikmin can't reach that space.");
         }
         // mines take 1 damage per pikmin that passed them
         for (var _m = 0; _m < array_length(_mineRefs); _m++) game_mine_damage(_g, _mineRefs[_m], _moved);
@@ -783,6 +1022,15 @@ function game_order_move(_g, _src, _dst, _counts) {
             game_trace(_g, "MOVE " + string(_moved) + " " + _typeId + ": "
                 + ((_src.kind == "home") ? "home" : "L" + string(_src.lane + 1) + "i" + string(_src.idx)) + " -> "
                 + ((_dst.kind == "home") ? "home" : "L" + string(_dst.lane + 1) + "i" + string(_dst.idx)));
+            // pikmin REACT to being ordered to a space: a few random "ah"s (capped + offset +
+            // wobbled like combat sfx), pitched by type - winged a touch higher, purple lower.
+            if (_dst.kind == "space") {
+                var _ahP = (_typeId == "winged") ? 1.12 : ((_typeId == "purple") ? 0.88 : ((_typeId == "white") ? 0.94 : 1.0));
+                game_sfx(_g, "ah" + string(irandom_range(1, 13)), 5, _dst.lane, _dst.idx, _ahP); // guaranteed one for this type
+                var _ahMore = min(_moved - 1, _ahExtra);   // extras from the shared budget (total capped ~5)
+                _ahExtra -= _ahMore;
+                repeat (_ahMore) game_sfx(_g, "ah" + string(irandom_range(1, 13)), 5, _dst.lane, _dst.idx, _ahP);
+            }
         }
     }
     return _movedAny;
@@ -816,16 +1064,33 @@ function game_order_discard(_g, _src, _counts) {
             if (_mn != undefined) array_push(_mineRefs, _mn);
         }
         var _tokens = _g.players[_p].tokens;
+        // MID-TILE WALL: reaching the Onion is a retreat HOME - a token latched on the far
+        // (centre) half of a blocker can't cross it to get there. (game_can_reach_home skips
+        // the src tile's own card, so the group gate above passes; enforce per-token here.)
+        var _srcBlocks = (_src.kind == "space") && game_tile_blocks_pass(_g, pikmin_type_get(_typeId), _src.lane, _src.idx, _waterOk);
+        var _homeDir = (_p == 0) ? -1 : 1;
         var _n = 0;
         var _i = 0;
         while (_i < array_length(_tokens) && _n < _want) {
             var _tok = _tokens[_i];
-            if (_tok.typeId == _typeId && game_loc_eq(_tok.loc, _src) && !token_is_disabled(_tok)) {
-                array_delete(_tokens, _i, 1);
+            var _match = (_tok.typeId == _typeId && game_loc_eq(_tok.loc, _src) && !token_is_disabled(_tok)
+                && !(_srcBlocks && game_token_side(_tok, _p) != _homeDir));
+            if (_match && global.expRules.anims) {
+                // animated game: retarget its loc to the Onion so the presentation WALKS it home (reusing
+                // the normal per-token walk) and poofs it on arrival (Draw shrink -> Step sweep fires
+                // game_fx_onion + sfxPikDiscard + delete). loc "onion" matches no home/space query, so it's
+                // auto-excluded from re-selection/move; it still counts toward the pikmin cap until it
+                // disappears at the Onion (so the tally drops on arrival, not at click time).
+                _tok.loc = { kind: "onion" };
+                _tok.onionShrink = 0;
                 _n += 1;
-                continue;
+                _i += 1;
+            } else if (_match) {
+                array_delete(_tokens, _i, 1);   // headless (batch/sim/tournament AI): remove now, no walk
+                _n += 1;
+            } else {
+                _i += 1;
             }
-            _i += 1;
         }
         for (var _m = 0; _m < array_length(_mineRefs); _m++) game_mine_damage(_g, _mineRefs[_m], _n);
         if (_n > 0) {
@@ -859,18 +1124,28 @@ function game_bulbmin_count(_g, _p) {
     return _n;
 }
 
+/// Player _p's current pikmin board cap: the base rule cap plus any FLARLIC day-event boosts
+/// that player has banked over the match (persistent, per-player).
+function game_pikmin_cap(_g, _p) {
+    var _fb = variable_struct_exists(_g.players[_p], "flarlicBonus") ? _g.players[_p].flarlicBonus : 0;
+    return global.rules.pikminBoardCap + _fb;
+}
+
 function game_play_pellet(_g, _handIdx, _chosenColor) {
     if (_g.phase != "orders") return;
+    // ADVENTURE "Weak Soil" event: pellet cards can't be redeemed this turn
+    if (variable_struct_exists(_g, "advNoPellets") && _g.advNoPellets) { game_log(_g, "Weak Soil: you can't redeem pellets this turn."); return; }
     var _pl = _g.players[_g.activePlayer];
     if (_handIdx < 0 || _handIdx >= array_length(_pl.pellets)) return;
     if (!arr_has(_g.boardDef.basicColors, _chosenColor)) return;
     var _def = pellet_def_get(_pl.pellets[_handIdx]);
     var _amount = (_chosenColor == _def.color) ? _def.sameTypeAmount : _def.offTypeAmount;
-    var _cap = global.rules.pikminBoardCap;
+    if (_g.dayPelletBonus) _amount += 1;   // PELLET day event: pellets give 1 more pikmin this turn
+    var _cap = game_pikmin_cap(_g, _g.activePlayer);
     var _room = _cap - game_capped_count(_g, _g.activePlayer);
     var _grant = min(_amount, max(0, _room));
     repeat (_grant) array_push(_pl.tokens, { typeId: _chosenColor, loc: { kind: "home" } });
-    if (_grant < _amount) game_log(_g, string(_amount - _grant) + " pikmin wasted (25 token cap).");
+    if (_grant < _amount) game_log(_g, string(_amount - _grant) + " pikmin wasted (cap " + string(_cap) + ").");
     array_delete(_pl.pellets, _handIdx, 1);
     game_log(_g, "P" + string(_g.activePlayer + 1) + " redeems " + _def.name + " for " + string(_grant) + " " + _chosenColor + " pikmin.");
 }
@@ -889,7 +1164,7 @@ function game_discard_gather_card(_g, _handIdx) {
 /// the cap (they exist separately). Returns how many were granted.
 function game_grant_pikmin(_g, _p, _typeId, _n, _loc = undefined) {
     var _pl = _g.players[_p];
-    var _grant = (_typeId == "bulbmin") ? _n : min(_n, max(0, global.rules.pikminBoardCap - game_capped_count(_g, _p)));
+    var _grant = (_typeId == "bulbmin") ? _n : min(_n, max(0, game_pikmin_cap(_g, _p) - game_capped_count(_g, _p)));
     repeat (_grant) {
         var _where = (_loc == undefined || _loc.kind == "home") ? { kind: "home" } : { kind: "space", lane: _loc.lane, idx: _loc.idx };
         var _startAt = (_where.kind == "home") ? { kind: "home" } : { kind: "space", lane: _where.lane, idx: _where.idx };
@@ -952,6 +1227,9 @@ function game_discard_tokens_pay(_g, _p, _loc, _pay) {
 /// Drawn bosses go to the richest bossless pile as usual.
 function game_spawn_enemy_at(_g, _lane, _idx) {
     var _space = _g.board.lanes[_lane].spaces[_idx];
+    // never spawn onto a space already occupied by a CARD - an enemy, a structure (wall/bridge/
+    // emitter), or a treasure pile. An emitter on an enemy space keeps it from spawning.
+    if (_space.enemy != undefined || _space.structure != undefined || game_treasure_at(_g, _lane, _idx) != undefined) return false;
     game_enemy_deck_ensure(_g);
     var _noBosses = (global.expRules.bossCap == 0);
     if (_noBosses) {   // guard: if bosses are disabled and only bosses remain, don't loop forever
@@ -1016,6 +1294,10 @@ function game_play_gather(_g, _handIdx, _args) {
         return false;
     }
 
+    // track the play in the log with a chipped card name - easy to follow what the opponent does
+    // even if you miss the board animation. (chr(2) markers = the log renderer's card-name chip.)
+    game_log(_g, "P" + string(_p + 1) + " plays " + chr(2) + gather_display_name(_cardId) + chr(2) + ".");
+
     switch (_effectId) {
 
         case "colorchangingposy": {
@@ -1027,12 +1309,15 @@ function game_play_gather(_g, _handIdx, _args) {
         }
 
         case "rawmaterial": {
-            // needs a second copy in hand (a clone counts as one of the pair)
+            // needs a second copy in hand (a clone counts as one of the pair) - UNLESS the RAW
+            // day event is active, which drops the cost to a single Raw Material this turn.
             var _copies = 0;
             for (var _i = 0; _i < array_length(_pl.hand); _i++) {
                 if (_pl.hand[_i] == "rawmaterial") _copies += 1;
             }
-            if (_copies < ((_cardId == "captainclone") ? 1 : 2)) {
+            var _needRaw = (_cardId == "captainclone") ? 1 : 2;
+            if (_g.dayRawFree) _needRaw -= 1;   // RAW day event: build for one fewer Raw Material
+            if (_copies < _needRaw) {
                 game_log(_g, "Raw Material needs a second copy to build with.");
                 return false;
             }
@@ -1047,11 +1332,13 @@ function game_play_gather(_g, _handIdx, _args) {
             if (_args.build == "tunnel" && _space.hazard != "chasm") { game_log(_g, "Tunnels only go on chasm spaces."); return false; }
             _space.structure = { structId: _args.build, curHp: _bDef.hp };
             game_discard_gather_card(_g, _handIdx);
-            // burn the second raw material
-            for (var _i = 0; _i < array_length(_pl.hand); _i++) {
-                if (_pl.hand[_i] == "rawmaterial") { game_discard_gather_card(_g, _i); break; }
+            // burn the second raw material (skipped when the RAW day event halves the cost)
+            if (!_g.dayRawFree) {
+                for (var _i = 0; _i < array_length(_pl.hand); _i++) {
+                    if (_pl.hand[_i] == "rawmaterial") { game_discard_gather_card(_g, _i); break; }
+                }
             }
-            game_log(_g, "P" + string(_p + 1) + " builds a " + _bDef.name + "!");
+            game_log(_g, "P" + string(_p + 1) + " builds a " + _bDef.name + (_g.dayRawFree ? " (RAW: half cost)!" : "!"));
             return true;
         }
 
@@ -1178,15 +1465,15 @@ function game_play_gather(_g, _handIdx, _args) {
             for (var _i = 0; _i < array_length(_g.treasures); _i++) {
                 if (_g.treasures[_i].lane == _args.lane) { _t = _g.treasures[_i]; break; }
             }
-            if (_t == undefined || _t.boss != undefined) return false;
+            if (_t == undefined || _t.boss != undefined) { game_sfx(_g, "sfxError"); return false; }
             // treasure must not be on your side (the treasure space counts as yours)
-            if (_p == 0 && _t.idx <= 3) { game_log(_g, "That treasure is already on your side."); return false; }
-            if (_p == 1 && _t.idx >= 3) { game_log(_g, "That treasure is already on your side."); return false; }
+            if (_p == 0 && _t.idx <= 3) { game_sfx(_g, "sfxError"); game_log(_g, "That treasure is already on your side."); return false; }
+            if (_p == 1 && _t.idx >= 3) { game_sfx(_g, "sfxError"); game_log(_g, "That treasure is already on your side."); return false; }
             // lane must be clear between your end and the treasure (bridges don't block)
             var _dir = (_p == 0) ? 1 : -1;
             var _s = (_p == 0) ? 0 : 6;
             while (_s != _t.idx) {
-                if (game_space_has_card(_g, _args.lane, _s)) { game_log(_g, "That lane isn't clear."); return false; }
+                if (game_space_has_card(_g, _args.lane, _s)) { game_sfx(_g, "sfxError"); game_log(_g, "That lane isn't clear."); return false; }
                 _s += _dir;
             }
             // rush: move two spaces toward you, riders and all, ignoring hazards ("not passed")
@@ -1194,10 +1481,14 @@ function game_play_gather(_g, _handIdx, _args) {
                 var _newIdx = _t.idx - _dir;
                 for (var _q = 0; _q < 2; _q++) {
                     var _riders = game_tokens_at(_g, _q, { kind: "space", lane: _t.lane, idx: _t.idx });
-                    for (var _r = 0; _r < array_length(_riders); _r++) _riders[_r].loc = { kind: "space", lane: _t.lane, idx: _newIdx };
+                    for (var _r = 0; _r < array_length(_riders); _r++) {
+                        _riders[_r].loc = { kind: "space", lane: _t.lane, idx: _newIdx };
+                        game_token_blown(_g, _riders[_r], _t.lane, _newIdx); // the charge drags them - slide, don't walk
+                    }
                 }
                 _t.idx = _newIdx;
             }
+            _t.rushSlide = true;   // render hint: the pile slides fast (BLOWN_SLIDE) to keep up with the shoved pikmin
             game_discard_gather_card(_g, _handIdx);
             game_log(_g, "Oatchi Rush! The treasure charges two spaces toward P" + string(_p + 1) + "!");
             return true;
@@ -1347,13 +1638,13 @@ function game_resolve_moves(_g) {
     for (var _li = 0; _li < _g.board.laneCount && !_hasSwift; _li++) {
         for (var _si2 = 0; _si2 < array_length(_g.board.lanes[_li].spaces) && !_hasSwift; _si2++) {
             var _se = _g.board.lanes[_li].spaces[_si2].enemy;
-            if (_se != undefined && !_se.dead && enemy_def_get(_se.enemyDefId).attackElement == "swift"
+            if (_se != undefined && !_se.dead && game_enemy_def_eff(_g, _se.enemyDefId).attackElement == "swift"
                 && array_length(game_tokens_at(_g, _p, { kind: "space", lane: _li, idx: _si2 })) > 0) _hasSwift = true;
         }
     }
     for (var _ti = 0; _ti < array_length(_g.treasures) && !_hasSwift; _ti++) {
         var _tb = _g.treasures[_ti].boss;
-        if (_tb != undefined && !_tb.dead && enemy_def_get(_tb.enemyDefId).attackElement == "swift"
+        if (_tb != undefined && !_tb.dead && game_enemy_def_eff(_g, _tb.enemyDefId).attackElement == "swift"
             && array_length(game_tokens_at(_g, _p, { kind: "space", lane: _g.treasures[_ti].lane, idx: _g.treasures[_ti].idx })) > 0) _hasSwift = true;
     }
     if (_hasSwift) { array_push(_q, "jumpSwift"); }
@@ -1558,7 +1849,7 @@ function game_poison_resolve(_g, _p) {
         while (_i < array_length(_tokens)) {
             var _tok = _tokens[_i];
             if (variable_struct_exists(_tok, "poisonSpaces") && arr_has(_tok.poisonSpaces, _key)
-                && !game_type_poison_immune(_tok.typeId)
+                && !game_type_poison_immune(_tok.typeId, game_no_imm(_g))
                 && !variable_struct_exists(_colourDone, _tok.typeId)) {
                 _colourDone[$ _tok.typeId] = true;
                 if (_tok.loc.kind == "space") game_fx_pik(_g, _tok, _tok.loc.lane, _tok.loc.idx);
@@ -1599,6 +1890,13 @@ function game_carriers_have_purple(_g, _p, _t) {
     return false;
 }
 
+/// Does this pile hold a HEAVY treasure? Such a pile needs a purple pikmin among its carriers to move.
+function game_pile_has_heavy(_g, _t) {
+    for (var _c = 0; _c < array_length(_t.cards); _c++)
+        if (treasure_def_get(_t.cards[_c]).effectName == "Heavy") return true;
+    return false;
+}
+
 function game_carry_step(_g, _p, _sprayedOnly = false) {
     var _i = 0;
     while (_i < array_length(_g.treasures)) {
@@ -1609,9 +1907,16 @@ function game_carry_step(_g, _p, _sprayedOnly = false) {
             var _topDef = treasure_def_get(_t.cards[array_length(_t.cards) - 1]);
             var _own = game_strength_at(_g, _p, _t.lane, _t.idx);
             var _opp = game_strength_at(_g, 1 - _p, _t.lane, _t.idx);
+            // ADVENTURE "What's This Made Of?!?" event: piles weigh +3 more THIS turn.
+            var _wgt = _topDef.weight + (variable_struct_exists(_g, "advTreasureHeavier") ? _g.advTreasureHeavier : 0);
             // the spray's EXTRA action is what overcomes a stalemate: ties only
             // move during the sprayed bonus pass (so tied = 1 space, untied = 2)
-            if (_own >= _topDef.weight && (_own > _opp || (_sprayedOnly && _spiced && _own == _opp && _own > 0))) {
+            // HEAVY treasure power: a pile holding a Heavy piece won't budge without a purple
+            // pikmin among the carriers, no matter how much other power is on it.
+            if (_own >= _wgt && game_pile_has_heavy(_g, _t) && !game_carriers_have_purple(_g, _p, _t)) {
+                if (!_sprayedOnly) game_log(_g, _topDef.name + " is too heavy - it needs a purple pikmin to move!");
+            } else
+            if (_own >= _wgt && (_own > _opp || (_sprayedOnly && _spiced && _own == _opp && _own > 0))) {
                 // 2 spaces if an all-white team hauls it, OR (experimental "rush")
                 // when the carrying power is at least double the pile's weight. Rush is
                 // denied if a purple anchors the stack (strong yet slow), OR the
@@ -1619,7 +1924,7 @@ function game_carry_step(_g, _p, _sprayedOnly = false) {
                 // can't rush a treasure that's being pulled against, only inch it.
                 var _steps = 1;
                 if (game_carriers_all_white(_g, _p, _t)) _steps = 2;
-                if (global.expRules.rush && _own >= _topDef.weight * 2 && _opp < _topDef.weight
+                if (global.expRules.rush && _own >= _wgt * 2 && _opp < _wgt
                     && !game_carriers_have_purple(_g, _p, _t)) {
                     _steps = 2;
                     _t.rushMove = true; // render hint: animate this haul at walking pace, not a heavy lumber
@@ -1630,7 +1935,7 @@ function game_carry_step(_g, _p, _sprayedOnly = false) {
                     if (_result == "collected") { _removed = true; break; }
                     if (_result == "stalled") break;
                 }
-            } else if (_own > 0 && _own == _opp && _own >= _topDef.weight) {
+            } else if (_own > 0 && _own == _opp && _own >= _wgt) {
                 game_log(_g, _topDef.name + ": carry stalemate!");
             }
         }
@@ -1668,6 +1973,12 @@ function game_carry_one_space(_g, _p, _t) {
         game_sfx(_g, "sfxBank", 1, _t.lane, _oldIdx);   // multiple piles bank together - don't stack, it's loud
         // on-bank powers fire NOW (deterministic, before the enemy beat) - see game_treasure_bank_effects
         game_treasure_bank_effects(_g, _p, _t.cards);
+        // adventure "1 day per treasure gathered" economy (Glutton's): banking a pile buys +1 day of
+        // budget for THIS mission - extends the day limit as you collect (leftover carries at clear).
+        if (variable_struct_exists(_g, "advDayPerTreasure") && _g.advDayPerTreasure) {
+            _g.dayLimit += 1;
+            game_log(_g, "A treasure is banked - +1 day! (" + string(_g.dayLimit) + " total)");
+        }
         // no log here - the pile animates home and the bank line reports the score
         for (var _q = 0; _q < 2; _q++) {
             var _riders = game_tokens_at(_g, _q, _hereLoc);
@@ -1781,6 +2092,16 @@ function game_flush_departing(_g) {
     while (array_length(_g.departing) > 0) game_finalize_departing(_g, _g.departing[0]);
 }
 
+/// Remove any pikmin still walking to the Onion (loc "onion") that hasn't poofed yet - used
+/// at game over / whenever presentation may stop mid-walk, so a discard can't strand a token.
+function game_flush_onion(_g) {
+    for (var _p = 0; _p < array_length(_g.players); _p++) {
+        var _toks = _g.players[_p].tokens;
+        for (var _i = array_length(_toks) - 1; _i >= 0; _i--)
+            if (_toks[_i].loc.kind == "onion") array_delete(_toks, _i, 1);
+    }
+}
+
 // ========================= TREASURE ON-BANK POWERS =========================
 // A subset of treasures carry a Good/Bad power (effectType/effectName/effect in treasures.json - the
 // shared ALL1/ALL2 sets). When a pile is banked, each such card in it fires its power for the banking
@@ -1847,10 +2168,10 @@ function game_power_discard_enemy(_g, _mode) {
             if (_b != undefined && !_b.dead && _b.curHp > _bestHp) { _bestHp = _b.curHp; _target = { id: _b.enemyDefId, tre: _t, boss: true }; }
         }
     }
-    if (_target == undefined) return false;
+    if (_target == undefined) return "";
     if (_target.boss) { var _tt = _g.treasures[_target.tre]; game_fx_enemy(_g, _target.id, _tt.lane, _tt.idx, true); array_push(_g.decks.enemyDiscard, _target.id); _tt.boss = undefined; }
     else { game_power_discard_a(_g, _target.id, _target.lane, _target.idx); _g.board.lanes[_target.lane].spaces[_target.idx].enemy = undefined; }
-    return true;
+    return _target.id;   // the discarded enemy's defId ("" = none), so the toast can show its card
 }
 /// Discard every field enemy in the lane with the most of them. Returns the lane idx, or -1.
 function game_power_clear_lane(_g) {
@@ -1929,11 +2250,62 @@ function game_treasure_bank_effects(_g, _p, _cards) {
     }
 }
 
+// ---- Reveal power: the opponent picks a pile on the board + which card sits on top ----
+/// Any reorderable pile? (2+ cards, not boss-guarded).
+function game_reveal_any_pile(_g) {
+    for (var _i = 0; _i < array_length(_g.treasures); _i++)
+        if (_g.treasures[_i].boss == undefined && array_length(_g.treasures[_i].cards) >= 2) return true;
+    return false;
+}
+/// Is (lane,idx) a legal pile to reorder RIGHT NOW (pile-pick phase of a pending Reveal)?
+function game_reveal_pile_ok(_g, _lane, _idx) {
+    if (_g.pendingReveal == undefined || _g.pendingReveal.lane >= 0) return false;
+    var _t = game_treasure_at(_g, _lane, _idx);
+    return (_t != undefined && _t.boss == undefined && array_length(_t.cards) >= 2);
+}
+/// Commit the chosen pile (advance to the card-pick phase).
+function game_reveal_pick_pile(_g, _lane, _idx) {
+    if (!game_reveal_pile_ok(_g, _lane, _idx)) return false;
+    _g.pendingReveal.lane = _lane; _g.pendingReveal.idx = _idx;
+    return true;
+}
+/// Move the chosen card to the TOP of the picked pile, then clear the pending Reveal.
+function game_reveal_pick_card(_g, _cardIdx) {
+    if (_g.pendingReveal == undefined || _g.pendingReveal.lane < 0) return false;
+    var _t = game_treasure_at(_g, _g.pendingReveal.lane, _g.pendingReveal.idx);
+    if (_t == undefined || _cardIdx < 0 || _cardIdx >= array_length(_t.cards)) return false;
+    var _card = _t.cards[_cardIdx];
+    array_delete(_t.cards, _cardIdx, 1);
+    array_push(_t.cards, _card);   // top = last
+    game_log(_g, "P" + string(_g.pendingReveal.chooser + 1) + " surfaces " + treasure_def_get(_card).name + " atop the pile.");
+    _g.pendingReveal = undefined;
+    return true;
+}
+/// AI / sim auto-resolve: pick the pile with the heaviest card and surface that card (hurts the carrier).
+function game_reveal_auto(_g) {
+    if (_g.pendingReveal == undefined) return;
+    var _bestI = -1, _bestW = -1, _bestC = 0;
+    for (var _i = 0; _i < array_length(_g.treasures); _i++) {
+        var _t = _g.treasures[_i];
+        if (_t.boss != undefined || array_length(_t.cards) < 2) continue;
+        for (var _c = 0; _c < array_length(_t.cards); _c++) {
+            var _w = treasure_def_get(_t.cards[_c]).weight;
+            if (_w > _bestW) { _bestW = _w; _bestI = _i; _bestC = _c; }
+        }
+    }
+    if (_bestI < 0) { _g.pendingReveal = undefined; return; }
+    _g.pendingReveal.lane = _g.treasures[_bestI].lane; _g.pendingReveal.idx = _g.treasures[_bestI].idx;
+    game_reveal_pick_card(_g, _bestC);
+}
+
 function game_treasure_power_apply(_g, _p, _def) {
     var _opp = game_opp(_g, _p);
-    var _tag = "[" + _def.effectType + " power] " + _def.name + " (" + _def.effectName + "): ";
-    // cosmetic cue -> the renderer pops a toast (title = power name, body = effect text)
-    array_push(_g.bankCues, { name: _def.effectName, effect: _def.effect, good: (_def.effectType == "Good") });
+    var _tag = "[" + _def.effectType + "] " + _def.name + " (" + _def.effectName + "): ";   // [Good]/[Bad] badge, coloured by the log renderer
+    // cosmetic cue -> the renderer pops a toast (title = power name, body = effect text). Cases
+    // below fill _cue.outcome for the mini bubble: {kind:"card", cardId} shows a card thumbnail,
+    // {kind:"text", text} shows a small label (e.g. a coin flip). undefined = no bubble.
+    var _cue = { name: _def.effectName, effect: _def.effect, good: (_def.effectType == "Good"), outcome: undefined };
+    array_push(_g.bankCues, _cue);
     game_sfx(_g, "sfxBankEffect", 1);   // several effects can fire at once - don't stack
     switch (_def.effectName) {
         case "Reverse":
@@ -1941,7 +2313,12 @@ function game_treasure_power_apply(_g, _p, _def) {
             game_log(_g, _tag + "day track moves back to " + string(_g.dayTrack) + ".");
             break;
         case "Glutton": case "Scatter": {
-            var _n = array_length(_g.players[_p].tokens);
+            var _wtoks = _g.players[_p].tokens;
+            var _n = array_length(_wtoks);
+            for (var _wi = 0; _wi < _n; _wi++) {
+                var _wtk = _wtoks[_wi];
+                if (_wtk.loc.kind == "space") game_fx_pik(_g, _wtk, _wtk.loc.lane, _wtk.loc.idx); // souls rise from the field
+            }
             _g.players[_p].tokens = [];
             game_log(_g, _tag + "P" + string(_p + 1) + " loses all " + string(_n) + " of their pikmin!");
             break;
@@ -1950,14 +2327,21 @@ function game_treasure_power_apply(_g, _p, _def) {
             _g.soothed = true;
             game_log(_g, _tag + "enemies won't attack this turn.");
             break;
-        case "Deafen":
-            game_log(_g, _tag + (game_power_discard_enemy(_g, "boss") ? "a boss is discarded." : "no boss to discard."));
+        case "Deafen": {
+            var _dbid = game_power_discard_enemy(_g, "boss");
+            if (_dbid != "") _cue.outcome = { kind: "card", cardId: card_enemy_alias(_dbid, _g.boardDef.setNumber) };
+            game_log(_g, _tag + (_dbid != "" ? "a boss is discarded." : "no boss to discard."));
             break;
-        case "Spook":
-            game_log(_g, _tag + (game_power_discard_enemy(_g, "field") ? "an enemy is discarded." : "no enemy to discard."));
+        }
+        case "Spook": {
+            var _sbid = game_power_discard_enemy(_g, "field");
+            if (_sbid != "") _cue.outcome = { kind: "card", cardId: card_enemy_alias(_sbid, _g.boardDef.setNumber) };
+            game_log(_g, _tag + (_sbid != "" ? "an enemy is discarded." : "no enemy to discard."));
             break;
+        }
         case "Clear": {
             var _ln = game_power_clear_lane(_g);
+            if (_ln >= 0) _cue.outcome = { kind: "text", text: "Lane " + string(_ln + 1) };
             game_log(_g, _tag + (_ln >= 0 ? ("all enemies in lane " + string(_ln + 1) + " discarded.") : "no enemies to clear."));
             break;
         }
@@ -1965,21 +2349,26 @@ function game_treasure_power_apply(_g, _p, _def) {
             if (_opp < 0) { game_log(_g, _tag + "no opponent (solo) - no effect."); break; }
             if (array_length(_g.players[_opp].hand) > 0) {
                 var _ri = irandom(array_length(_g.players[_opp].hand) - 1);
-                array_push(_g.players[_p].hand, _g.players[_opp].hand[_ri]);
+                var _took = _g.players[_opp].hand[_ri];
+                array_push(_g.players[_p].hand, _took);
                 array_delete(_g.players[_opp].hand, _ri, 1);
+                _cue.outcome = { kind: "card", cardId: _took };   // toast shows the stolen card
                 game_log(_g, _tag + "P" + string(_p + 1) + " takes a card from P" + string(_opp + 1) + "'s hand.");
             } else game_log(_g, _tag + "opponent's hand is empty.");
             break;
         case "Gamble": {
-            if (irandom(1) == 0) { game_log(_g, _tag + "coin flip: tails - nothing."); break; }
+            if (irandom(1) == 0) { _cue.outcome = { kind: "text", text: "Tails" }; game_log(_g, _tag + "coin flip: tails - nothing."); break; }
             var _txt = _def.effect;
             var _cnt = (string_pos("2 ", _txt) > 0) ? 2 : 1;
             var _kind = (string_pos("pellet", _txt) > 0) ? "pellet" : ((string_pos("treasure", _txt) > 0) ? "treasure" : "gather");
+            var _lastCard = "";
             repeat (_cnt) {
                 if (_kind == "pellet") game_power_draw_pellet(_g, _p);
-                else if (_kind == "treasure") game_power_grant_treasure(_g, _p);
-                else game_power_draw_gather(_g, _p);
+                else if (_kind == "treasure") { if (game_power_grant_treasure(_g, _p)) _lastCard = _g.players[_p].collected[array_length(_g.players[_p].collected) - 1]; }
+                else { if (game_power_draw_gather(_g, _p)) _lastCard = _g.players[_p].hand[array_length(_g.players[_p].hand) - 1]; }
             }
+            // heads: show the drawn card (gather/treasure); pellets have no card art, so just the flip
+            _cue.outcome = (_lastCard != "") ? { kind: "card", cardId: _lastCard } : { kind: "text", text: "Heads!" };
             game_log(_g, _tag + "coin flip: heads - P" + string(_p + 1) + " draws " + string(_cnt) + " " + _kind + " card(s).");
             break;
         }
@@ -1988,6 +2377,7 @@ function game_treasure_power_apply(_g, _p, _def) {
             for (var _i = 0; _i < array_length(_g.decks.gather); _i++) {
                 if (_g.decks.gather[_i] == "oatchirush") { array_delete(_g.decks.gather, _i, 1); array_push(_g.players[_p].hand, "oatchirush"); _found = true; break; }
             }
+            if (_found) _cue.outcome = { kind: "card", cardId: "oatchirush" };
             game_log(_g, _tag + (_found ? "found an Oatchi Rush in the deck." : "no Oatchi Rush in the deck."));
             break;
         }
@@ -2014,14 +2404,29 @@ function game_treasure_power_apply(_g, _p, _def) {
             break;
         case "Find":
             if (_opp < 0) { game_log(_g, _tag + "no opponent (solo) - no effect."); break; }
-            game_power_grant_treasure(_g, _opp);
+            if (game_power_grant_treasure(_g, _opp)) _cue.outcome = { kind: "card", cardId: _g.players[_opp].collected[array_length(_g.players[_opp].collected) - 1] };
             game_log(_g, _tag + "opponent draws a free treasure.");
             break;
         // --- first-pass stubs (need a target picker / set-scoring / carry rules); logged, no state change ---
-        case "Spy":     game_log(_g, _tag + "(peek at opponent's hand - not yet wired)"); break;
-        case "Reveal":  game_log(_g, _tag + "(opponent reorders a pile - not yet wired)"); break;
-        case "Wild":    game_log(_g, _tag + "(counts as any set - set-scoring not yet wired)"); break;
-        case "Glow Up": game_log(_g, _tag + "(sub-100p treasures worth +100 - not yet wired)"); break;
+        case "Spy":
+            if (_opp < 0) { game_log(_g, _tag + "no opponent (solo) - no effect."); break; }
+            _g.pendingSpy = { viewer: _p };   // controller shows the viewer a one-time modal of the opponent's hand
+            game_log(_g, _tag + "P" + string(_p + 1) + " peeks at P" + string(_opp + 1) + "'s hand.");
+            break;
+        case "Reveal":
+            if (_opp < 0) { game_log(_g, _tag + "no opponent (solo) - no effect."); break; }
+            _g.pendingReveal = { chooser: _opp, lane: -1, idx: -1 };   // opponent picks a pile + its new top card
+            if (!game_reveal_any_pile(_g)) { _g.pendingReveal = undefined; game_log(_g, _tag + "no reorderable pile on the board."); }
+            else game_log(_g, _tag + "P" + string(_opp + 1) + " picks a new top card for a pile.");
+            break;
+        case "Wild":
+            _g.players[_p].wildCount += 1;   // a wildcard set-member (persists); completes an incomplete set at scoring
+            game_log(_g, _tag + "counts as any set - completes your highest incomplete set.");
+            break;
+        case "Glow Up":
+            _g.players[_p].glowUp = true;    // persistent: your sub-100p treasures score +100
+            game_log(_g, _tag + "your treasures under 100p now score +100.");
+            break;
         case "Heavy":   break;   // a CARRY restriction (needs a purple to move), not an on-bank effect
         default:        game_log(_g, _tag + "(unrecognized power)"); break;
     }
@@ -2032,6 +2437,7 @@ function game_treasure_power_apply(_g, _p, _def) {
 /// haul banks before the result shows). Idempotent-ish via the controller's flag.
 function game_finalize_gameover(_g) {
     game_flush_departing(_g);
+    game_flush_onion(_g);
     var _s0 = game_realized_score(_g, 0);
     var _s1 = game_realized_score(_g, 1);
     _g.winner = (_s0 == _s1) ? -1 : ((_s0 > _s1) ? 0 : 1);
@@ -2060,10 +2466,11 @@ function game_kill_tokens(_g, _p, _lane, _idx, _n, _enemyDef, _f) {
             if (game_loc_eq(_tok.loc, _loc) && pikmin_kill_priority(_tok.typeId) == _prio) {
                 var _typeDef = pikmin_type_get(_tok.typeId);
                 var _immune = false;
-                if (_enemyDef.attackElement != "" && arr_has(_typeDef.immunities, _enemyDef.attackElement)) _immune = true;
+                var _immOff = variable_struct_exists(_g, "advNoImmunities") && _g.advNoImmunities;   // "Rebooting..." event
+                if (!_immOff && _enemyDef.attackElement != "" && arr_has(_typeDef.immunities, _enemyDef.attackElement)) _immune = true;
                 if (!_immune) {
                     if (_tok.typeId == "white") _whiteRevenge += 1;
-                    game_fx_pik(_g, _tok, _lane, _idx);
+                    game_fx_pik(_g, _tok, _lane, _idx, _enemyDef.attackElement == "crush");
                     array_delete(_tokens, _i, 1);
                     _killed += 1;
                     continue;
@@ -2170,6 +2577,15 @@ function game_stun_tokens(_g, _p, _lane, _idx, _n) {
     return _stunned;
 }
 
+/// Mark a token BLOWN - shoved by an enemy (tossed / dragged) or an Oatchi Rush, not
+/// walking under its own power. The renderer freezes its walk bob and SLIDES it to the
+/// new spot, and it yelps a panicked, pitched-up scream. Cosmetic only - the engine never
+/// reads `.blown` (the loc has already been set by the caller); it clears itself on arrival.
+function game_token_blown(_g, _tok, _lane, _idx) {
+    _tok.blown = true;
+    game_sfx(_g, "fall1", 4, _lane, _idx); // the scream/tumble - capped ~4 voices, the drain staggers + pitch-spreads them
+}
+
 /// Blowhog family: its "kills" are blow-backs - the tokens survive but return HOME.
 function game_toss_home_tokens(_g, _p, _lane, _idx, _n) {
     var _loc = { kind: "space", lane: _lane, idx: _idx };
@@ -2179,7 +2595,7 @@ function game_toss_home_tokens(_g, _p, _lane, _idx, _n) {
         var _tok = _tokens[_i];
         if (!game_loc_eq(_tok.loc, _loc)) continue;
         _tok.loc = { kind: "home" };
-        game_sfx(_g, "fall1", 8, _lane, _idx); // blown off - the fall/tumble sound (staggered + pitched in the drain)
+        game_token_blown(_g, _tok, _lane, _idx); // freeze-and-slide + scream (fall1), sells the blow-back
         _tossed += 1;
     }
     if (_tossed > 0) game_log(_g, string(_tossed) + " of P" + string(_p + 1) + "'s pikmin are blown all the way back HOME!");
@@ -2202,18 +2618,20 @@ function game_toss_lane_tokens(_g, _p, _lane, _idx, _n, _dir) {
         if (!game_loc_eq(_tok.loc, _loc)) { _i += 1; continue; }
         _tossed += 1;
         if (_offBoard) {
-            if (_g.boardDef.killedIfThrownOut) { game_sfx(_g, "fall1", 8, _lane, _idx); array_delete(_tokens, _i, 1); _killed += 1; continue; }
+            if (_g.boardDef.killedIfThrownOut) { game_sfx(_g, "fall1", 4, _lane, _idx); game_fx_pik(_g, _tok, _lane, _idx); array_delete(_tokens, _i, 1); _killed += 1; continue; }
             _i += 1; // clings to the edge, stays put - NO fall sound (it didn't actually move)
             continue;
         }
         var _destSpace = _g.board.lanes[_destLane].spaces[_idx];
-        game_sfx(_g, "fall1", 8, _lane, _idx); // thrown a lane over - the fall/tumble sound (staggered + pitched in the drain)
         if (!game_type_can_enter(pikmin_type_get(_tok.typeId), _destSpace, false, true)) {
+            game_sfx(_g, "fall1", 4, _lane, _idx);          // the tumble...
+            game_fx_pik(_g, _tok, _destLane, _idx);         // ...then it perishes on the hazard (soul rises there)
             array_delete(_tokens, _i, 1);
             _killed += 1;
             continue;
         }
         _tok.loc = { kind: "space", lane: _destLane, idx: _idx };
+        game_token_blown(_g, _tok, _lane, _idx); // freeze-and-slide + scream (fall1) into the next lane
         _i += 1;
     }
     if (_tossed > 0) {
@@ -2254,7 +2672,7 @@ function game_blast_hit_enemies(_g, _lane, _idx, _dmg, _src) {
 function game_enemy_attack(_g, _p, _f) {
     // a Soothe treasure power banked this turn: no enemy attacks at all
     if (variable_struct_exists(_g, "soothed") && _g.soothed) return;
-    var _def = enemy_def_get(_f.enemy.enemyDefId);
+    var _def = game_enemy_def_eff(_g, _f.enemy.enemyDefId);   // adventure events may override element/damage
     // bittered / frozen enemies skip their next action entirely
     if (variable_struct_exists(_f.enemy, "stunned") && _f.enemy.stunned > 0) {
         _f.enemy.stunned -= 1;
@@ -2333,11 +2751,13 @@ function game_breadbug_drag(_g, _t) {
             var _tk = _toks[_i];
             if (_tk.loc.kind == "space" && _tk.loc.lane == _t.lane && _tk.loc.idx == _t.idx) {
                 if (!game_type_can_enter(pikmin_type_get(_tk.typeId), _destSpace, false, true)) {
+                    game_fx_pik(_g, _tk, _t.lane, _newIdx); // dragged onto a lethal hazard - release a soul
                     array_delete(_toks, _i, 1);
                     _culled += 1;
                     continue;
                 }
                 _tk.loc = { kind: "space", lane: _t.lane, idx: _newIdx };
+                game_token_blown(_g, _tk, _t.lane, _newIdx); // dragged by the Breadbug - slide, don't walk
             }
             _i += 1;
         }
@@ -2474,7 +2894,7 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
         for (var _fi = 0; _fi < array_length(_fights); _fi++) {
             var _f = _fights[_fi];
             if (_f.enemy.dead) continue;
-            if (enemy_def_get(_f.enemy.enemyDefId).attackElement == "swift") game_enemy_attack(_g, _p, _f);
+            if (game_enemy_def_eff(_g, _f.enemy.enemyDefId).attackElement == "swift") game_enemy_attack(_g, _p, _f);
         }
     }
 
@@ -2484,7 +2904,7 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
     for (var _fi = 0; _fi < array_length(_fights); _fi++) {
         var _f = _fights[_fi];
         if (_f.enemy.dead) continue;
-        var _def = enemy_def_get(_f.enemy.enemyDefId);
+        var _def = game_enemy_def_eff(_g, _f.enemy.enemyDefId);   // adventure event overrides
 
         // eligible attackers (crush/height defence gates who can hurt it at all;
         // frozen pikmin don't act at all)
@@ -2521,7 +2941,7 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
             if (_attackers[_a].typeId == "ice" && _iceUsed < _iceQuota) { _iceUsed += 1; continue; } // froze instead
             var _typeDef = pikmin_type_get(_attackers[_a].typeId);
             if (_def.defenseElement == "crush" && !arr_has(_typeDef.immunities, "crush")) { _blockedGate = true; continue; }
-            if (_def.defenseElement == "height" && !arr_has(_typeDef.traits, "climbs_height") && !arr_has(_typeDef.traits, "flies_over_hazards")) { _blockedGate = true; continue; }
+            if (_def.defenseElement == "height" && !(!game_no_imm(_g) && arr_has(_typeDef.immunities, "height"))) { _blockedGate = true; continue; }
             _dmg += _typeDef.carry;
         }
         // "Must be attacked by at least N <type>" (Waterwraith's purple, rock
@@ -2546,7 +2966,14 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
                 _blockedGate = true;
             }
         }
-        if (_dmg > 0) {
+        if (_dmg > 0 && _def.attackElement == "crush") {
+            // CRUSH: the beast deals its damage regardless of dying, and the flavour is
+            // that BOTH hits land at the instant it slams down. So don't apply the pikmin
+            // damage here at the leap's apex - stash it for PASS B, where it lands on the
+            // same beat as the crush kill (and the beast's death, if this finishes it).
+            _f.crushPikDmg = _dmg;
+            _f.crushAttackers = array_length(_attackers);
+        } else if (_dmg > 0) {
             _f.enemy.curHp -= _dmg;
             // with anims on, the cling-scene plays ONE continuous attack loop (Draw), so skip
             // these discrete swipes to avoid doubling; anims-off still needs the punctuation
@@ -2557,24 +2984,39 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
             else game_log(_g, _def.name + " shrugs off the attack (" + _def.defenseElement + " defence).");
         }
 
-        // suicidal defence elements: non-immune attackers die after striking
+        // suicidal defence elements: only the pikmin that actually STRIKE die - and the
+        // group commits just enough carry to kill it, so at most the enemy's pre-hit HP
+        // worth of pikmin are exposed. Immune bodies strike for FREE (sent in first), sparing
+        // the rest; extras beyond the lethal count hang back untouched. (Hazards/emitters are
+        // different - you're standing IN them - so those still melt everyone; see below.)
         if (_def.defenseElement != "" && _def.defenseElement != "crush" && _def.defenseElement != "height") {
+            var _preHp = _f.enemy.curHp + _dmg;   // HP before this beat's damage was applied above
+            // immune strikers cover part of the kill for free; non-immune strikers (in order)
+            // are exposed and die only until the remaining HP is covered.
+            var _immCover = 0;
+            var _exposed = [];
+            var _iceSkip = _iceUsed;              // ice that froze instead of striking aren't exposed
+            for (var _a = 0; _a < array_length(_attackers); _a++) {
+                var _atk = _attackers[_a];
+                if (_atk.typeId == "ice" && _iceSkip > 0) { _iceSkip -= 1; continue; }
+                var _atd = pikmin_type_get(_atk.typeId);
+                if (!game_no_imm(_g) && arr_has(_atd.immunities, _def.defenseElement)) _immCover += _atd.carry;
+                else array_push(_exposed, _atk);
+            }
+            var _need = _preHp - _immCover;       // carry the exposed strikers must still cover
             var _lostWhites = 0;
             var _lost = 0;
-            var _tokens = _g.players[_p].tokens;
-            var _i = 0;
-            while (_i < array_length(_tokens)) {
-                var _tok = _tokens[_i];
-                if (game_loc_eq(_tok.loc, { kind: "space", lane: _f.lane, idx: _f.idx })
-                    && !token_is_disabled(_tok) // frozen/buried pikmin didn't strike, so don't melt
-                    && !arr_has(pikmin_type_get(_tok.typeId).immunities, _def.defenseElement)) {
-                    if (_tok.typeId == "white") _lostWhites += 1;
-                    game_fx_pik(_g, _tok, _f.lane, _f.idx);
-                    array_delete(_tokens, _i, 1);
-                    _lost += 1;
-                    continue;
+            var _acc = 0;
+            for (var _e = 0; _e < array_length(_exposed) && _acc < _need; _e++) {
+                var _kt = _exposed[_e];
+                _acc += pikmin_type_get(_kt.typeId).carry;
+                if (_kt.typeId == "white") _lostWhites += 1;
+                game_fx_pik(_g, _kt, _f.lane, _f.idx);
+                var _toks2 = _g.players[_p].tokens;
+                for (var _ti = 0; _ti < array_length(_toks2); _ti++) {
+                    if (_toks2[_ti] == _kt) { array_delete(_toks2, _ti, 1); break; }
                 }
-                _i += 1;
+                _lost += 1;
             }
             if (_lost > 0) game_log(_g, string(_lost) + " pikmin perish to " + _def.name + "'s " + _def.defenseElement + " defence!");
             if (_lostWhites > 0 && _f.enemy.curHp > 0) {
@@ -2583,7 +3025,8 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
             }
         }
 
-        if (_f.enemy.curHp <= 0) game_enemy_die(_g, _p, _f); // rewards immediately, per the rules
+        // crush enemies defer their death to PASS B so it lands with the slam (see above)
+        if (_def.attackElement != "crush" && _f.enemy.curHp <= 0) game_enemy_die(_g, _p, _f); // rewards immediately, per the rules
     }
 
     // PASS B - ENEMY DAMAGE: all surviving enemies strike simultaneously (crush
@@ -2593,9 +3036,19 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
         for (var _fi = 0; _fi < array_length(_fights); _fi++) {
             var _f = _fights[_fi];
             if (_f.enemy.attacked) continue; // swift already struck
-            var _def = enemy_def_get(_f.enemy.enemyDefId);
-            if (!_f.enemy.dead) game_enemy_attack(_g, _p, _f);
-            else if (_def.attackElement == "crush") game_enemy_attack(_g, _p, _f); // crushes even in death (sound handled inside, gated on hits)
+            var _def = game_enemy_def_eff(_g, _f.enemy.enemyDefId);   // adventure event overrides
+            if (_def.attackElement == "crush") {
+                // THE SLAM: the pikmin's stashed damage and the crush kill land together on
+                // this one beat, so the beast and the pikmin visibly take their hits at the
+                // same instant. The beast crushes even if this damage is what finishes it.
+                if (variable_struct_exists(_f, "crushPikDmg") && _f.crushPikDmg > 0 && !_f.enemy.dead) {
+                    _f.enemy.curHp -= _f.crushPikDmg;
+                    if (!global.expRules.anims) repeat (min(_f.crushAttackers, 3)) game_sfx(_g, "sfxPikAttack");
+                    game_log(_g, "P" + string(_p + 1) + "'s pikmin hit " + _def.name + " for " + string(_f.crushPikDmg) + " (" + string(max(0, _f.enemy.curHp)) + " hp left).");
+                }
+                game_enemy_attack(_g, _p, _f);                              // crushes even in death (sound handled inside, gated on hits)
+                if (!_f.enemy.dead && _f.enemy.curHp <= 0) game_enemy_die(_g, _p, _f); // now the deferred death lands, with the slam
+            } else if (!_f.enemy.dead) game_enemy_attack(_g, _p, _f);
         }
         // ice freeze now takes hold: iced enemies retaliated above, and are now frozen so they
         // skip their NEXT action (rendered light-blue meanwhile)
@@ -2618,7 +3071,7 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
         for (var _fi = 0; _fi < array_length(_fights); _fi++) {
             var _f = _fights[_fi];
             if (_f.enemy.dead) continue;
-            var _def = enemy_def_get(_f.enemy.enemyDefId);
+            var _def = game_enemy_def_eff(_g, _f.enemy.enemyDefId);   // adventure event overrides (red strike)
             if (_def.defenseElement == "crush" || _def.defenseElement == "height") continue; // reds can't hurt it
             if (game_attack_requirement(_def) != undefined) continue; // reds alone never satisfy these
             var _redDmg = 0;
@@ -2681,8 +3134,9 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
                     var _tok = _tokens[_ti];
                     var _td = pikmin_type_get(_tok.typeId);
                     if (game_loc_eq(_tok.loc, { kind: "space", lane: _laneIdx, idx: _spaceIdx })
-                        && !arr_has(_td.immunities, _sDef.element)
+                        && !(!game_no_imm(_g) && arr_has(_td.immunities, _sDef.element))
                         && !arr_has(_td.traits, "flies_over_hazards")) {
+                        game_fx_pik(_g, _tok, _laneIdx, _spaceIdx); // release a spirit, like enemy suicide-defence
                         array_delete(_tokens, _ti, 1);
                         _lost += 1;
                         continue;
@@ -2701,7 +3155,7 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
         for (var _spaceIdx = 0; _spaceIdx < array_length(_spaces); _spaceIdx++) {
             var _enemy = _spaces[_spaceIdx].enemy;
             if (_enemy == undefined || _enemy.dead || _enemy.attacked) continue;
-            var _def = enemy_def_get(_enemy.enemyDefId);
+            var _def = game_enemy_def_eff(_g, _enemy.enemyDefId);   // adventure event overrides (explosive splash)
             if (_def.attackElement != "explosive") continue;
             var _inRange = false;
             var _offsets = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -2718,7 +3172,7 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
     for (var _ti = 0; _ti < array_length(_g.treasures); _ti++) {
         var _t = _g.treasures[_ti];
         if (_t.boss == undefined || _t.boss.dead || _t.boss.attacked) continue;
-        var _def = enemy_def_get(_t.boss.enemyDefId);
+        var _def = game_enemy_def_eff(_g, _t.boss.enemyDefId);   // adventure event overrides (boss explosive splash)
         if (_def.attackElement != "explosive") continue;
         var _inRange = false;
         var _offsets = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -2735,6 +3189,7 @@ function game_combat_step(_g, _p, _sprayedOnly = false, _attackOnly = false, _ph
 // ---------- end of turn / day / game ----------
 
 function game_end_turn(_g) {
+    game_pop_snapshot(_g, "Combat");   // population after this turn's move/combat resolved
     var _pl = _g.players[_g.activePlayer];
     _pl.turnsTaken += 1;
     // Giant Breadbug drags its displaced pile back toward the centre every turn
@@ -2824,7 +3279,7 @@ function game_discard_choice(_g, _kind, _idx) {
         var _discardId = _pl.hand[_idx];
         array_delete(_pl.hand, _idx, 1);
         array_push(_g.decks.gatherDiscard, _discardId);
-        game_log(_g, "P" + string(_p + 1) + " discards " + gather_def_get(_discardId).name + " (hand limit).");
+        game_log(_g, "P" + string(_p + 1) + " discards " + chr(2) + gather_def_get(_discardId).name + chr(2) + " (hand limit).");
     }
     var _over = array_length(_pl.hand) + array_length(_pl.pellets) - global.rules.handLimit;
     if (_over <= 0) {
@@ -2837,13 +3292,17 @@ function game_discard_choice(_g, _kind, _idx) {
 }
 
 function game_advance_day(_g) {
+    // ADVENTURE runs share a day budget across all their boards, passed in as _g.dayLimit;
+    // a normal versus match uses the global rule. When the budget is spent the board ends
+    // (the controller reads it as a run FAIL - out of days before clearing the board).
+    var _dayLimit = variable_struct_exists(_g, "dayLimit") ? _g.dayLimit : global.rules.days;
     _g.dayTrack += 1;
     // final day's final turn is about to begin: sound the alarm, once
-    if (_g.dayNumber == global.rules.days && _g.dayTrack == _g.dayTrackLength) game_sfx(_g, "sfxTimeAlert");
+    if (_g.dayNumber == _dayLimit && _g.dayTrack == _g.dayTrackLength) game_sfx(_g, "sfxTimeAlert");
     if (_g.dayTrack <= _g.dayTrackLength) return;
     _g.dayTrack = 1;
     _g.dayNumber += 1;
-    if (_g.dayNumber > global.rules.days) {
+    if (_g.dayNumber > _dayLimit) {
         // the game ends as day 4 would begin - but let the board SETTLE first (last
         // pile hauls home, pikmin still). The winner + final score are computed in
         // game_finalize_gameover, called by the controller once motion stops.
@@ -2870,8 +3329,7 @@ function game_advance_day(_g) {
             if (_boss != undefined) _boss.curHp = enemy_def_get(_boss.enemyDefId).hp;
         }
     }
-    game_fill_enemy_spaces(_g, true); // flag the fresh arrivals so the cinematic reveals only them
-    game_log(_g, "*** Day " + string(_g.dayNumber) + " begins! Pikmin return home, enemies stir anew. ***");
+    if (game_day_day_spawns(_g)) game_fill_enemy_spaces(_g, true); // SPAWN day-event: flag fresh arrivals for the cinematic (POD boards stay bare)
 }
 
 // ========================= DAY-TRACK STEP EVENTS (GROUNDWORK 2026-08-01) =========================
@@ -2905,30 +3363,335 @@ function game_day_track_default() {
     return { days: global.rules.days, spaces: [ {ev:"spawn"}, {ev:"none"}, {ev:"none"}, {ev:"none"}, {ev:"none"} ] };
 }
 
-/// Apply one day-track space event for the acting player _p (start of their turn).
-function game_day_space_apply(_g, _p, _ev) {
-    switch (_ev.ev) {
-        case "spawn":   game_fill_enemy_spaces(_g, true); break;
-        case "pod":     game_day_pod(_g, _p, _ev.n); break;
-        case "storm":   game_power_place_emitters(_g, _p, game_day_storm_hazard(_g), 1); break;   // YOUR OWN side (auto-placed for now; should be a player choice - see header)
-        case "roll":    game_power_draw_pellet(_g, _p); break;
-        case "draw":    game_power_draw_gather(_g, _p); break;
-        case "raw":     _g.dayRawFree = true; break;         // WIRE: build-cost check
-        case "pellet":  _g.dayPelletBonus = true; break;     // WIRE: pellet->pikmin conversion
-        case "flarlic": _g.flarlicBonus += 5; break;         // WIRE: pikmin cap = base + flarlicBonus
-        case "swap":    game_day_swap(_g, _p, _ev.from, _ev.to, variable_struct_exists(_ev, "all") && _ev.all); break;
-        case "none": default: return;
-    }
-    game_log(_g, "Day event (P" + string(_p + 1) + "): " + string_upper(_ev.ev));
+/// The real per-board day tracker (from datafiles/data/daytracks.json, keyed by set number).
+/// _twoDay picks the 7-space / 2-day variant; default is the 5-space / 3-day one. Boards without
+/// a set number (tutorial, random) or a data entry fall back to the default track above.
+function game_day_track_for_board(_boardDef, _twoDay = false) {
+    if (!variable_struct_exists(global, "dayTrackData") || !variable_struct_exists(_boardDef, "setNumber")) return game_day_track_default();
+    var _key = string(_boardDef.setNumber);
+    var _all = global.dayTrackData.tracks;
+    if (!variable_struct_exists(_all, _key)) return game_day_track_default();
+    var _spaces = _twoDay ? _all[$ _key].twoDay : _all[$ _key].threeDay;
+    return { days: (_twoDay ? 2 : 3), spaces: _spaces };
 }
 
-/// Fill up to _n bare enemy spaces on player _p's side (game_spawn_enemy_at shuffles bosses back).
-function game_day_pod(_g, _p, _n) {
+/// Does the current day OPEN on a SPAWN segment? SPAWN is a day-level, board-wide event
+/// (all boards put it on space 1, or not at all - POD-driven boards like The Burrow start
+/// bare). Drives the setup + day-rollover fill; boards without it populate via POD instead.
+function game_day_day_spawns(_g) {
+    if (!variable_struct_exists(_g, "dayTrackDef")) return true;   // legacy safety: spawn as before
+    var _spaces = _g.dayTrackDef.spaces;
+    return (array_length(_spaces) > 0 && _spaces[0].ev == "spawn");
+}
+
+/// Fire the current day-track SEGMENT's event. Called from game_begin_turn at the start of
+/// every turn. _phaseStart is true only for the round's FIRST player (a new segment just
+/// began) - the AUTOMATIC/global events (SWAP ALL) fire then, exactly once. PLAYER-DRIVEN
+/// events (own-tile swap, pod, roll, draw) fire for the acting player on each of their turns;
+/// the PASSIVE flags (raw/pellet/flarlic) set each turn the marker sits on the segment.
+/// SPAWN is day-level and handled at the rollover (game_day_day_spawns), not here.
+function game_day_track_fire(_g, _phaseStart) {
+    if (!variable_struct_exists(_g, "dayTrackDef")) return;
+    var _spaces = _g.dayTrackDef.spaces;
+    if (array_length(_spaces) == 0) return;
+    var _p = _g.activePlayer;
+    var _ev = _spaces[clamp(_g.dayTrack, 1, array_length(_spaces)) - 1];
+    switch (_ev.ev) {
+        case "spawn": if (_phaseStart) game_log(_g, "Day event: SPAWN - enemies fill the board."); break; // the fill itself is done at the rollover
+
+        case "swap":
+            if (variable_struct_exists(_ev, "all") && _ev.all) {
+                // AUTOMATIC: every matching tile flips on BOTH sides, once, at the segment's start
+                if (_phaseStart) {
+                    game_day_swap(_g, 0, _ev.from, _ev.to, true);
+                    game_day_swap(_g, 1, _ev.from, _ev.to, true);
+                    game_log(_g, "Day event: every " + string_upper(_ev.from) + " space becomes " + string_upper(_ev.to) + "!");
+                }
+            } else {
+                // PLAYER-DRIVEN: the acting player picks WHICH of their own from-type tiles to
+                // flip. Queue the choice (human picks via the targeter; AI/sim auto-resolve).
+                // Skip silently if they have none of that type on their side.
+                _g.pendingDaySwap = { playerIdx: _p, from: _ev.from, to: _ev.to };
+                if (!game_day_swap_any_target(_g)) _g.pendingDaySwap = undefined;
+                else game_log(_g, "Day event (P" + string(_p + 1) + "): choose a " + string_upper(_ev.from) + " space to swap to " + string_upper(_ev.to) + ".");
+            }
+            break;
+
+        case "pod":
+            // PLAYER-DRIVEN: place N enemies ANYWHERE (empty enemy spaces). Human picks the
+            // spaces via the targeter; AI/sim auto-resolve. Skip if no legal space at all.
+            _g.pendingDayPlace = { playerIdx: _p, kind: "pod", count: _ev.n };
+            if (!game_day_place_any_target(_g)) _g.pendingDayPlace = undefined;
+            else game_log(_g, "Day event (P" + string(_p + 1) + "): place " + string(_ev.n) + " POD enemies.");
+            break;
+
+        case "storm":
+            // PLAYER-DRIVEN: drop a hazard on one of your OWN empty basic spaces (player's pick).
+            _g.pendingDayPlace = { playerIdx: _p, kind: "storm", count: 1 };
+            if (!game_day_place_any_target(_g)) _g.pendingDayPlace = undefined;
+            else game_log(_g, "Day event (P" + string(_p + 1) + "): choose a space for your STORM hazard.");
+            break;
+
+        case "roll":    game_power_draw_pellet(_g, _p); game_log(_g, "Day event (P" + string(_p + 1) + "): a free pellet ROLL."); break;
+        case "draw":    game_power_draw_gather(_g, _p); game_log(_g, "Day event (P" + string(_p + 1) + "): a free gather DRAW."); break;
+
+        // PASSIVE (per-turn) modifiers
+        case "raw":     _g.dayRawFree = true;     game_log(_g, "Day event (P" + string(_p + 1) + "): RAW - building costs 1 less Raw Material this turn."); break;
+        case "pellet":  _g.dayPelletBonus = true; game_log(_g, "Day event (P" + string(_p + 1) + "): PELLET - pellets give +1 pikmin this turn."); break;
+        case "flarlic": _g.players[_p].flarlicBonus += 5; game_log(_g, "Day event (P" + string(_p + 1) + "): FLARLIC - max pikmin +5."); break;
+        case "none": default: break;
+    }
+}
+
+// ===================== ADVENTURE EVENT CARDS =====================
+// One random event is drawn at the START of each turn (game_begin_turn), replacing the standard
+// day-track events (adventure blanks those). Effects auto-resolve for the solo campaign - anything
+// "of your choice" picks a sensible target. Per-turn modifiers are reset each turn in _step.
+
+/// Draw the next event from the pile (reshuffle the discard back in when empty). undefined = no deck.
+function game_adv_event_next(_g) {
+    if (array_length(_g.advEventPile) == 0) {
+        _g.advEventPile = _g.advEventDiscard;
+        _g.advEventDiscard = [];
+        deck_shuffle(_g.advEventPile);
+    }
+    if (array_length(_g.advEventPile) == 0) return undefined;
+    var _card = array_pop(_g.advEventPile);
+    array_push(_g.advEventDiscard, _card);
+    return _card;
+}
+
+/// Adventure turn start: reset per-turn modifiers, draw one event, run it. No-op elsewhere.
+function game_adv_event_step(_g) {
+    if (!variable_struct_exists(_g, "advEventPile")) return;
+    _g.advForceAttack = ""; _g.advForceDefense = ""; _g.advEnemyDmgMult = 1;
+    _g.advNoImmunities = false; _g.advNoPellets = false; _g.advTreasureHeavier = 0;
+    _g.advSkipTurn = false;
+    _g.eventPending = [];   // clear any stale leftover from a previous turn before drawing
+    var _card = game_adv_event_next(_g);
+    if (_card == undefined) return;
+    var _cdesc = variable_struct_exists(_card, "desc") ? _card.desc : "";
+    _g.eventPending = [ { name: _card.name, good: _card.good, desc: _cdesc } ];
+    game_adv_event_pump(_g);
+}
+
+/// Apply queued event effects ONE AT A TIME: the next only fires once the current event's picker(s)
+/// are fully resolved (no space/type/lose modal live). Picker resolutions call this again to continue,
+/// so a Double Event's two effects (and any pickers they open) resolve strictly in sequence.
+function game_adv_event_pump(_g) {
+    if (!variable_struct_exists(_g, "eventPending")) return;
+    while (array_length(_g.eventPending) > 0
+        && _g.pendingEvent == undefined && _g.pendingTypePick == undefined
+        && (!variable_struct_exists(_g, "pendingLose") || _g.pendingLose == undefined)) {
+        var _e = _g.eventPending[0];
+        array_delete(_g.eventPending, 0, 1);
+        game_adv_event_apply(_g, _e.name, _e.good, variable_struct_exists(_e, "desc") ? _e.desc : "",
+            variable_struct_exists(_e, "allowGood") ? _e.allowGood : true);
+    }
+}
+
+/// Apply ONE event by name. _allowGood=false (a Double Event's extra draws) suppresses Good effects.
+function game_adv_event_apply(_g, _name, _good, _desc, _allowGood) {
+    var _p = _g.activePlayer;
+    if (_good && !_allowGood) {
+        // Double Event: a Good event's effect DOESN'T happen - still POP the toast (with a "nothing
+        // happens" desc) so the draw is visible instead of looking dropped.
+        array_push(_g.bankCues, { name: _name, effect: "Nothing happens (Double Event).", good: _good, outcome: undefined });
+        game_log(_g, "EVENT: " + _name + " - nothing happens (Double Event).");
+        return;
+    }
+    array_push(_g.bankCues, { name: _name, effect: _desc, good: _good, outcome: undefined });   // toast (name + description)
+    game_log(_g, "EVENT: " + _name + " - " + _desc);
+    switch (_name) {
+        // economy / passive (this turn)
+        case "Flower Frenzy":          game_power_draw_pellet(_g, _p); break;   // +1 pellet roll (free, immediate)
+        case "Liquidation Sale":       game_power_draw_gather(_g, _p); break;   // +1 gather draw (free, immediate)
+        case "Photosynthesis":         _g.dayPelletBonus = true; break;
+        case "Hibernation":            _g.soothed = true; break;
+        case "Weak Soil":              _g.advNoPellets = true; break;
+        case "What's This Made Of?!?": _g.advTreasureHeavier = 3; break;
+        case "Quick Feet":             _g.dayTrack = max(1, _g.dayTrack - 1); break;
+        case "Status: Normal":         break;
+        // enemy combat overrides (this turn)
+        case "Swift Chompers":            _g.advForceAttack = "swift"; break;
+        case "Heavy Hitters":             _g.advForceAttack = "crush"; break;
+        case "Hot Headed!":               _g.advForceAttack = "explosive"; break;
+        case "Jump, Fly, Climb, Attack!": _g.advForceDefense = "height"; break;
+        case "Strong and Wild":           _g.advEnemyDmgMult = 2; break;
+        case "Rebooting...":              _g.advNoImmunities = true; break;
+        // lose pikmin: the PLAYER picks which (home reserves or field bodies), one per click
+        case "Misplaced Troops":  game_lose_set_pending(_g, _p, 5); break;
+        case "Sudden Explosion!": game_lose_set_pending(_g, _p, 10); break;
+        // board edits: pick a space (the player's choice) - highlighted, same targeter as day POD/STORM
+        case "Free Refills":           game_event_set_pending(_g, _p, "spicy", "", ""); break;
+        case "Unsteady Construction":  game_event_set_pending(_g, _p, "killwall", "", ""); break;
+        case "Sabotaged Construction": game_event_set_pending(_g, _p, "killbridge", "", ""); break;
+        case "Faulty Wiring":          game_event_set_pending(_g, _p, "killemitter", "", ""); break;
+        case "Reconstruction":         game_event_set_pending(_g, _p, "rerollwall", "", ""); break;
+        case "Nap Time...":            // skip the turn (controller ends it) + take 2 pellets OF YOUR CHOICE
+            _g.advSkipTurn = true;
+            var _die = _g.boardDef.pelletDie; var _pop = [];
+            for (var _f = 0; _f < array_length(_die); _f++) {
+                if (variable_struct_exists(_die[_f], "blank") && _die[_f].blank) continue;
+                var _pid = _die[_f].color + string(_die[_f].value);
+                if (!arr_has(_pop, _pid)) array_push(_pop, _pid);
+            }
+            if (array_length(_pop) > 0) _g.pendingTypePick = { playerIdx: _p, purpose: "pellet", options: _pop, need: 2 };
+            break;
+        case "Reinforcements":                                                    // "Fill Nth row enemy spaces" -> lane N (1-5)
+            var _rlane = -1;
+            for (var _ci = 1; _ci <= string_length(_desc); _ci++) { var _rc = string_char_at(_desc, _ci); if (_rc >= "1" && _rc <= "9") { _rlane = real(_rc) - 1; break; } }
+            game_adv_reinforce_lane(_g, _rlane);
+            break;
+        // soil: pick an empty space (in a treasure lane) to turn into a hazard / enemy
+        case "Volcanic Soil": game_event_set_pending(_g, _p, "soil", "hazard", "fire");   break;
+        case "Flooded Soil":  game_event_set_pending(_g, _p, "soil", "hazard", "water");  break;
+        case "Shifting Soil": game_event_set_pending(_g, _p, "soil", "hazard", "height"); break;
+        case "Fissured Soil": game_event_set_pending(_g, _p, "soil", "hazard", "chasm");  break;
+        case "Infected Soil": game_event_set_pending(_g, _p, "soil", "hazard", "poison"); break;
+        case "Frozen Soil":   game_event_set_pending(_g, _p, "soil", "hazard", "ice");    break;
+        case "Hostile Soil":  game_event_set_pending(_g, _p, "soil", "enemy", "");        break;
+        // meta: draw 2 more and queue them with allowGood=false, so a Good draw still POPS a toast
+        // ("nothing happens") but has no effect, and Bad draws resolve normally. The pump runs them
+        // one at a time after this, so their pickers never overlap.
+        case "Double Event!":
+            for (var _d = 0; _d < 2; _d++) {
+                var _c2 = game_adv_event_next(_g);
+                if (_c2 != undefined) array_insert(_g.eventPending, _d, { name: _c2.name, good: _c2.good,
+                    desc: variable_struct_exists(_c2, "desc") ? _c2.desc : "", allowGood: false });
+            }
+            break;
+        default: break;
+    }
+}
+
+/// The enemy def as combat should see it THIS turn: the real def, or a shallow copy with the
+/// active adventure event overrides (all-swift/crush/explosive, all-height-defence, 2x damage).
+function game_enemy_def_eff(_g, _enemyDefId) {
+    var _d = enemy_def_get(_enemyDefId);
+    if (!variable_struct_exists(_g, "advForceAttack")) return _d;
+    if (_g.advForceAttack == "" && _g.advForceDefense == "" && _g.advEnemyDmgMult == 1) return _d;
+    var _c = {}; var _ns = variable_struct_get_names(_d);
+    for (var _i = 0; _i < array_length(_ns); _i++) _c[$ _ns[_i]] = _d[$ _ns[_i]];
+    if (_g.advForceAttack != "")   _c.attackElement = _g.advForceAttack;
+    if (_g.advForceDefense != "")  _c.defenseElement = _g.advForceDefense;
+    if (_g.advEnemyDmgMult != 1)   _c.damage = _d.damage * _g.advEnemyDmgMult;
+    return _c;
+}
+
+/// Event helper (Reinforcements): fill EVERY bare enemy space in lane _lane from the enemy deck.
+function game_adv_reinforce_lane(_g, _lane) {
+    if (_lane < 0 || _lane >= _g.board.laneCount) return;
+    var _sp = _g.board.lanes[_lane].spaces;
+    var _n = 0;
+    for (var _i = 0; _i < array_length(_sp); _i++)
+        if (_sp[_i].kind == "enemy" && _sp[_i].enemy == undefined && game_spawn_enemy_at(_g, _lane, _i)) _n += 1;
+    if (_n > 0) game_log(_g, "Reinforcements fill lane " + string(_lane + 1) + " (" + string(_n) + " enemies)!");
+}
+
+/// Event helper: lose up to _n pikmin - home reserves first (silent), then field bodies (with a soul).
+function game_adv_lose_pikmin(_g, _p, _n) {
+    var _toks = _g.players[_p].tokens;
+    var _lost = 0; var _i = 0;
+    while (_i < array_length(_toks) && _lost < _n) {
+        if (_toks[_i].loc.kind == "home") { array_delete(_toks, _i, 1); _lost += 1; continue; }
+        _i += 1;
+    }
+    _i = 0;
+    while (_i < array_length(_toks) && _lost < _n) {
+        var _tk = _toks[_i];
+        if (_tk.loc.kind == "space") game_fx_pik(_g, _tk, _tk.loc.lane, _tk.loc.idx);
+        array_delete(_toks, _i, 1); _lost += 1;
+    }
+    if (_lost > 0) game_log(_g, "Lost " + string(_lost) + " pikmin!");
+}
+
+/// Event helper: apply Ultra-Spicy to a space - prefer an enemy space where _p has pikmin.
+function game_adv_spicy_a_space(_g, _p) {
+    var _best = undefined;
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        var _sp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sp); _i++) {
+            if (_sp[_i].enemy == undefined) continue;
+            if (array_length(game_tokens_at(_g, _p, { kind: "space", lane: _l, idx: _i })) > 0) {
+                array_push(_g.sprays, { playerIdx: _p, lane: _l, idx: _i }); return;
+            }
+            if (_best == undefined) _best = { lane: _l, idx: _i };
+        }
+    }
+    if (_best != undefined) array_push(_g.sprays, { playerIdx: _p, lane: _best.lane, idx: _best.idx });
+}
+
+/// Event helper: destroy the first structure of _type ("wall" / "bridge").
+function game_adv_kill_structure(_g, _type) {
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        var _sp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sp); _i++) {
+            if (_sp[_i].structure != undefined && hazard_def_get(_sp[_i].structure.structId).type == _type) {
+                _sp[_i].structure = undefined; game_log(_g, "A " + _type + " is destroyed!"); return;
+            }
+        }
+    }
+}
+
+/// Event helper: clear the first hazard found (an emitter structure, or a floor-hazard tile).
+function game_adv_clear_a_hazard(_g) {
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        var _sp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sp); _i++) {
+            if (_sp[_i].structure != undefined && hazard_def_get(_sp[_i].structure.structId).type == "hazard") {
+                _sp[_i].structure = undefined; game_log(_g, "A hazard emitter is cleared!"); return;
+            }
+            if (_sp[_i].structure == undefined && _sp[_i].kind == "hazard") {
+                _sp[_i].kind = "plain"; _sp[_i].hazard = ""; _g.tileVersion += 1; game_log(_g, "A hazard is cleared!"); return;
+            }
+        }
+    }
+}
+
+/// Event helper: rebuild the first wall as a different wall type from the board's buildable set.
+function game_adv_reroll_wall(_g) {
+    var _walls = _g.boardDef.structures.walls;
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        var _sp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sp); _i++) {
+            if (_sp[_i].structure != undefined && hazard_def_get(_sp[_i].structure.structId).type == "wall") {
+                var _cur = _sp[_i].structure.structId; var _pick = _cur;
+                for (var _w = 0; _w < array_length(_walls); _w++) if (_walls[_w] != _cur) { _pick = _walls[_w]; break; }
+                _sp[_i].structure = { structId: _pick, curHp: hazard_def_get(_pick).hp };
+                game_log(_g, "A wall is rebuilt as a " + hazard_def_get(_pick).name + "!"); return;
+            }
+        }
+    }
+}
+
+/// Event helper: turn an empty space in a lane that HAS a treasure into a hazard / enemy space.
+function game_adv_soil(_g, _kind, _hazard) {
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        var _hasT = false;
+        for (var _ti = 0; _ti < array_length(_g.treasures); _ti++) if (_g.treasures[_ti].lane == _l) { _hasT = true; break; }
+        if (!_hasT) continue;
+        var _sp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sp); _i++) {
+            if (_sp[_i].kind == "plain" && _sp[_i].structure == undefined && _sp[_i].enemy == undefined
+                && game_treasure_at(_g, _l, _i) == undefined) {
+                if (_kind == "enemy") { _sp[_i].kind = "enemy"; game_spawn_enemy_at(_g, _l, _i); }
+                else { _sp[_i].kind = "hazard"; _sp[_i].hazard = _hazard; }
+                _g.tileVersion += 1;
+                game_log(_g, "The soil shifts!"); return;
+            }
+        }
+    }
+}
+
+/// Fill up to _n bare enemy spaces (game_spawn_enemy_at shuffles bosses back). _anywhere
+/// = the whole board (POD enemies may go anywhere); otherwise only player _p's own side.
+function game_day_pod(_g, _p, _n, _anywhere = false) {
     var _placed = 0;
     for (var _l = 0; _l < _g.board.laneCount && _placed < _n; _l++) {
         var _sp = _g.board.lanes[_l].spaces;
         for (var _i = 0; _i < array_length(_sp) && _placed < _n; _i++) {
-            if (game_side_match(_g, _p, _i) && _sp[_i].kind == "enemy" && _sp[_i].enemy == undefined && game_spawn_enemy_at(_g, _l, _i)) _placed += 1;
+            if ((_anywhere || game_side_match(_g, _p, _i)) && _sp[_i].kind == "enemy" && _sp[_i].enemy == undefined && game_spawn_enemy_at(_g, _l, _i)) _placed += 1;
         }
     }
 }
@@ -2958,6 +3721,303 @@ function game_space_set_type(_sp, _type) {
         default:         _sp.kind = "hazard";   _sp.hazard = _type; break;
     }
 }
+/// Is (lane,idx) a legal target for the pending day swap - the pending player's OWN side and a
+/// space of the swap's FROM type? Drives the targeter highlight and the click validation.
+function game_day_swap_target_ok(_g, _lane, _idx) {
+    if (_g.pendingDaySwap == undefined) return false;
+    if (!game_side_match(_g, _g.pendingDaySwap.playerIdx, _idx)) return false;
+    return game_space_type_matches(_g.board.lanes[_lane].spaces[_idx], _g.pendingDaySwap.from);
+}
+
+/// Does the pending day-swap player have any legal target? (auto-skip a swap with nothing to hit)
+function game_day_swap_any_target(_g) {
+    if (_g.pendingDaySwap == undefined) return false;
+    for (var _l = 0; _l < _g.board.laneCount; _l++)
+        for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces); _i++)
+            if (game_day_swap_target_ok(_g, _l, _i)) return true;
+    return false;
+}
+
+/// Resolve the pending day swap at the chosen (validated) space: animated flip + clear pending.
+function game_day_swap_choose(_g, _lane, _idx) {
+    if (!game_day_swap_target_ok(_g, _lane, _idx)) return false;
+    var _ps = _g.pendingDaySwap;
+    game_apply_swap_animated(_g, _lane, _idx, _ps.to);
+    game_log(_g, "P" + string(_ps.playerIdx + 1) + " swaps a " + string_upper(_ps.from) + " space to " + string_upper(_ps.to) + ".");
+    _g.pendingDaySwap = undefined;
+    return true;
+}
+
+/// AI / sim auto-resolution: flip the first legal own-side tile (or clear if none).
+function game_day_swap_auto(_g) {
+    if (_g.pendingDaySwap == undefined) return;
+    for (var _l = 0; _l < _g.board.laneCount; _l++)
+        for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces); _i++)
+            if (game_day_swap_target_ok(_g, _l, _i)) { game_day_swap_choose(_g, _l, _i); return; }
+    _g.pendingDaySwap = undefined;
+}
+
+// ---- day POD / STORM placement (player-driven) -------------------------------------------
+/// The emitter STORM drops - the board's first available one (deterministic; net-safe).
+function game_day_storm_build(_g) {
+    var _em = _g.boardDef.structures.emitters;
+    return (array_length(_em) > 0) ? _em[0] : "firegeyser";
+}
+/// Is (lane,idx) a legal target for the pending POD/STORM? POD = any empty enemy space (bare,
+/// no treasure/structure); STORM = the pending player's OWN empty basic space (no hazard/card/structure).
+function game_day_place_target_ok(_g, _lane, _idx) {
+    if (_g.pendingDayPlace == undefined) return false;
+    var _pp = _g.pendingDayPlace;
+    var _sp = _g.board.lanes[_lane].spaces[_idx];
+    if (_pp.kind == "pod") {
+        return (_sp.kind == "enemy" && _sp.enemy == undefined && game_treasure_at(_g, _lane, _idx) == undefined && _sp.structure == undefined);
+    }
+    // storm
+    if (!game_side_match(_g, _pp.playerIdx, _idx)) return false;
+    return (_sp.kind != "hazard" && !game_space_has_card(_g, _lane, _idx) && _sp.structure == undefined);
+}
+/// Any legal target for the pending POD/STORM?
+function game_day_place_any_target(_g) {
+    if (_g.pendingDayPlace == undefined) return false;
+    for (var _l = 0; _l < _g.board.laneCount; _l++)
+        for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces); _i++)
+            if (game_day_place_target_ok(_g, _l, _i)) return true;
+    return false;
+}
+/// Resolve one POD/STORM placement at the chosen (validated) space. Decrements the count and
+/// clears the pending state when it (or the supply of legal spaces) runs out.
+function game_day_place_choose(_g, _lane, _idx) {
+    if (!game_day_place_target_ok(_g, _lane, _idx)) return false;
+    var _pp = _g.pendingDayPlace;
+    if (_pp.kind == "pod") {
+        game_spawn_enemy_at(_g, _lane, _idx);
+        game_log(_g, "P" + string(_pp.playerIdx + 1) + " deploys a POD enemy.");
+    } else {
+        var _b = game_day_storm_build(_g);
+        var _eDef = hazard_def_get(_b);
+        _g.board.lanes[_lane].spaces[_idx].structure = { structId: _b, curHp: _eDef.hp };
+        game_log(_g, "P" + string(_pp.playerIdx + 1) + " drops a " + _eDef.name + " (STORM).");
+    }
+    _pp.count -= 1;
+    if (_pp.count <= 0 || !game_day_place_any_target(_g)) _g.pendingDayPlace = undefined;
+    return true;
+}
+/// AI / sim auto-resolution: fill the first legal space(s) until the count/legal-spaces run out.
+function game_day_place_auto(_g) {
+    if (_g.pendingDayPlace == undefined) return;
+    var _guard = 0;
+    while (_g.pendingDayPlace != undefined && _guard < 64) {
+        _guard += 1;
+        var _did = false;
+        for (var _l = 0; _l < _g.board.laneCount && !_did; _l++)
+            for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces) && !_did; _i++)
+                if (game_day_place_target_ok(_g, _l, _i)) { game_day_place_choose(_g, _l, _i); _did = true; }
+        if (!_did) { _g.pendingDayPlace = undefined; break; }
+    }
+}
+
+// ============ ADVENTURE EVENT SPACE PICKERS ============
+// Space-target events ("of your choice") use the SAME targeter as the day POD/STORM: set
+// _g.pendingEvent, highlight eligible spaces, the human clicks one (AI/sim auto-resolve).
+// effect: "soil" | "killwall" | "killbridge" | "killhazard" | "rerollwall" | "spicy".
+
+function game_event_target_ok(_g, _lane, _idx) {
+    if (!variable_struct_exists(_g, "pendingEvent") || _g.pendingEvent == undefined) return false;
+    var _pe = _g.pendingEvent;
+    var _sp = _g.board.lanes[_lane].spaces[_idx];
+    switch (_pe.effect) {
+        case "soil":   // an EMPTY space in a lane that HAS a treasure
+            if (!(_sp.kind == "plain" && _sp.structure == undefined && _sp.enemy == undefined
+                  && game_treasure_at(_g, _lane, _idx) == undefined)) return false;
+            for (var _ti = 0; _ti < array_length(_g.treasures); _ti++) if (_g.treasures[_ti].lane == _lane) return true;
+            return false;
+        case "killwall": case "rerollwall":
+            return _sp.structure != undefined && hazard_def_get(_sp.structure.structId).type == "wall";
+        case "killbridge":
+            return _sp.structure != undefined && hazard_def_get(_sp.structure.structId).type == "bridge";
+        case "killemitter":   // Faulty Wiring destroys an EMITTER only (not floor hazards)
+            return _sp.structure != undefined && hazard_def_get(_sp.structure.structId).type == "hazard";
+        case "spicy":  return true;   // any space - the player's choice
+    }
+    return false;
+}
+function game_event_any_target(_g) {
+    if (!variable_struct_exists(_g, "pendingEvent") || _g.pendingEvent == undefined) return false;
+    for (var _l = 0; _l < _g.board.laneCount; _l++)
+        for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces); _i++)
+            if (game_event_target_ok(_g, _l, _i)) return true;
+    return false;
+}
+function game_event_choose(_g, _lane, _idx) {
+    if (!game_event_target_ok(_g, _lane, _idx)) return false;
+    var _pe = _g.pendingEvent;
+    var _sp = _g.board.lanes[_lane].spaces[_idx];
+    switch (_pe.effect) {
+        case "soil":
+            if (_pe.kind == "enemy") { _sp.kind = "enemy"; game_spawn_enemy_at(_g, _lane, _idx); }
+            else { _sp.kind = "hazard"; _sp.hazard = _pe.hazard; }
+            _g.tileVersion += 1; game_log(_g, "The soil shifts!");
+            break;
+        case "killwall":    _sp.structure = undefined; game_log(_g, "A wall is destroyed!"); break;
+        case "killbridge":  _sp.structure = undefined; game_log(_g, "A bridge is destroyed!"); break;
+        case "killemitter": _sp.structure = undefined; game_log(_g, "An emitter is destroyed!"); break;
+        case "rerollwall":
+            // pick which wall it BECOMES via the generic type picker (a subset of the map's wall types)
+            var _walls = _g.boardDef.structures.walls;
+            var _cur = _sp.structure.structId; var _opts = [];
+            for (var _w = 0; _w < array_length(_walls); _w++) if (_walls[_w] != _cur) array_push(_opts, _walls[_w]);
+            if (array_length(_opts) == 0) { game_log(_g, "No other wall type to change into."); break; }
+            _g.pendingTypePick = { playerIdx: _pe.playerIdx, purpose: "reconstruct", options: _opts, lane: _lane, idx: _idx };
+            game_log(_g, "Choose the new wall type.");
+            break;
+        case "spicy":
+            array_push(_g.sprays, { playerIdx: _pe.playerIdx, lane: _lane, idx: _idx });
+            game_log(_g, "That space is Ultra-Spicy!");
+            break;
+    }
+    // This space-pick is done. If it opened a follow-up TYPE picker (Reconstruction), that stays the sole
+    // live modal (it resumes the pump when it resolves). Otherwise clear the slot and pump the next event.
+    if (variable_struct_exists(_g, "pendingTypePick") && _g.pendingTypePick != undefined) { _g.pendingEvent = undefined; }
+    else { _g.pendingEvent = undefined; game_adv_event_pump(_g); }
+    return true;
+}
+/// AI / sim: resolve the active space-pick by taking the first legal space, then let the pump continue.
+function game_event_auto(_g) {
+    if (!variable_struct_exists(_g, "pendingEvent") || _g.pendingEvent == undefined) return;
+    for (var _l = 0; _l < _g.board.laneCount; _l++)
+        for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces); _i++)
+            if (game_event_target_ok(_g, _l, _i)) { game_event_choose(_g, _l, _i); return; }
+    _g.pendingEvent = undefined; game_adv_event_pump(_g);   // active pick lost its target -> skip on
+}
+/// Open a space-target event pick. The pump guarantees the slot is free; fizzles (no-op) if no legal space.
+function game_event_set_pending(_g, _p, _effect, _kind, _hazard) {
+    _g.pendingEvent = { playerIdx: _p, effect: _effect, kind: _kind, hazard: _hazard };
+    if (!game_event_any_target(_g)) _g.pendingEvent = undefined;   // nothing to pick -> fizzle (pump continues)
+}
+
+// ============ GENERIC CARD-TYPE PICKER ============
+// A modal that offers a SUBSET of card types available on the map (wall types, pellet colours, ...)
+// and applies the pick per `purpose`. Reusable across effects. Human clicks a button (Draw_64),
+// AI/sim auto-pick the first option.
+
+/// The display label for a type-pick option (purpose-aware).
+function game_type_pick_label(_purpose, _optId) {
+    switch (_purpose) {
+        case "reconstruct": return hazard_def_get(_optId).name;
+        case "pellet":      return pellet_label(_optId);   // "red5" -> "Red 5"
+        default:            return string(_optId);
+    }
+}
+/// Apply a chosen type. A pick with a `need` count stays live until the count runs out (e.g. Nap
+/// Time's 2 pellets); the last pick clears the modal + resumes the event pump.
+function game_type_pick_choose(_g, _optId) {
+    if (!variable_struct_exists(_g, "pendingTypePick") || _g.pendingTypePick == undefined) return false;
+    var _tp = _g.pendingTypePick;
+    if (!arr_has(_tp.options, _optId)) return false;
+    switch (_tp.purpose) {
+        case "reconstruct":
+            _g.board.lanes[_tp.lane].spaces[_tp.idx].structure = { structId: _optId, curHp: hazard_def_get(_optId).hp };
+            game_log(_g, "The wall becomes a " + hazard_def_get(_optId).name + "!");
+            break;
+        case "pellet":
+            array_push(_g.players[_tp.playerIdx].pellets, _optId);
+            game_log(_g, "Took a " + pellet_label(_optId) + " pellet.");
+            break;
+    }
+    _tp.need = (variable_struct_exists(_tp, "need") ? _tp.need : 1) - 1;
+    if (_tp.need > 0) return true;   // more to pick - keep the modal up (options don't deplete)
+    _g.pendingTypePick = undefined;
+    game_adv_event_pump(_g);         // finished - continue with the next queued event effect
+    return true;
+}
+/// AI / sim: take the first offered type, draining any pick count.
+function game_type_pick_auto(_g) {
+    var _guard = 0;
+    while (variable_struct_exists(_g, "pendingTypePick") && _g.pendingTypePick != undefined && _guard < 64) {
+        _guard += 1;
+        if (array_length(_g.pendingTypePick.options) > 0) game_type_pick_choose(_g, _g.pendingTypePick.options[0]);
+        else { _g.pendingTypePick = undefined; game_adv_event_pump(_g); break; }
+    }
+}
+
+/// Format a pellet id ("red5") as a label ("Red 5").
+function pellet_label(_pid) {
+    var _digits = "";
+    for (var _k = string_length(_pid); _k >= 1; _k--) {
+        var _ch = string_char_at(_pid, _k);
+        if (_ch >= "0" && _ch <= "9") _digits = _ch + _digits; else break;
+    }
+    var _col = string_copy(_pid, 1, string_length(_pid) - string_length(_digits));
+    return string_upper(string_char_at(_col, 1)) + string_delete(_col, 1, 1) + (_digits != "" ? (" " + _digits) : "");
+}
+
+// ============ LOSE-PIKMIN PICKER ============
+// "Lose N Pikmin of your choice" (Misplaced Troops / Sudden Explosion): the player removes one of
+// their pikmin per click, from any SPACE or HOME that holds them, until N are gone. AI/sim auto-pick
+// home reserves first, then the field. Serialized with the event pump like the other pickers.
+
+function game_lose_target_ok(_g, _loc) {
+    if (!variable_struct_exists(_g, "pendingLose") || _g.pendingLose == undefined) return false;
+    return array_length(game_tokens_at(_g, _g.pendingLose.playerIdx, _loc)) > 0;
+}
+function game_lose_any_target(_g) {
+    if (!variable_struct_exists(_g, "pendingLose") || _g.pendingLose == undefined) return false;
+    if (game_lose_target_ok(_g, { kind: "home" })) return true;
+    for (var _l = 0; _l < _g.board.laneCount; _l++)
+        for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces); _i++)
+            if (game_lose_target_ok(_g, { kind: "space", lane: _l, idx: _i })) return true;
+    return false;
+}
+/// Shed priority for the lose-pikmin event: LOWER = sacrificed first. Commons (red/blue/yellow) go
+/// first, then the specialists in ascending value, so a −N never eats your best pikmin while lesser
+/// ones are standing right there: rby < ice < rock < winged < white < purple (worth 5).
+function pik_shed_rank(_typeId) {
+    switch (_typeId) {
+        case "purple": return 5;
+        case "white":  return 4;
+        case "winged": return 3;
+        case "rock":   return 2;
+        case "ice":    return 1;
+        default:       return 0;   // red / blue / yellow
+    }
+}
+/// Remove ONE pikmin at _loc; count down. Clears (and pumps) when the quota is met or nothing's left.
+/// When several colours share _loc, the least-valuable (lowest shed rank) is the one sacrificed.
+function game_lose_choose(_g, _loc) {
+    if (!game_lose_target_ok(_g, _loc)) return false;
+    var _toks = _g.players[_g.pendingLose.playerIdx].tokens;
+    var _pick = -1;
+    for (var _i = 0; _i < array_length(_toks); _i++) {
+        if (!game_loc_eq(_toks[_i].loc, _loc)) continue;
+        if (_pick == -1 || pik_shed_rank(_toks[_i].typeId) < pik_shed_rank(_toks[_pick].typeId)) _pick = _i;
+    }
+    if (_pick != -1) {
+        if (_loc.kind == "space") game_fx_pik(_g, _toks[_pick], _loc.lane, _loc.idx);   // a soul on the field
+        array_delete(_toks, _pick, 1);
+    }
+    _g.pendingLose.need -= 1;
+    if (_g.pendingLose.need <= 0 || !game_lose_any_target(_g)) { _g.pendingLose = undefined; game_adv_event_pump(_g); }
+    return true;
+}
+/// AI / sim: shed the quota - home reserves first (silent), then field bodies.
+function game_lose_auto(_g) {
+    var _guard = 0;
+    while (variable_struct_exists(_g, "pendingLose") && _g.pendingLose != undefined && _guard < 256) {
+        _guard += 1;
+        if (game_lose_target_ok(_g, { kind: "home" })) { game_lose_choose(_g, { kind: "home" }); continue; }
+        var _did = false;
+        for (var _l = 0; _l < _g.board.laneCount && !_did; _l++)
+            for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces) && !_did; _i++)
+                if (game_lose_target_ok(_g, { kind: "space", lane: _l, idx: _i })) { game_lose_choose(_g, { kind: "space", lane: _l, idx: _i }); _did = true; }
+        if (!_did) { _g.pendingLose = undefined; game_adv_event_pump(_g); break; }
+    }
+}
+/// Open the lose-pikmin picker; fizzles (no-op) if the player has no pikmin at all.
+function game_lose_set_pending(_g, _p, _n) {
+    _g.pendingLose = { playerIdx: _p, need: _n };
+    if (!game_lose_any_target(_g)) _g.pendingLose = undefined;
+}
+
 /// SWAP: turn one (or ALL) `_from`-type space(s) on player _p's side into `_to`.
 function game_day_swap(_g, _p, _from, _to, _all) {
     for (var _l = 0; _l < _g.board.laneCount; _l++) {
@@ -2965,7 +4025,7 @@ function game_day_swap(_g, _p, _from, _to, _all) {
         for (var _i = 0; _i < array_length(_sp); _i++) {
             if (!game_side_match(_g, _p, _i)) continue;
             if (game_space_type_matches(_sp[_i], _from)) {
-                game_space_set_type(_sp[_i], _to);
+                game_apply_swap_animated(_g, _l, _i, _to);   // fade to white -> flip -> fade back
                 if (!_all) return;
             }
         }

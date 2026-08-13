@@ -155,7 +155,11 @@ function ai_pile_marginal(_g, _p, _t) {
     var _coll = _g.players[_p].collected;
     for (var _i = 0; _i < array_length(_coll); _i++) array_push(_hypo, _coll[_i]);
     for (var _i = 0; _i < array_length(_t.cards); _i++) array_push(_hypo, _t.cards[_i]);
-    return game_treasures_realized(_hypo) - _base;
+    // account for this player's persistent Wild / Glow Up hoard passives in the hypothetical too
+    var _pl = _g.players[_p];
+    var _wild = variable_struct_exists(_pl, "wildCount") ? _pl.wildCount : 0;
+    var _glow = variable_struct_exists(_pl, "glowUp") ? _pl.glowUp : false;
+    return game_treasures_realized(_hypo, _wild, _glow) - _base;
 }
 
 function ai_type_can_hurt(_typeId, _enemyDef) {
@@ -165,7 +169,7 @@ function ai_type_can_hurt(_typeId, _enemyDef) {
     if (_req != undefined) return (_typeId == _req.typeId);
     var _typeDef = pikmin_type_get(_typeId);
     if (_enemyDef.defenseElement == "crush") return arr_has(_typeDef.immunities, "crush");
-    if (_enemyDef.defenseElement == "height") return arr_has(_typeDef.traits, "climbs_height") || arr_has(_typeDef.traits, "flies_over_hazards");
+    if (_enemyDef.defenseElement == "height") return arr_has(_typeDef.immunities, "height");
     return true;
 }
 

@@ -7,7 +7,7 @@
   },
   "bitDepth":1,
   "channelFormat":1,
-  "compression":0,
+  "compression":1,
   "compressionQuality":4,
   "conversionMode":0,
   "duration":57.87,
@@ -20,7 +20,7 @@
   "preload":false,
   "resourceType":"GMSound",
   "resourceVersion":"2.0",
-  "sampleRate":48000,
+  "sampleRate":44100,
   "soundFile":"ImportantTreasureEnd.mp3",
   "volume":1.0,
 }

@@ -318,7 +318,7 @@ function ai2_gate_answers(_elem) {
         var _td = pikmin_type_get(_ids[_i]);
         var _ok = false;
         if (arr_has(_td.traits, "flies_over_hazards")) _ok = true;
-        else if (_elem == "height") _ok = arr_has(_td.traits, "climbs_height");
+        else if (_elem == "height") _ok = arr_has(_td.immunities, "height");
         else if (_elem != "chasm") _ok = arr_has(_td.immunities, _elem);
         if (_ok) array_push(_out, _ids[_i]);
     }

@@ -142,7 +142,10 @@ function ai4_send2(_g, _p, _demands, _dryRun) {
             // reachability PER TARGET via the engine's own rule: in-place is free; from home -> dest_legal;
             // from another board space -> reach-home-then-there OR walk onto an in-lane card. So a lifter
             // trapped on a pile is usable to HOLD it (in place) and to attack the enemy in front of it.
-            if (!_inplace && !game_move_legal(_g, _p, _bd.typeId, _bd.loc, { kind: "space", lane: _tl, idx: _ti })) continue;
+            // side-aware: a body latched on a blocker can only reach targets on its own
+            // half (the mid-tile wall) - it can HOLD the pile / hit what's on its side, but
+            // can't cross the card it's stuck against.
+            if (!_inplace && !game_move_legal(_g, _p, _bd.typeId, _bd.loc, { kind: "space", lane: _tl, idx: _ti }, false, game_loc_side(_g, _p, _bd.loc))) continue;
             var _rank = _inplace ? 0 : (_bd.onT ? 2 : 1);
             array_push(_cand, { bi: _bi, carry: pikmin_type_get(_bd.typeId).carry, rank: _rank,
                                 pz: ai4_path_poison(_g, _p, _bd.typeId, _bd.loc, _tl, _ti) });
@@ -673,7 +676,7 @@ function ai4_combo_value(_g, _p, _outcomes, _sel) {
 function ai4_can_hurt_base(_typeId, _enemyDef) {
     var _td = pikmin_type_get(_typeId);
     if (_enemyDef.defenseElement == "crush") return arr_has(_td.immunities, "crush");
-    if (_enemyDef.defenseElement == "height") return arr_has(_td.traits, "climbs_height") || arr_has(_td.traits, "flies_over_hazards");
+    if (_enemyDef.defenseElement == "height") return arr_has(_td.immunities, "height");
     return true;
 }
 
@@ -825,6 +828,10 @@ function ai4_gather_roll(_g, _p) {
 
 function ai4_gather(_g) {
     var _p = _g.activePlayer;
+    // GATHER is the plain reserve rule. (A "roll when plans are thin" lean was tried + REVERTED
+    // 2026-08-10: on a blocked-but-stocked board the bottleneck is CARDS not bodies, so leaning to
+    // roll starved it of lane-openers - it rolled minefield into a 0-bank stall. The anti-stall lives
+    // in ORDERS instead: crack pellets into bodies ONLY when the army is truly empty, see ai4_orders.)
     var _roll = ai4_gather_roll(_g, _p);
     ai_dbg("v4 gather: pel=" + string(array_length(_g.players[_p].pellets)) + " army=" + string(ai4_available_total(_g, _p)) + " -> " + (_roll ? "ROLL" : "DRAW"));
     if (_roll) game_gather_roll(_g); else game_gather_draw(_g);
@@ -920,12 +927,39 @@ function ai4_orders(_g) {
             var _its = ""; for (var _j = 0; _j < array_length(_v.items); _j++) _its += (_j > 0 ? "+" : "") + _v.items[_j];
             ai_dbg("v4 " + _o.type + " lane" + string(_o.lane + 1) + " idx" + string(_o.idx) + " str" + string(_v.str) + (_its != "" ? " [" + _its + "]" : ""));
         }
+        // FALLBACK - REBUILD FROM PELLETS: the plan funded NO real pikmin action, but a basic pikmin COULD
+        // act somewhere (a reachable carry/attack/blocker-bash) - it just couldn't afford the bodies. Crack
+        // the pellets into bodies now so the army accumulates toward that action instead of the pellets
+        // rotting to the hand-limit discard. Skipped when the only thing available is item-first (bomb/
+        // bridge) or a mine sacrifice, or nothing is pikmin-addressable, or we're at the board cap.
+        if (ai4_should_rebuild(_g, _p, _plan.chosen)) {
+            ai_dbg("v4 REBUILD: no pikmin action funded but one is reachable -> crack " + string(array_length(_g.players[_p].pellets)) + " pellets into bodies");
+            _g.ai4Plan  = { chosen: _plan.chosen, idx: 0, rebuild: true };          // keep item-only chosen...
+            _g.ai4Cards = { list: ai4_card_plays(_g, _p, _plan.chosen), idx: 0 };   // ...so its str==0 cards still play in MOVE
+            return;
+        }
         _g.ai4Plan = { chosen: _plan.chosen, idx: 0 };
         _g.ai4Cards = { list: ai4_card_plays(_g, _p, _plan.chosen), idx: 0 };   // for the move phase (brick 5b)
         return;
     }
-    // deploy the WHOLE plan's bodies at once - ai4_send2 sources idle-first from wherever they stand
     var _plan = _g.ai4Plan;
+    // REBUILD-FROM-PELLETS fallback: crack every pellet into bodies of its own colour (full value = most
+    // bodies; non-basic pellets fall back to a board basic). Guarded against a stuck (uncrackable) pellet.
+    if (variable_struct_exists(_plan, "rebuild") && _plan.rebuild) {
+        var _rg = 0;
+        while (array_length(_g.players[_p].pellets) > 0 && _rg < 50) {
+            _rg += 1;
+            var _pd = pellet_def_get(_g.players[_p].pellets[0]);
+            var _col = arr_has(_g.boardDef.basicColors, _pd.color) ? _pd.color
+                     : (array_length(_g.boardDef.basicColors) > 0 ? _g.boardDef.basicColors[0] : _pd.color);
+            ai_dbg("v4 rebuild redeem " + _g.players[_p].pellets[0] + " -> " + _col);
+            game_play_pellet(_g, 0, _col);
+        }
+        game_orders_done(_g);
+        _g.ai4Plan = undefined;
+        return;
+    }
+    // deploy the WHOLE plan's bodies at once - ai4_send2 sources idle-first from wherever they stand
     var _dem = ai4_plan_demands(_g, _p, _plan.chosen);
     if (array_length(_dem) > 0) {
         var _res = ai4_send2(_g, _p, _dem, false);
@@ -1143,6 +1177,39 @@ function ai4_step(_g) {
 /// pile whose cards I already hold copies of still reads as worth pursuing.
 function ai4_pile_value(_g, _p, _t) {
     return max(ai_pile_marginal(_g, _p, _t), ai_pile_raw(_t) * 0.3);
+}
+
+/// REBUILD-FROM-PELLETS fallback gate (ai4_orders): whenever the final plan is EMPTY (_nChosen==0) and
+/// pellets exist, CRACK them into bodies. If the plan is empty the AI does nothing this turn either
+/// way, and holding the pellets just rots them to the hand-limit discard - so spend them into bodies
+/// REBUILD-FROM-PELLETS gate: crack pellets into bodies when the plan funded NO real pikmin action but
+/// a basic pikmin COULD act somewhere - so the army accumulates toward an affordable plan instead of the
+/// pellets rotting to the hand-limit discard. Does NOT fire when the only reachable thing is item-first
+/// (str 0 bomb/bridge) or a mine sacrifice (need "any"), or when nothing is pikmin-addressable, or when
+/// we're already at the pikmin board cap (cracking there just burns the pellet for zero bodies). Same
+/// str>0 && need!="any" filter both sides, so a detonate-only "plan" does NOT count as funded.
+function ai4_should_rebuild(_g, _p, _chosen) {
+    if (array_length(_g.players[_p].pellets) == 0) return false;               // nothing to crack
+    if (game_capped_count(_g, _p) >= game_pikmin_cap(_g, _p)) return false;    // no cap headroom -> crack wastes the pellet
+    for (var _i = 0; _i < array_length(_chosen); _i++) {                       // a real pikmin action already funded?
+        var _v = _chosen[_i].outcome.variants[_chosen[_i].varIdx];
+        if (variable_struct_exists(_v, "str") && _v.str > 0 && _v.need != "any") return false;
+    }
+    return ai4_has_reachable_pikmin_outcome(_g, _p);                           // crack only if a basic pikmin could act
+}
+
+/// True iff the board offers at least one outcome a BASIC pikmin could actually perform this turn -
+/// a treasure a fieldable colour can carry, or an enemy / structure it can attack. Excludes item-only
+/// outcomes (str 0: bomb / bridge / oatchi) and the mine-detonate sacrifice (need "any", str 1).
+/// Pure enumeration, no side effects.
+function ai4_has_reachable_pikmin_outcome(_g, _p) {
+    var _out = ai4_enumerate(_g, _p);
+    for (var _i = 0; _i < array_length(_out); _i++) {
+        var _vs = _out[_i].variants;
+        for (var _v = 0; _v < array_length(_vs); _v++)
+            if (_vs[_v].str > 0 && _vs[_v].need != "any") return true;
+    }
+    return false;
 }
 
 /// m(endSpace) — the move multiplier for a treasure that ENDS on _endIdx this turn,

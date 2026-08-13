@@ -75,10 +75,11 @@ function card_sprites_free() {
 /// Draw one card image fitted to a target height at (_x, _y) = top-left, preserving
 /// aspect. Returns the drawn width so callers can lay out a hand. Missing images draw
 /// a dark placeholder with the alias printed on it.
-function card_draw(_alias, _x, _y, _height) {
+function card_draw(_alias, _x, _y, _height, _alpha = 1) {
     var _sprIdx = card_sprite_get(_alias);
     if (_sprIdx == -1) {
         var _w = _height * 0.714; // standard card aspect
+        draw_set_alpha(_alpha);
         draw_set_color(make_color_rgb(40, 40, 48));
         draw_rectangle(_x, _y, _x + _w, _y + _height, false);
         draw_set_color(c_white);
@@ -88,9 +89,10 @@ function card_draw(_alias, _x, _y, _height) {
         dtext(_x + _w * 0.5, _y + _height * 0.5, _alias);
         draw_set_font(_pf);
         draw_set_halign(fa_left);
+        draw_set_alpha(1);
         return _w;
     }
     var _scale = _height / sprite_get_height(_sprIdx);
-    draw_sprite_ext(_sprIdx, 0, _x, _y, _scale, _scale, 0, c_white, 1);
+    draw_sprite_ext(_sprIdx, 0, _x, _y, _scale, _scale, 0, c_white, _alpha);
     return sprite_get_width(_sprIdx) * _scale;
 }

@@ -1,5 +1,5 @@
 {
- "_comment": "Adventure boards extracted from PikminCardReference.xlsx \"Campaign Maps\" by tools/extract_adventure.py. Home-anchored: treasure at the far end (idx 6), home near (idx 0). unmapped[] = overlay text with no game id yet.",
+ "_comment": "Adventure boards extracted from PikminCardReference.xlsx by tools/extract_adventure.py. Home-anchored: treasure at the far end (idx 6), home near (idx 0). Per board: lanes, placedStructures/placedEnemies (bosses on treasure spaces), treasures[] (from Campaign Maps Z-AC, placed on treasure spaces), enemyDeck[] (Campaign N Enemies), gatherDeck[] (shared 12 campaign cards), eventDeck[] (Campaign Event Cards, by board position; drawn one/turn). unmapped[] = overlay text with no game id yet.",
  "scenarios": [
   {
    "name": "Stranded Captain",
@@ -9,6 +9,10 @@
      "id": "adv1_1",
      "label": "ADV1.1",
      "players": "(1,2)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
       "red",
@@ -197,12 +201,217 @@
       }
      ],
      "placedEnemies": [],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [
+      {
+       "id": "albinodwarfbulborb",
+       "count": 3
+      },
+      {
+       "id": "dwarfbulborb",
+       "count": 5
+      },
+      {
+       "id": "bulborb",
+       "count": 3
+      },
+      {
+       "id": "waterdumple",
+       "count": 3
+      },
+      {
+       "id": "wolpole",
+       "count": 3
+      },
+      {
+       "id": "yellowwollyhop",
+       "count": 2
+      },
+      {
+       "id": "femalesheargrub",
+       "count": 3
+      },
+      {
+       "id": "malesheargrub",
+       "count": 3
+      },
+      {
+       "id": "shearwig",
+       "count": 2
+      },
+      {
+       "id": "fieryblowhog",
+       "count": 2
+      },
+      {
+       "id": "wateryblowhog",
+       "count": 2
+      },
+      {
+       "id": "unmarkedspectralids",
+       "count": 1
+      },
+      {
+       "id": "honeywisp",
+       "count": 1
+      },
+      {
+       "id": "pearlyclamclamp",
+       "count": 1
+      }
+     ],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "automaticgear",
+       "weight": 8,
+       "name": "Automatic Gear"
+      },
+      {
+       "id": "ioniumjet",
+       "weight": 14,
+       "name": "Ionium Jet"
+      },
+      {
+       "id": "mainengine",
+       "weight": 20,
+       "name": "Main Engine"
+      },
+      {
+       "id": "zirconiumrotor",
+       "weight": 14,
+       "name": "Zirconium Rotor"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 6,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 1,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv1_2",
      "label": "ADV1.2",
      "players": "(1,2)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
       "red",
@@ -398,16 +607,235 @@
        "enemyDefId": "armoredcannonbeetle"
       }
      ],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [
+      {
+       "id": "bulborblarva",
+       "count": 3
+      },
+      {
+       "id": "dwarfbulbear",
+       "count": 3
+      },
+      {
+       "id": "spottybulbear",
+       "count": 2
+      },
+      {
+       "id": "fierydweevil",
+       "count": 2
+      },
+      {
+       "id": "hydrodweevil",
+       "count": 2
+      },
+      {
+       "id": "pearlyclamclamp",
+       "count": 1
+      }
+     ],
+     "cullBefore": {
+      "remove": 5,
+      "thr": 3,
+      "type": "hp"
+     },
+     "treasures": [
+      {
+       "id": "gravityjumper",
+       "weight": 11,
+       "name": "Gravity Jumper"
+      },
+      {
+       "id": "interstellarradio",
+       "weight": 14,
+       "name": "Interstellar Radio"
+      },
+      {
+       "id": "omegastabilizer",
+       "weight": 11,
+       "name": "Omega Stabilizer"
+      },
+      {
+       "id": "repair-typebolt",
+       "weight": 8,
+       "name": "Repair-type Bolt"
+      },
+      {
+       "id": "shockabsorber",
+       "weight": 11,
+       "name": "Shock Absorber"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 5,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 2,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv1_3",
      "label": "ADV1.3",
      "players": "(1,2)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
       "blue",
-      "yellow"
+      "yellow",
+      "purple"
      ],
      "kit": [
       "blue",
@@ -599,15 +1027,272 @@
        "enemyDefId": "goolix"
       }
      ],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [
+      {
+       "id": "spottybulbear",
+       "count": 1
+      },
+      {
+       "id": "whiptonguebulborb",
+       "count": 2
+      },
+      {
+       "id": "anodedweevil",
+       "count": 2
+      },
+      {
+       "id": "yellowwollyhop",
+       "count": 1
+      },
+      {
+       "id": "puffyblowhog",
+       "count": 1
+      },
+      {
+       "id": "witheringblowhog",
+       "count": 2
+      },
+      {
+       "id": "bumblingsnitchbug",
+       "count": 2
+      },
+      {
+       "id": "swoopingsnitchbug",
+       "count": 2
+      }
+     ],
+     "cullBefore": {
+      "remove": 10,
+      "thr": 3,
+      "type": "hp"
+     },
+     "treasures": [
+      {
+       "id": "anti-dioxinfilter",
+       "weight": 11,
+       "name": "Anti-Dioxin Filter"
+      },
+      {
+       "id": "bowsprit",
+       "weight": 11,
+       "name": "Bowsprit"
+      },
+      {
+       "id": "geigercounter",
+       "weight": 14,
+       "name": "Geiger Counter"
+      },
+      {
+       "id": "gluondrive",
+       "weight": 11,
+       "name": "Gluon Drive"
+      },
+      {
+       "id": "pilotsseat",
+       "weight": 11,
+       "name": "Pilot's Seat"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 4,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 3,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv1_4",
      "label": "ADV1.4",
      "players": "(1)",
+     "buildStructs": [
+      "bridge"
+     ],
      "homeAnchored": true,
      "basicColors": [
-      "blue"
+      "blue",
+      "purple",
+      "white"
      ],
      "kit": [
       "blue",
@@ -809,15 +1494,307 @@
        "enemyDefId": "smokyprogg"
       }
      ],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [
+      {
+       "id": "mungedweevil",
+       "count": 2
+      },
+      {
+       "id": "armoredcannonbeetlelarva",
+       "count": 2
+      },
+      {
+       "id": "puffyblowhog",
+       "count": 1
+      },
+      {
+       "id": "ujadani",
+       "count": 1
+      },
+      {
+       "id": "toadybloyster",
+       "count": 2
+      },
+      {
+       "id": "waddlepus",
+       "count": 2
+      },
+      {
+       "id": "joustmite",
+       "count": 2
+      },
+      {
+       "id": "startlespore",
+       "count": 1
+      },
+      {
+       "id": "moldyslooch",
+       "count": 2
+      }
+     ],
+     "cullBefore": {
+      "remove": 10,
+      "thr": 2,
+      "type": "dmg"
+     },
+     "treasures": [
+      {
+       "id": "extraordinarybolt",
+       "weight": 8,
+       "name": "Extraordinary Bolt"
+      },
+      {
+       "id": "guardsatellite",
+       "weight": 14,
+       "name": "Guard Satellite"
+      },
+      {
+       "id": "novablaster",
+       "weight": 20,
+       "name": "Nova Blaster"
+      },
+      {
+       "id": "uvlamp",
+       "weight": 11,
+       "name": "UV Lamp"
+      },
+      {
+       "id": "whimsicalradar",
+       "weight": 14,
+       "name": "Whimsical Radar"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Free Refills",
+       "good": true,
+       "n": 1,
+       "desc": "One space of your choice has the effect of Ultra-Spicy Spray"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 3,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Rebooting...",
+       "good": false,
+       "n": 1,
+       "desc": "Your Pikmin's elemental immunity does not function this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Sudden Explosion!",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 10 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 3rd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Infected Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Poison Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 4,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv1_5",
      "label": "ADV1.5",
      "players": "(1,2)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
-      "yellow"
+      "yellow",
+      "purple",
+      "white"
      ],
      "kit": [
       "yellow",
@@ -1022,12 +1999,326 @@
        "enemyDefId": "jumbobulborb"
       }
      ],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [
+      {
+       "id": "bulborb",
+       "count": 2
+      },
+      {
+       "id": "moldydwarfbulborb",
+       "count": 3
+      },
+      {
+       "id": "antennabeetle",
+       "count": 2
+      },
+      {
+       "id": "iridescentglintbeetle",
+       "count": 1
+      },
+      {
+       "id": "hermitcrawmad",
+       "count": 3
+      },
+      {
+       "id": "careeningdirigibug",
+       "count": 2
+      },
+      {
+       "id": "flightyjoustmite",
+       "count": 2
+      },
+      {
+       "id": "beardedamprat",
+       "count": 2
+      },
+      {
+       "id": "downysnagret",
+       "count": 3
+      }
+     ],
+     "cullBefore": {
+      "remove": 15,
+      "thr": 6,
+      "type": "hp"
+     },
+     "treasures": [
+      {
+       "id": "analogcomputer",
+       "weight": 14,
+       "name": "Analog Computer"
+      },
+      {
+       "id": "chronosreactor",
+       "weight": 14,
+       "name": "Chronos Reactor"
+      },
+      {
+       "id": "eternalfueldynamo",
+       "weight": 14,
+       "name": "Eternal Fuel Dynamo"
+      },
+      {
+       "id": "positrongenerator",
+       "weight": 14,
+       "name": "Positron Generator"
+      },
+      {
+       "id": "radiationcanopy",
+       "weight": 11,
+       "name": "Radiation Canopy"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Free Refills",
+       "good": true,
+       "n": 1,
+       "desc": "One space of your choice has the effect of Ultra-Spicy Spray"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Quick Feet",
+       "good": true,
+       "n": 1,
+       "desc": "Reverse time by 1 space"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 2,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Heavy Hitters",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are crush attack this turn"
+      },
+      {
+       "name": "Rebooting...",
+       "good": false,
+       "n": 1,
+       "desc": "Your Pikmin's elemental immunity does not function this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Sudden Explosion!",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 10 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 3rd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 4th row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Fissured Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Chasm Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Infected Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Poison Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 5,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv1_6",
      "label": "ADV1.6",
      "players": "(1,2)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
       "red",
@@ -1258,6 +2549,352 @@
        "idx": 6,
        "text": "SOVERIGN BULBLAX"
       }
+     ],
+     "enemyDeck": [
+      {
+       "id": "spottybulbear",
+       "count": 1
+      },
+      {
+       "id": "whiptonguebulborb",
+       "count": 1
+      },
+      {
+       "id": "fierybulblax",
+       "count": 2
+      },
+      {
+       "id": "bulbmin",
+       "count": 3
+      },
+      {
+       "id": "volatiledweevil",
+       "count": 2
+      },
+      {
+       "id": "decoratedcannonbeetle",
+       "count": 2
+      },
+      {
+       "id": "doodlebug",
+       "count": 1
+      },
+      {
+       "id": "bumblingsnitchbug",
+       "count": 1
+      },
+      {
+       "id": "swoopingsnitchbug",
+       "count": 1
+      },
+      {
+       "id": "careeningdirigibug",
+       "count": 1
+      },
+      {
+       "id": "pyroclasmicslooch",
+       "count": 3
+      },
+      {
+       "id": "gatlinggroink",
+       "count": 2
+      }
+     ],
+     "cullBefore": {
+      "remove": 10,
+      "thr": 5,
+      "type": "dmg"
+     },
+     "treasures": [
+      {
+       "id": "libra",
+       "weight": 20,
+       "name": "Libra"
+      },
+      {
+       "id": "massagemachine",
+       "weight": 14,
+       "name": "Massage Machine"
+      },
+      {
+       "id": "sagittarius",
+       "weight": 20,
+       "name": "Sagittarius"
+      },
+      {
+       "id": "secretsafe",
+       "weight": 20,
+       "name": "Secret Safe"
+      },
+      {
+       "id": "spacefloat",
+       "weight": 11,
+       "name": "Space Float"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Free Refills",
+       "good": true,
+       "n": 1,
+       "desc": "One space of your choice has the effect of Ultra-Spicy Spray"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Reconstruction",
+       "good": true,
+       "n": 1,
+       "desc": "Change a Wall of your choice into a different wall"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Quick Feet",
+       "good": true,
+       "n": 1,
+       "desc": "Reverse time by 1 space"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 1,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Heavy Hitters",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are crush attack this turn"
+      },
+      {
+       "name": "Rebooting...",
+       "good": false,
+       "n": 1,
+       "desc": "Your Pikmin's elemental immunity does not function this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Hot Headed!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are explosive attack this turn"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Sudden Explosion!",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 10 Pikmin of your choice"
+      },
+      {
+       "name": "What's This Made Of?!?",
+       "good": false,
+       "n": 1,
+       "desc": "Treasure Piles are 3 carry weight heavier this turn"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 3rd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 4th row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Fissured Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Chasm Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Infected Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Poison Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Frozen Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Ice Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 5,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
      ]
     }
    ]
@@ -1270,6 +2907,10 @@
      "id": "adv2_1",
      "label": "ADV2.1",
      "players": "(1,2)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
       "red",
@@ -1459,16 +3100,160 @@
       }
      ],
      "placedEnemies": [],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "crushnugget",
+       "weight": 1,
+       "name": "Crush Nugget"
+      },
+      {
+       "id": "cupidsgrenade",
+       "weight": 1,
+       "name": "Cupid's Grenade"
+      },
+      {
+       "id": "juicygaggle",
+       "weight": 1,
+       "name": "Juicy Gaggle"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 6,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 1,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv2_2",
      "label": "ADV2.2",
      "players": "(1,2)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
       "red",
-      "yellow"
+      "yellow",
+      "rock"
      ],
      "kit": [
       "red",
@@ -1656,16 +3441,206 @@
        "enemyDefId": "armoredmawdad"
       }
      ],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "citruslump",
+       "weight": 9,
+       "name": "Citrus Lump"
+      },
+      {
+       "id": "dapperblob",
+       "weight": 3,
+       "name": "Dapper Blob"
+      },
+      {
+       "id": "lovenugget",
+       "weight": 5,
+       "name": "Love Nugget"
+      },
+      {
+       "id": "seedhive",
+       "weight": 5,
+       "name": "Seed Hive"
+      },
+      {
+       "id": "zestbomb",
+       "weight": 4,
+       "name": "Zest Bomb"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 5,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 2,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv2_3",
      "label": "ADV2.3",
      "players": "(1,2)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
       "red",
-      "yellow"
+      "yellow",
+      "rock"
      ],
      "kit": [
       "red",
@@ -1869,15 +3844,236 @@
        "enemyDefId": "vehemothphosbat"
       }
      ],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "crunchydeluge",
+       "weight": 5,
+       "name": "Crunchy Deluge"
+      },
+      {
+       "id": "facewrinkler",
+       "weight": 4,
+       "name": "Face Wrinkler"
+      },
+      {
+       "id": "lessermockbottom",
+       "weight": 3,
+       "name": "Lesser Mock Bottom"
+      },
+      {
+       "id": "mockbottom",
+       "weight": 5,
+       "name": "Mock Bottom"
+      },
+      {
+       "id": "tremendoussniffer",
+       "weight": 5,
+       "name": "Tremendous Sniffer"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 4,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 3,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv2_4",
      "label": "ADV2.4",
      "players": "(1,3)",
+     "buildStructs": [
+      "bridge",
+      "tunnel"
+     ],
      "homeAnchored": true,
      "basicColors": [
-      "blue"
+      "blue",
+      "rock",
+      "winged"
      ],
      "kit": [
       "blue",
@@ -2085,15 +4281,266 @@
        "idx": 2,
        "text": "NET TRAP"
       }
+     ],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "blondeimpostor",
+       "weight": 3,
+       "name": "Blonde Impostor"
+      },
+      {
+       "id": "disguiseddelicacy",
+       "weight": 3,
+       "name": "Disguised Delicacy"
+      },
+      {
+       "id": "portablesunset",
+       "weight": 4,
+       "name": "Portable Sunset"
+      },
+      {
+       "id": "searingacidshock",
+       "weight": 3,
+       "name": "Searing Acidshock"
+      },
+      {
+       "id": "sunseedberry",
+       "weight": 9,
+       "name": "Sunseed Berry"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Free Refills",
+       "good": true,
+       "n": 1,
+       "desc": "One space of your choice has the effect of Ultra-Spicy Spray"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 3,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Rebooting...",
+       "good": false,
+       "n": 1,
+       "desc": "Your Pikmin's elemental immunity does not function this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Sudden Explosion!",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 10 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 3rd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Infected Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Poison Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 4,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
      ]
     },
     {
      "id": "adv2_5",
      "label": "ADV2.5",
      "players": "(1,2)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
-      "blue"
+      "blue",
+      "rock",
+      "winged"
      ],
      "kit": [
       "blue",
@@ -2297,15 +4744,290 @@
        "idx": 3,
        "text": "NET TRAP"
       }
+     ],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "combustionberry",
+       "weight": 9,
+       "name": "Combustion Berry"
+      },
+      {
+       "id": "delectablebouquet",
+       "weight": 4,
+       "name": "Delectable Bouquet"
+      },
+      {
+       "id": "pockedairhead",
+       "weight": 5,
+       "name": "Pocked Airhead"
+      },
+      {
+       "id": "stellarextrusion",
+       "weight": 3,
+       "name": "Stellar Extrusion"
+      },
+      {
+       "id": "velvetydreamdrop",
+       "weight": 3,
+       "name": "Velvety Dreamdrop"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Free Refills",
+       "good": true,
+       "n": 1,
+       "desc": "One space of your choice has the effect of Ultra-Spicy Spray"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Quick Feet",
+       "good": true,
+       "n": 1,
+       "desc": "Reverse time by 1 space"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 2,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Heavy Hitters",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are crush attack this turn"
+      },
+      {
+       "name": "Rebooting...",
+       "good": false,
+       "n": 1,
+       "desc": "Your Pikmin's elemental immunity does not function this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Sudden Explosion!",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 10 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 3rd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 4th row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Fissured Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Chasm Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Infected Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Poison Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 5,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
      ]
     },
     {
      "id": "adv2_6",
      "label": "ADV2.6",
      "players": "(2,3)",
+     "buildStructs": [
+      "climbingstick",
+      "tunnel"
+     ],
      "homeAnchored": true,
      "basicColors": [
-      "yellow"
+      "yellow",
+      "rock",
+      "winged"
      ],
      "kit": [
       "yellow",
@@ -2515,12 +5237,310 @@
        "idx": 2,
        "text": "NET TRAP"
       }
+     ],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "astringentclump",
+       "weight": 5,
+       "name": "Astringent Clump"
+      },
+      {
+       "id": "dawnpustules",
+       "weight": 7,
+       "name": "Dawn Pustules"
+      },
+      {
+       "id": "duskpustules",
+       "weight": 7,
+       "name": "Dusk Pustules"
+      },
+      {
+       "id": "heroinestear",
+       "weight": 5,
+       "name": "Heroine's Tear"
+      },
+      {
+       "id": "scalycustard",
+       "weight": 4,
+       "name": "Scaly Custard"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Free Refills",
+       "good": true,
+       "n": 1,
+       "desc": "One space of your choice has the effect of Ultra-Spicy Spray"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Reconstruction",
+       "good": true,
+       "n": 1,
+       "desc": "Change a Wall of your choice into a different wall"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Quick Feet",
+       "good": true,
+       "n": 1,
+       "desc": "Reverse time by 1 space"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 1,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Heavy Hitters",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are crush attack this turn"
+      },
+      {
+       "name": "Rebooting...",
+       "good": false,
+       "n": 1,
+       "desc": "Your Pikmin's elemental immunity does not function this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Hot Headed!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are explosive attack this turn"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Sudden Explosion!",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 10 Pikmin of your choice"
+      },
+      {
+       "name": "What's This Made Of?!?",
+       "good": false,
+       "n": 1,
+       "desc": "Treasure Piles are 3 carry weight heavier this turn"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 3rd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 4th row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Fissured Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Chasm Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Infected Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Poison Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Frozen Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Ice Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 5,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
      ]
     },
     {
      "id": "adv2_7",
      "label": "ADV2.7",
      "players": "(1,2,3)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick",
+      "tunnel"
+     ],
      "homeAnchored": true,
      "basicColors": [
       "red",
@@ -2731,7 +5751,300 @@
        "enemyDefId": "puffstool"
       }
      ],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "crimsonbanquet",
+       "weight": 10,
+       "name": "Crimson Banquet"
+      },
+      {
+       "id": "fire-breathingfeast",
+       "weight": 9,
+       "name": "Fire-Breathing Feast"
+      },
+      {
+       "id": "insectcondo",
+       "weight": 5,
+       "name": "Insect Condo"
+      },
+      {
+       "id": "slapstickcrescent",
+       "weight": 7,
+       "name": "Slapstick Crescent"
+      },
+      {
+       "id": "waywardmoon",
+       "weight": 10,
+       "name": "Wayward Moon"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Free Refills",
+       "good": true,
+       "n": 1,
+       "desc": "One space of your choice has the effect of Ultra-Spicy Spray"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Reconstruction",
+       "good": true,
+       "n": 1,
+       "desc": "Change a Wall of your choice into a different wall"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Quick Feet",
+       "good": true,
+       "n": 1,
+       "desc": "Reverse time by 1 space"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 1,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Heavy Hitters",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are crush attack this turn"
+      },
+      {
+       "name": "Rebooting...",
+       "good": false,
+       "n": 1,
+       "desc": "Your Pikmin's elemental immunity does not function this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Hot Headed!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are explosive attack this turn"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Sudden Explosion!",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 10 Pikmin of your choice"
+      },
+      {
+       "name": "What's This Made Of?!?",
+       "good": false,
+       "n": 1,
+       "desc": "Treasure Piles are 3 carry weight heavier this turn"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 3rd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 4th row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Fissured Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Chasm Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Infected Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Poison Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Frozen Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Ice Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 5,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     }
    ]
   },
@@ -2743,6 +6056,9 @@
      "id": "adv3_1",
      "label": "ADV3.1",
      "players": "(2)",
+     "buildStructs": [
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
       "red",
@@ -2912,16 +6228,160 @@
       }
      ],
      "placedEnemies": [],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "sweetdreamer",
+       "weight": 3,
+       "name": "Sweet Dreamer"
+      },
+      {
+       "id": "sweetstumble-not",
+       "weight": 4,
+       "name": "Sweet Stumble-Not"
+      },
+      {
+       "id": "sweettorrent",
+       "weight": 8,
+       "name": "Sweet Torrent"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 6,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 1,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv3_2",
      "label": "ADV3.2",
      "players": "(1,2)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
       "blue",
-      "yellow"
+      "yellow",
+      "rock"
      ],
      "kit": [
       "blue",
@@ -3100,15 +6560,201 @@
        "enemyDefId": "empressbulblax"
       }
      ],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "chocolatecushion",
+       "weight": 3,
+       "name": "Chocolate Cushion"
+      },
+      {
+       "id": "comfortcookie",
+       "weight": 1,
+       "name": "Comfort Cookie"
+      },
+      {
+       "id": "cushioncake",
+       "weight": 7,
+       "name": "Cushion Cake"
+      },
+      {
+       "id": "succulentmattress",
+       "weight": 3,
+       "name": "Succulent Mattress"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 5,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 2,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv3_3",
      "label": "ADV3.3",
      "players": "(1,2)",
+     "buildStructs": [
+      "bridge",
+      "climbingstick"
+     ],
      "homeAnchored": true,
      "basicColors": [
-      "yellow"
+      "yellow",
+      "rock",
+      "ice"
      ],
      "kit": [
       "yellow",
@@ -3304,15 +6950,236 @@
        "enemyDefId": "giantbreadbug"
       }
      ],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "compellingcookie",
+       "weight": 1,
+       "name": "Compelling Cookie"
+      },
+      {
+       "id": "impenetrablecookie",
+       "weight": 2,
+       "name": "Impenetrable Cookie"
+      },
+      {
+       "id": "imperativecookie",
+       "weight": 2,
+       "name": "Imperative Cookie"
+      },
+      {
+       "id": "lovesfortunecookie",
+       "weight": 3,
+       "name": "Love's Fortune Cookie"
+      },
+      {
+       "id": "vanishingcookie",
+       "weight": 3,
+       "name": "Vanishing Cookie"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 4,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 3,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv3_4",
      "label": "ADV3.4",
      "players": "(1,3)",
+     "buildStructs": [
+      "bridge",
+      "tunnel"
+     ],
      "homeAnchored": true,
      "basicColors": [
-      "blue"
+      "blue",
+      "winged",
+      "ice"
      ],
      "kit": [
       "blue",
@@ -3507,15 +7374,265 @@
        "idx": 1,
        "text": "NET TRAP"
       }
+     ],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "bugbait",
+       "weight": 1,
+       "name": "Bug Bait"
+      },
+      {
+       "id": "deceptivesnack",
+       "weight": 3,
+       "name": "Deceptive Snack"
+      },
+      {
+       "id": "flakytemptation",
+       "weight": 7,
+       "name": "Flaky Temptation"
+      },
+      {
+       "id": "heartycontainer",
+       "weight": 3,
+       "name": "Hearty Container"
+      },
+      {
+       "id": "puzzlesnack",
+       "weight": 7,
+       "name": "Puzzle Snack"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Free Refills",
+       "good": true,
+       "n": 1,
+       "desc": "One space of your choice has the effect of Ultra-Spicy Spray"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 3,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Rebooting...",
+       "good": false,
+       "n": 1,
+       "desc": "Your Pikmin's elemental immunity does not function this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Sudden Explosion!",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 10 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 3rd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Infected Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Poison Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 4,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
      ]
     },
     {
      "id": "adv3_5",
      "label": "ADV3.5",
      "players": "(3)",
+     "buildStructs": [
+      "tunnel"
+     ],
      "homeAnchored": true,
      "basicColors": [
-      "blue"
+      "blue",
+      "winged",
+      "ice"
      ],
      "kit": [
       "blue",
@@ -3716,15 +7833,289 @@
        "idx": 4,
        "text": "NET TRAP"
       }
+     ],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "confectionhoop",
+       "weight": 4,
+       "name": "Confection Hoop"
+      },
+      {
+       "id": "dietdoomer",
+       "weight": 2,
+       "name": "Diet Doomer"
+      },
+      {
+       "id": "enamelbuster",
+       "weight": 4,
+       "name": "Enamel Buster"
+      },
+      {
+       "id": "palepassion",
+       "weight": 2,
+       "name": "Pale Passion"
+      },
+      {
+       "id": "pastrywheel",
+       "weight": 2,
+       "name": "Pastry Wheel"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Free Refills",
+       "good": true,
+       "n": 1,
+       "desc": "One space of your choice has the effect of Ultra-Spicy Spray"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Quick Feet",
+       "good": true,
+       "n": 1,
+       "desc": "Reverse time by 1 space"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 2,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Heavy Hitters",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are crush attack this turn"
+      },
+      {
+       "name": "Rebooting...",
+       "good": false,
+       "n": 1,
+       "desc": "Your Pikmin's elemental immunity does not function this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Sudden Explosion!",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 10 Pikmin of your choice"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 3rd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 4th row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Fissured Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Chasm Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Infected Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Poison Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 5,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
      ]
     },
     {
      "id": "adv3_6",
      "label": "ADV3.6",
      "players": "(1)",
+     "buildStructs": [
+      "bridge"
+     ],
      "homeAnchored": true,
      "basicColors": [
-      "red"
+      "red",
+      "white",
+      "ice"
      ],
      "kit": [
       "red",
@@ -3936,17 +8327,314 @@
        "enemyDefId": "blizzardingblowhog"
       }
      ],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "cookieofnibbledcircles",
+       "weight": 3,
+       "name": "Cookie of Nibbled Circles"
+      },
+      {
+       "id": "cookieofprosperity",
+       "weight": 3,
+       "name": "Cookie of Prosperity"
+      },
+      {
+       "id": "kingofsweets",
+       "weight": 1,
+       "name": "King of Sweets"
+      },
+      {
+       "id": "triplesugarthreat",
+       "weight": 4,
+       "name": "Triple Sugar Threat"
+      },
+      {
+       "id": "whitegoodness",
+       "weight": 4,
+       "name": "White Goodness"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Free Refills",
+       "good": true,
+       "n": 1,
+       "desc": "One space of your choice has the effect of Ultra-Spicy Spray"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Reconstruction",
+       "good": true,
+       "n": 1,
+       "desc": "Change a Wall of your choice into a different wall"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Quick Feet",
+       "good": true,
+       "n": 1,
+       "desc": "Reverse time by 1 space"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 1,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Heavy Hitters",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are crush attack this turn"
+      },
+      {
+       "name": "Rebooting...",
+       "good": false,
+       "n": 1,
+       "desc": "Your Pikmin's elemental immunity does not function this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Hot Headed!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are explosive attack this turn"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Sudden Explosion!",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 10 Pikmin of your choice"
+      },
+      {
+       "name": "What's This Made Of?!?",
+       "good": false,
+       "n": 1,
+       "desc": "Treasure Piles are 3 carry weight heavier this turn"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 3rd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 4th row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Fissured Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Chasm Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Infected Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Poison Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Frozen Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Ice Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 5,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     },
     {
      "id": "adv3_7",
      "label": "ADV3.7",
      "players": "(1,3)",
+     "buildStructs": [
+      "bridge",
+      "tunnel"
+     ],
      "homeAnchored": true,
      "basicColors": [
-      "red",
-      "blue",
-      "yellow"
+      "white",
+      "rock",
+      "ice"
      ],
      "kit": [
       "white",
@@ -4170,7 +8858,300 @@
        "enemyDefId": "segmentedcrawbster"
       }
      ],
-     "unmapped": []
+     "unmapped": [],
+     "enemyDeck": [],
+     "cullBefore": null,
+     "treasures": [
+      {
+       "id": "jiggle-jiggle",
+       "weight": 8,
+       "name": "Jiggle-Jiggle"
+      },
+      {
+       "id": "ssberry",
+       "weight": 3,
+       "name": "S.S. Berry"
+      },
+      {
+       "id": "sschocolate",
+       "weight": 3,
+       "name": "S.S. Chocolate"
+      },
+      {
+       "id": "sspeppermint",
+       "weight": 3,
+       "name": "S.S. Peppermint"
+      },
+      {
+       "id": "stickyjewel",
+       "weight": 1,
+       "name": "Sticky Jewel"
+      }
+     ],
+     "gatherDeck": [
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "rawmaterial",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "bombrock",
+      "captainclone",
+      "captainclone",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "colorchangingposy",
+      "spicyspray",
+      "spicyspray",
+      "spicyspray",
+      "oatchirush",
+      "oatchirush",
+      "bitterspray",
+      "bitterspray",
+      "bitterspray",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "pikpikbundle",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "icebomb",
+      "storm",
+      "storm",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "ivoryandviolet",
+      "queencandypopbud",
+      "queencandypopbud",
+      "queencandypopbud"
+     ],
+     "eventDeck": [
+      {
+       "name": "Flower Frenzy",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 pellet roll this turn"
+      },
+      {
+       "name": "Liquidation Sale",
+       "good": true,
+       "n": 1,
+       "desc": "Gain +1 gather draw this turn"
+      },
+      {
+       "name": "Free Refills",
+       "good": true,
+       "n": 1,
+       "desc": "One space of your choice has the effect of Ultra-Spicy Spray"
+      },
+      {
+       "name": "Unsteady Construction",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 wall of your choice"
+      },
+      {
+       "name": "Faulty Wiring",
+       "good": true,
+       "n": 1,
+       "desc": "Destroy 1 hazard of your choice"
+      },
+      {
+       "name": "Photosynthesis",
+       "good": true,
+       "n": 1,
+       "desc": "Pellets give +1 this turn"
+      },
+      {
+       "name": "Reconstruction",
+       "good": true,
+       "n": 1,
+       "desc": "Change a Wall of your choice into a different wall"
+      },
+      {
+       "name": "Hibernation",
+       "good": true,
+       "n": 1,
+       "desc": "Enemies do not attack this turn"
+      },
+      {
+       "name": "Quick Feet",
+       "good": true,
+       "n": 1,
+       "desc": "Reverse time by 1 space"
+      },
+      {
+       "name": "Status: Normal",
+       "good": true,
+       "n": 1,
+       "desc": "Nothing unique will happen this turn"
+      },
+      {
+       "name": "Swift Chompers",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are swift attack this turn"
+      },
+      {
+       "name": "Heavy Hitters",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are crush attack this turn"
+      },
+      {
+       "name": "Rebooting...",
+       "good": false,
+       "n": 1,
+       "desc": "Your Pikmin's elemental immunity does not function this turn"
+      },
+      {
+       "name": "Strong and Wild",
+       "good": false,
+       "n": 1,
+       "desc": "Enemies do twice as much damage this turn"
+      },
+      {
+       "name": "Sabotaged Construction",
+       "good": false,
+       "n": 1,
+       "desc": "Destroy a Bridge of your choice"
+      },
+      {
+       "name": "Hot Headed!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are explosive attack this turn"
+      },
+      {
+       "name": "Weak Soil",
+       "good": false,
+       "n": 1,
+       "desc": "You cannot redeem Pellet cards this turn"
+      },
+      {
+       "name": "Misplaced Troops",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 5 Pikmin of your choice"
+      },
+      {
+       "name": "Sudden Explosion!",
+       "good": false,
+       "n": 1,
+       "desc": "Lose 10 Pikmin of your choice"
+      },
+      {
+       "name": "What's This Made Of?!?",
+       "good": false,
+       "n": 1,
+       "desc": "Treasure Piles are 3 carry weight heavier this turn"
+      },
+      {
+       "name": "Nap Time...",
+       "good": false,
+       "n": 1,
+       "desc": "Skip your turn, take 2 Pellets of your choice"
+      },
+      {
+       "name": "Jump, Fly, Climb, Attack!",
+       "good": false,
+       "n": 1,
+       "desc": "All enemies are height defense this turn"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 1st row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 2nd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 3rd row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 4th row enemy spaces"
+      },
+      {
+       "name": "Reinforcements",
+       "good": false,
+       "n": 1,
+       "desc": "Fill 5th row enemy spaces"
+      },
+      {
+       "name": "Volcanic Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Fire Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Flooded Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Water Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Shifting Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Height Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Fissured Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Chasm Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Infected Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into a Poison Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Frozen Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Ice Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Hostile Soil",
+       "good": false,
+       "n": 1,
+       "desc": "Turn an Empty Space of your choice into an Enemy Space (Must be in a lane with Treasure)"
+      },
+      {
+       "name": "Double Event!",
+       "good": false,
+       "n": 5,
+       "desc": "Immediately draw 2 Event cards and satisfy both effects. (Effects from Good Events do not happen)"
+      }
+     ]
     }
    ]
   }

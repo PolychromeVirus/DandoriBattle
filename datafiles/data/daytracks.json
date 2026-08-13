@@ -1,0 +1,829 @@
+{
+  "_comment": "Per-board day trackers, keyed by set number. threeDay = 5-space/3-day, twoDay = 7-space/2-day. Extracted from PikminCardReference.xlsx 'Board Layouts' by tools/extract_daytracks.py. Event `ev`: spawn/roll/draw/raw/pellet/flarlic/storm/none, pod{n}, swap{from,to,all?}.",
+  "tracks": {
+    "1": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "pod",
+          "n": 2
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        }
+      ]
+    },
+    "2": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "storm"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        }
+      ]
+    },
+    "3": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "draw"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "none"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "draw"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        }
+      ]
+    },
+    "4": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "pellet"
+        },
+        {
+          "ev": "swap",
+          "from": "height",
+          "to": "poison"
+        },
+        {
+          "ev": "swap",
+          "from": "chasm",
+          "to": "height"
+        },
+        {
+          "ev": "swap",
+          "from": "poison",
+          "to": "chasm"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "pellet"
+        },
+        {
+          "ev": "swap",
+          "from": "height",
+          "to": "poison"
+        },
+        {
+          "ev": "swap",
+          "from": "chasm",
+          "to": "height"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "swap",
+          "from": "poison",
+          "to": "chasm"
+        }
+      ]
+    },
+    "5": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "swap",
+          "from": "empty",
+          "to": "water"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "swap",
+          "from": "enemy",
+          "to": "water"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "swap",
+          "from": "empty",
+          "to": "water"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "swap",
+          "from": "enemy",
+          "to": "water"
+        },
+        {
+          "ev": "none"
+        }
+      ]
+    },
+    "6": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "swap",
+          "from": "enemy",
+          "to": "fire"
+        },
+        {
+          "ev": "swap",
+          "from": "fire",
+          "to": "enemy"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "swap",
+          "from": "enemy",
+          "to": "fire"
+        },
+        {
+          "ev": "swap",
+          "from": "fire",
+          "to": "enemy"
+        },
+        {
+          "ev": "pod",
+          "n": 2
+        },
+        {
+          "ev": "swap",
+          "from": "fire",
+          "to": "enemy"
+        }
+      ]
+    },
+    "7": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "swap",
+          "from": "water",
+          "to": "ice"
+        },
+        {
+          "ev": "draw"
+        },
+        {
+          "ev": "swap",
+          "from": "water",
+          "to": "ice"
+        },
+        {
+          "ev": "none"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "swap",
+          "from": "water",
+          "to": "ice"
+        },
+        {
+          "ev": "draw"
+        },
+        {
+          "ev": "swap",
+          "from": "water",
+          "to": "ice"
+        },
+        {
+          "ev": "swap",
+          "from": "water",
+          "to": "ice"
+        },
+        {
+          "ev": "none"
+        }
+      ]
+    },
+    "8": {
+      "threeDay": [
+        {
+          "ev": "pod",
+          "n": 4
+        },
+        {
+          "ev": "pellet"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "pod",
+          "n": 3
+        },
+        {
+          "ev": "none"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "pod",
+          "n": 4
+        },
+        {
+          "ev": "pellet"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "pod",
+          "n": 3
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "storm"
+        },
+        {
+          "ev": "none"
+        }
+      ]
+    },
+    "9": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "flarlic"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "swap",
+          "from": "enemy",
+          "to": "chasm"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "flarlic"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "swap",
+          "from": "enemy",
+          "to": "chasm"
+        },
+        {
+          "ev": "none"
+        }
+      ]
+    },
+    "10": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "flarlic"
+        },
+        {
+          "ev": "swap",
+          "from": "empty",
+          "to": "chasm"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "swap",
+          "from": "empty",
+          "to": "chasm"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "flarlic"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "swap",
+          "from": "empty",
+          "to": "chasm"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "swap",
+          "from": "empty",
+          "to": "chasm"
+        },
+        {
+          "ev": "swap",
+          "from": "empty",
+          "to": "chasm"
+        }
+      ]
+    },
+    "11": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "flarlic"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "pod",
+          "n": 2
+        },
+        {
+          "ev": "raw"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "flarlic"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "pod",
+          "n": 2
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "flarlic"
+        }
+      ]
+    },
+    "12": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "flarlic"
+        },
+        {
+          "ev": "swap",
+          "from": "water",
+          "to": "empty"
+        },
+        {
+          "ev": "swap",
+          "from": "empty",
+          "to": "enemy"
+        },
+        {
+          "ev": "pod",
+          "n": 2
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "flarlic"
+        },
+        {
+          "ev": "swap",
+          "from": "water",
+          "to": "empty"
+        },
+        {
+          "ev": "swap",
+          "from": "water",
+          "to": "empty"
+        },
+        {
+          "ev": "swap",
+          "from": "empty",
+          "to": "enemy"
+        },
+        {
+          "ev": "pod",
+          "n": 2
+        },
+        {
+          "ev": "flarlic"
+        }
+      ]
+    },
+    "13": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "draw"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "pellet"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "draw"
+        },
+        {
+          "ev": "raw"
+        },
+        {
+          "ev": "pellet"
+        },
+        {
+          "ev": "raw"
+        }
+      ]
+    },
+    "14": {
+      "threeDay": [
+        {
+          "ev": "pod",
+          "n": 5
+        },
+        {
+          "ev": "flarlic"
+        },
+        {
+          "ev": "pellet"
+        },
+        {
+          "ev": "storm"
+        },
+        {
+          "ev": "storm"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "pod",
+          "n": 5
+        },
+        {
+          "ev": "flarlic"
+        },
+        {
+          "ev": "pellet"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "storm"
+        },
+        {
+          "ev": "storm"
+        },
+        {
+          "ev": "none"
+        }
+      ]
+    },
+    "15": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "swap",
+          "from": "fire",
+          "to": "ice",
+          "all": true
+        },
+        {
+          "ev": "swap",
+          "from": "water",
+          "to": "fire",
+          "all": true
+        },
+        {
+          "ev": "swap",
+          "from": "poison",
+          "to": "water",
+          "all": true
+        },
+        {
+          "ev": "swap",
+          "from": "ice",
+          "to": "poison",
+          "all": true
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "swap",
+          "from": "fire",
+          "to": "ice",
+          "all": true
+        },
+        {
+          "ev": "swap",
+          "from": "water",
+          "to": "fire",
+          "all": true
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "swap",
+          "from": "poison",
+          "to": "water",
+          "all": true
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "swap",
+          "from": "ice",
+          "to": "poison",
+          "all": true
+        }
+      ]
+    },
+    "16": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "roll"
+        },
+        {
+          "ev": "pellet"
+        },
+        {
+          "ev": "roll"
+        },
+        {
+          "ev": "pellet"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "roll"
+        },
+        {
+          "ev": "pellet"
+        },
+        {
+          "ev": "roll"
+        },
+        {
+          "ev": "pellet"
+        },
+        {
+          "ev": "roll"
+        },
+        {
+          "ev": "pellet"
+        }
+      ]
+    },
+    "17": {
+      "threeDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "swap",
+          "from": "fire",
+          "to": "poison"
+        },
+        {
+          "ev": "swap",
+          "from": "fire",
+          "to": "poison"
+        },
+        {
+          "ev": "none"
+        }
+      ],
+      "twoDay": [
+        {
+          "ev": "spawn"
+        },
+        {
+          "ev": "none"
+        },
+        {
+          "ev": "swap",
+          "from": "fire",
+          "to": "poison"
+        },
+        {
+          "ev": "storm"
+        },
+        {
+          "ev": "swap",
+          "from": "fire",
+          "to": "poison"
+        },
+        {
+          "ev": "swap",
+          "from": "fire",
+          "to": "poison"
+        },
+        {
+          "ev": "none"
+        }
+      ]
+    }
+  }
+}

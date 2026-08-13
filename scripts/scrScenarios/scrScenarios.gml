@@ -16,9 +16,9 @@ function scenario_base(_boardDef) {
         board: board_create(_boardDef),
         treasures: [],       // {cards:[treasureIds], lane, idx, boss:undefined|{enemyDefId, curHp, dead}}
         players: [
-            { playerIdx: 0, hand: [], pellets: [], tokens: [], score: 0, collected: [], turnsTaken: 0 },
-            { playerIdx: 1, hand: [], pellets: [], tokens: [], score: 0, collected: [], turnsTaken: 0 },
-        ],                   // player: {playerIdx, hand:[gatherIds], pellets:[pelletIds], tokens:[{typeId,loc}], score, collected, turnsTaken}
+            { playerIdx: 0, hand: [], pellets: [], tokens: [], score: 0, collected: [], turnsTaken: 0, flarlicBonus: 0, wildCount: 0, glowUp: false },
+            { playerIdx: 1, hand: [], pellets: [], tokens: [], score: 0, collected: [], turnsTaken: 0, flarlicBonus: 0, wildCount: 0, glowUp: false },
+        ],                   // player: {playerIdx, hand, pellets, tokens, score, collected, turnsTaken, flarlicBonus (FLARLIC day cap boost, persists)}
         firstPlayer: 0,
         activePlayer: 0,
         phase: "gather",     // gather | orders | move | gameover
@@ -26,16 +26,26 @@ function scenario_base(_boardDef) {
         dayNumber: 1,
         dayTrack: 1,
         dayTrackLength: global.rules.dayTrackLength, // per-game phase count; a scenario can lengthen the day (e.g. long tutorials)
-        dayTrackDef: game_day_track_default(),        // NEW day system (groundwork): per-space step events {days, spaces:[{ev,..}]} (distinct from dayTrack, the within-day counter above)
+        dayTrackDef: game_day_track_for_board(_boardDef),  // NEW day system: the board's real per-space step events {days, spaces:[{ev,..}]} (3-day/5-space variant; distinct from dayTrack, the within-day counter above)
         dayRawFree: false,      // RAW day event: building costs 1 raw this turn (reset each turn)
         dayPelletBonus: false,  // PELLET day event: pellets give +1 pikmin this turn (reset each turn)
-        flarlicBonus: 0,        // FLARLIC day event: +N pikmin cap for the rest of the match (persists)
+        // (FLARLIC's persistent cap boost lives PER-PLAYER as players[_p].flarlicBonus, above)
         solo: false,         // scenarios set their own; false = normal 2-player (day flips seats)
         decks: { gather: [], gatherDiscard: [], treasure: [], enemy: [], enemyDiscard: [] },
         sprays: [],          // {playerIdx, lane, idx} - ultra-spicy tokens
         mines: [],           // {lane, idx, dmg} - arm at 10 pass-damage, then kill enders
         decoys: [],          // {playerIdx, lane, idx, hp} - pikpik carrots soak enemy damage
         pendingFree: [],     // {playerIdx, count} - boss bounty free hazard placements, killer first
+        pendingDaySwap: undefined, // {playerIdx, from, to} - a player-driven day SWAP awaiting the owner's tile pick
+        pendingDayPlace: undefined, // {playerIdx, kind:"pod"|"storm", count} - day POD/STORM awaiting the owner's space pick(s)
+        pendingEvent: undefined,    // {playerIdx, effect, kind, hazard} - the ACTIVE adventure event space pick
+        eventPending: [],           // FIFO of event effects to run this turn (one at a time; e.g. Double Event's two)
+        pendingTypePick: undefined, // {playerIdx, purpose, options:[ids], lane, idx} - a CARD-TYPE chooser modal (e.g. Reconstruction's new wall)
+        pendingLose: undefined,     // {playerIdx, need} - "Lose N pikmin of your choice" click-picker
+        pendingSpy: undefined, // {viewer} - Spy treasure power: viewer gets a one-time read-only peek at the opponent's hand
+        pendingReveal: undefined, // {chooser, lane, idx} - Reveal power: opponent picks a pile (lane<0 = still choosing) then its new top card
+        popHistory: [],      // per-phase pikmin-population snapshots for the end-of-run graph: [{label,day,seats:[{typeId:count}]}]
+        tileVersion: 0,      // bumped whenever a tile's TYPE changes (day swap) so the renderer rebuilds the baked tile-colour mesh
         pendingDiscard: undefined, // {playerIdx, need} - hand-limit overflow, owner picks; handoff waits
         departing: [],       // {cards, playerIdx, lane, fromIdx, total} - piles animating home, scored on arrival
         fx: [],              // presentation death events, drained by the controller (cosmetic; rules ignore it)
@@ -189,15 +199,18 @@ function scenario_advtest() {
 /// enemies on their enemy spaces (bare enemy spaces fill from a small deck), and the pre-placed
 /// structures. FIRST PASS: treasures are a generic light item and the enemy respawn deck is generic -
 /// the campaign's specific treasure series / event cards / timed rules come later.
-function scenario_adventure(_advBoard) {
+function scenario_adventure(_advBoard, _daysLeft = 3, _enemyIds = undefined) {
     var _g = scenario_base(_advBoard);
     _g.solo = true;
-    _g.dayTrackLength = 12;   // long day so a rollover doesn't fly pikmin home mid-run
+    // ADVENTURE campaign: this board draws from the RUN's shared day budget. When it's
+    // spent the board ends (game_advance_day -> gameover), which the controller reads as
+    // the run running out of time. Clearing the board (all treasures banked) ends it early.
+    _g.dayLimit = max(1, _daysLeft);
     // starting pikmin: a handful of each type in the board's kit, at home
     _g.players[0].tokens = [];
     var _kit = _advBoard.kit;
     for (var _k = 0; _k < array_length(_kit); _k++)
-        repeat (4) array_push(_g.players[0].tokens, { typeId: _kit[_k], loc: { kind: "home" } });
+        array_push(_g.players[0].tokens, { typeId: _kit[_k], loc: { kind: "home" } });   // 1 of each, like a normal game
 
     // index named enemies by space; those sitting ON a treasure space are that pile's BOSS
     var _bossAt = {};
@@ -207,20 +220,35 @@ function scenario_adventure(_advBoard) {
         if (_sp.kind == "treasure") _bossAt[$ string(_pe.lane) + "_" + string(_pe.idx)] = _pe.enemyDefId;
         else if (_sp.kind == "enemy") _sp.enemy = { enemyDefId: _pe.enemyDefId, curHp: enemy_def_get(_pe.enemyDefId).hp, dead: false };
     }
-    // a light treasure on every treasure space (so the kit can actually haul it), boss if guarded
-    _g.treasures = [];
+    // place the map's treasure POOL onto its treasure spaces. BOSS-guarded spaces are always fed
+    // first (a boss must guard a real treasure); the rest are shuffled so that - when the map lists
+    // FEWER treasures than it has treasure spaces - WHICH space ends up empty is random per run. An
+    // empty treasure space stays a treasure space (never converted to plain), just with no pile.
+    var _bossSpaces = [];   // {lane, idx, boss}
+    var _freeSpaces = [];   // {lane, idx}
     for (var _l = 0; _l < array_length(_g.board.lanes); _l++) {
-        var _spaces = _g.board.lanes[_l].spaces;
-        for (var _i = 0; _i < array_length(_spaces); _i++) {
-            if (_spaces[_i].kind != "treasure") continue;
-            var _key = string(_l) + "_" + string(_i);
-            var _boss = undefined;
-            if (variable_struct_exists(_bossAt, _key)) {
-                var _bid = _bossAt[$ _key];
-                _boss = { enemyDefId: _bid, curHp: enemy_def_get(_bid).hp, dead: false };
-            }
-            array_push(_g.treasures, { cards: ["arborealfrippery"], lane: _l, idx: _i, boss: _boss });
+        var _lsp = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_lsp); _i++) {
+            if (_lsp[_i].kind != "treasure") continue;
+            var _tkey = string(_l) + "_" + string(_i);
+            if (variable_struct_exists(_bossAt, _tkey)) array_push(_bossSpaces, { lane: _l, idx: _i, boss: _bossAt[$ _tkey] });
+            else array_push(_freeSpaces, { lane: _l, idx: _i });
         }
+    }
+    // Fisher-Yates shuffle the FREE spaces (boss spaces stay guaranteed)
+    for (var _s = array_length(_freeSpaces) - 1; _s > 0; _s--) {
+        var _j = irandom(_s); var _sw = _freeSpaces[_s]; _freeSpaces[_s] = _freeSpaces[_j]; _freeSpaces[_j] = _sw;
+    }
+    var _order = [];
+    for (var _b = 0; _b < array_length(_bossSpaces); _b++) array_push(_order, _bossSpaces[_b]);
+    for (var _f = 0; _f < array_length(_freeSpaces); _f++) array_push(_order, _freeSpaces[_f]);
+    _g.treasures = [];
+    var _pool = _advBoard.treasures;
+    for (var _t = 0; _t < array_length(_pool) && _t < array_length(_order); _t++) {
+        var _os = _order[_t];
+        var _tboss = undefined;
+        if (variable_struct_exists(_os, "boss")) _tboss = { enemyDefId: _os.boss, curHp: enemy_def_get(_os.boss).hp, dead: false };
+        array_push(_g.treasures, { cards: [_pool[_t].id], lane: _os.lane, idx: _os.idx, boss: _tboss });
     }
     // pre-placed structures (walls / geysers already standing on the board)
     for (var _s2 = 0; _s2 < array_length(_advBoard.placedStructures); _s2++) {
@@ -228,11 +256,49 @@ function scenario_adventure(_advBoard) {
         var _psp = _g.board.lanes[_ps.lane].spaces[_ps.idx];
         _psp.structure = { structId: _ps.structId, curHp: hazard_def_get(_ps.structId).hp };
     }
-    // fill any remaining BARE enemy spaces from a deck, then stock the decks
-    var _enemyDeck = []; repeat (16) array_push(_enemyDeck, "dwarfbulborb");
+    // ENEMY DECK: the map's own deck (from the campaign enemy sheets) fills bare enemy spaces now
+    // and respawns at sunset. Falls back to a filler if a map shipped no deck.
+    // In a campaign run the EVOLVED per-checkpoint deck (_enemyIds) is passed in; a bare dev launch
+    // (no deck) falls back to expanding this board's own additions column.
+    var _enemyDeck = [];
+    if (is_array(_enemyIds) && array_length(_enemyIds) > 0) {
+        for (var _ei = 0; _ei < array_length(_enemyIds); _ei++) array_push(_enemyDeck, _enemyIds[_ei]);
+    } else {
+        for (var _ed = 0; _ed < array_length(_advBoard.enemyDeck); _ed++) {
+            var _ee = _advBoard.enemyDeck[_ed];
+            repeat (_ee.count) array_push(_enemyDeck, _ee.id);
+        }
+    }
+    if (array_length(_enemyDeck) == 0) repeat (8) array_push(_enemyDeck, "dwarfbulborb");
+    deck_shuffle(_enemyDeck);
     _g.decks.enemy = _enemyDeck;
     board_spawn_enemies(_g.board, _g.decks.enemy);
-    _g.decks.gather = ["rawmaterial", "rawmaterial", "candypopbud", "candypopbud2", "spicyspray", "rawmaterial"];
+    // GATHER DECK: the shared campaign gather deck (the 12 campaign cards).
+    var _gatherDeck = [];
+    for (var _gd = 0; _gd < array_length(_advBoard.gatherDeck); _gd++) array_push(_gatherDeck, _advBoard.gatherDeck[_gd]);
+    if (array_length(_gatherDeck) == 0) _gatherDeck = ["rawmaterial", "spicyspray"];
+    deck_shuffle(_gatherDeck);
+    _g.decks.gather = _gatherDeck;
     _g.decks.treasure = [];
+    // BLANK day tracker: still SHOWN in the HUD (all blank-sun segments), but it fires NOTHING -
+    // adventure uses random EVENT CARDS (one drawn per turn) instead of the standard day events.
+    // (all-"none" spaces => game_day_track_fire / day-spawn are no-ops, and the strip draws suns.)
+    var _blankTrack = [];
+    repeat (_g.dayTrackLength) array_push(_blankTrack, { ev: "none" });
+    _g.dayTrackDef = { days: _g.dayLimit, spaces: _blankTrack };
+    // build the shuffled per-turn event draw pile from the map's event deck ({name,good,n,desc})
+    var _evDeck = variable_struct_exists(_advBoard, "eventDeck") ? _advBoard.eventDeck : [];
+    var _pile = [];
+    for (var _ev = 0; _ev < array_length(_evDeck); _ev++) {
+        var _evc = _evDeck[_ev];
+        var _edesc = variable_struct_exists(_evc, "desc") ? _evc.desc : "";
+        repeat (_evc.n) array_push(_pile, { name: _evc.name, good: _evc.good, desc: _edesc });
+    }
+    deck_shuffle(_pile);
+    _g.advEventPile = _pile;
+    _g.advEventDiscard = [];
+    // per-turn event MODIFIERS (reset + re-applied each turn by game_adv_event_step)
+    _g.advForceAttack = ""; _g.advForceDefense = ""; _g.advEnemyDmgMult = 1;
+    _g.advNoImmunities = false; _g.advNoPellets = false; _g.advTreasureHeavier = 0; _g.advSkipTurn = false;
     return _g;
 }

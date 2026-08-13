@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"BeatProcessingZone2",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":0,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":166.29552,
+  "exportDir":"",
+  "name":"BeatProcessingZone2",
+  "parent":{
+    "name":"Music",
+    "path":"folders/Music.yy",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"BeatProcessingZone2.mp3",
+  "volume":1.0,
+}

@@ -140,6 +140,13 @@ function sim_tick(_g, _ctl) {
         _g.fx = [];
         return;
     }
+    if (_g.pendingDaySwap != undefined) { game_day_swap_auto(_g); _g.fx = []; return; }
+    if (_g.pendingDayPlace != undefined) { game_day_place_auto(_g); _g.fx = []; return; }
+    if (variable_struct_exists(_g, "pendingEvent") && _g.pendingEvent != undefined) { game_event_auto(_g); _g.fx = []; return; }
+    if (variable_struct_exists(_g, "pendingTypePick") && _g.pendingTypePick != undefined) { game_type_pick_auto(_g); _g.fx = []; return; }
+    if (variable_struct_exists(_g, "pendingLose") && _g.pendingLose != undefined) { game_lose_auto(_g); _g.fx = []; return; }
+    if (_g.pendingSpy != undefined) { _g.pendingSpy = undefined; return; }   // AI never opens the peek modal
+    if (_g.pendingReveal != undefined) { game_reveal_auto(_g); return; }      // AI auto-picks the pile reorder
 
     var _brain = sim_ctl(_ctl, _g.activePlayer);
     if (_brain == "v3") ai3_step(_g); else if (_brain == "v3b") ai3b_step(_g); else if (_brain == "v4") ai4_step(_g); else if (_brain == "v2") ai2_step(_g); else ai_step(_g);
@@ -2166,6 +2173,42 @@ function sim_test_v4_removals() {
     var _ods = ai4_optimize(_gds, 0);
     _all &= sim_expect(array_length(_ods.chosen) >= 1, true, "death-spiral: army 0 + a red5 pellet -> the kill is still enumerated AND funded");
 
+    // REBUILD-FROM-PELLETS gate: crack pellets into bodies ONLY when a basic pikmin could actually act
+    // (a reachable carry/attack) but the plan funded no such action - so the army accumulates toward it
+    // instead of the pellets rotting to the hand-limit discard. NOT when the only thing available is
+    // item-first (bomb/bridge) or a mine sacrifice, or nothing is pikmin-addressable. Arg 3 = chosen array.
+    // (a) open lane + a treasure -> a basic carry is reachable (red is a grotto basic, fieldable at 0 army)
+    var _grb = sim_blank("familiargrotto");
+    _grb.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _grb.players[0].tokens = []; _grb.players[0].pellets = ["red5"];
+    _all &= sim_expect(ai4_has_reachable_pikmin_outcome(_grb, 0) ? 1 : 0, 1, "rebuild: open lane + treasure -> a basic carry is reachable");
+    _all &= sim_expect(ai4_should_rebuild(_grb, 0, []) ? 1 : 0, 1, "rebuild: reachable carry + empty plan + pellets -> FIRE");
+    array_push(_grb.players[0].tokens, { typeId: "red", loc: { kind: "home" } });   // PARTIAL army (not empty) still fires
+    _all &= sim_expect(ai4_should_rebuild(_grb, 0, []) ? 1 : 0, 1, "rebuild: fires with a PARTIAL army too (not gated on army==0)");
+    // (c) a real pikmin action already funded -> don't crack; a detonate-only 'plan' does NOT count as funded
+    var _chPik = [{ outcome: { variants: [{ str: 5, need: "carry" }] }, varIdx: 0 }];
+    _all &= sim_expect(ai4_should_rebuild(_grb, 0, _chPik) ? 1 : 0, 0, "rebuild: a str>0 pikmin action already funded -> don't crack");
+    var _chDet = [{ outcome: { variants: [{ str: 1, need: "any" }] }, varIdx: 0 }];
+    _all &= sim_expect(ai4_should_rebuild(_grb, 0, _chDet) ? 1 : 0, 1, "rebuild: a detonate-only plan (need \"any\") does NOT count as funded -> still crack");
+    // (d) no pellets -> nothing to crack
+    _grb.players[0].pellets = [];
+    _all &= sim_expect(ai4_should_rebuild(_grb, 0, []) ? 1 : 0, 0, "rebuild: no pellets -> nothing to crack");
+
+    // (nothing) no objective on the board -> no reachable pikmin action -> don't crack
+    var _grbN = sim_blank("familiargrotto");   // sim_blank leaves treasures = []
+    _grbN.players[0].tokens = []; _grbN.players[0].pellets = ["red5"];
+    _all &= sim_expect(ai4_has_reachable_pikmin_outcome(_grbN, 0) ? 1 : 0, 0, "rebuild: no objectives -> nothing pikmin-addressable");
+    _all &= sim_expect(ai4_should_rebuild(_grbN, 0, []) ? 1 : 0, 0, "rebuild: nothing a pikmin can do -> don't crack (breeding bodies is pointless)");
+
+    // (b2) ITEM-FIRST: a treasure gated behind an ARMED mine -> the carry is mine-wiped, only a str:1
+    // need:"any" detonate sacrifice remains -> that is NOT a reason to breed bodies
+    var _grbM = sim_blank("familiargrotto");
+    _grbM.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _grbM.mines = [{ lane: 0, idx: 1, dmg: 10 }];   // armed -> carry wiped, only detonate enumerates
+    _grbM.players[0].tokens = []; _grbM.players[0].pellets = ["red5"];
+    _all &= sim_expect(ai4_has_reachable_pikmin_outcome(_grbM, 0) ? 1 : 0, 0, "rebuild: only a mine-detonate sacrifice reachable -> NOT a pikmin action");
+    _all &= sim_expect(ai4_should_rebuild(_grbM, 0, []) ? 1 : 0, 0, "rebuild: item-first / mine sacrifice -> do NOT crack");
+
     sim_report(_all ? "=== v4 removal outcomes: ALL PASS ===" : "=== v4 removal outcomes: FAILURES ABOVE ===");
     return _all;
 }
@@ -2600,7 +2643,190 @@ function sim_test_v4_gather() {
     _all &= sim_expect(ai4_gather_roll(_g6, 0) ? 1 : 0, 1, "6-colour board: 6 pellet-bodies < 10 -> ROLL");
     _g6.players[0].pellets = ["red1", "blue1", "yellow1", "rock1", "winged1"];  // 5 ones = 10 bodies
     _all &= sim_expect(ai4_gather_roll(_g6, 0) ? 1 : 0, 0, "6-colour board: 10 pellet-bodies -> DRAW (was infinite-roll pre-fix)");
+    // (the "roll when plans are thin" gather lean was REVERTED 2026-08-10 - it starved card-reliant
+    // boards; gather is the plain reserve rule again, anti-stall moved to ai4_should_rebuild in orders.)
+
     sim_report(_all ? "=== v4 gather: ALL PASS ===" : "=== v4 gather: FAILURES ABOVE ===");
+    return _all;
+}
+
+/// MID-TILE WALL: a pikmin latched on a blocking card sits on the half it approached
+/// from and can't cross to the far side. Patches the "latch onto a card, then order a
+/// space past it" exploit.
+function sim_test_wall_cross() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: mid-tile wall (latch-past-card exploit) ===");
+    var _all = true;
+    var _wall = function(_g, _i) { _g.board.lanes[0].spaces[_i].structure = { structId: "wall", curHp: 10 }; };
+    var _nAt = function(_g, _i) { return array_length(game_tokens_at(_g, 0, { kind: "space", lane: 0, idx: _i })); };
+
+    // P0 (home = low idx). A wall at idx3 with 3 red latched on it from the HOME side.
+    // EXPLOIT: ordering them to idx4 (past the wall) must now fail.
+    var _g1 = sim_blank("familiargrotto"); _wall(_g1, 3);
+    _g1.phase = "orders"; _g1.activePlayer = 0;
+    repeat (3) array_push(_g1.players[0].tokens, { typeId: "red", loc: { kind: "space", lane: 0, idx: 3 } }); // no side -> home-facing default
+    game_order_move(_g1, { kind: "space", lane: 0, idx: 3 }, { kind: "space", lane: 0, idx: 4 }, { red: 3 });
+    _all &= sim_expect(_nAt(_g1, 4), 0, "wall: latched reds CANNOT cross to the far side (idx4)");
+    _all &= sim_expect(_nAt(_g1, 3), 3, "wall: they stay latched on the wall (idx3)");
+
+    // Same latch may still RETREAT toward home (idx2) - that's their own half.
+    var _g2 = sim_blank("familiargrotto"); _wall(_g2, 3);
+    _g2.phase = "orders"; _g2.activePlayer = 0;
+    repeat (3) array_push(_g2.players[0].tokens, { typeId: "red", loc: { kind: "space", lane: 0, idx: 3 } });
+    game_order_move(_g2, { kind: "space", lane: 0, idx: 3 }, { kind: "space", lane: 0, idx: 2 }, { red: 3 });
+    _all &= sim_expect(_nAt(_g2, 2), 3, "wall: latched reds CAN retreat toward home (idx2)");
+
+    // A token trapped on the CENTER side of the wall (side=+1) may shuffle further
+    // toward centre (idx4) but NOT cross back home (idx2).
+    var _g3 = sim_blank("familiargrotto"); _wall(_g3, 3);
+    _g3.phase = "orders"; _g3.activePlayer = 0;
+    array_push(_g3.players[0].tokens, { typeId: "red", loc: { kind: "space", lane: 0, idx: 3 }, side: 1 });
+    game_order_move(_g3, { kind: "space", lane: 0, idx: 3 }, { kind: "space", lane: 0, idx: 2 }, { red: 1 });
+    _all &= sim_expect(_nAt(_g3, 2), 0, "wall: center-side token can't cross back home (idx2)");
+    game_order_move(_g3, { kind: "space", lane: 0, idx: 3 }, { kind: "space", lane: 0, idx: 4 }, { red: 1 });
+    _all &= sim_expect(_nAt(_g3, 4), 1, "wall: center-side token may move deeper (idx4)");
+
+    // CONTROL: a token on a PLAIN tile (no card) moves freely down its own lane.
+    var _g4 = sim_blank("familiargrotto");
+    _g4.phase = "orders"; _g4.activePlayer = 0;
+    repeat (2) array_push(_g4.players[0].tokens, { typeId: "red", loc: { kind: "space", lane: 0, idx: 3 } });
+    game_order_move(_g4, { kind: "space", lane: 0, idx: 3 }, { kind: "space", lane: 0, idx: 5 }, { red: 2 });
+    _all &= sim_expect(_nAt(_g4, 5), 2, "wall: no card on src tile -> free movement (control)");
+
+    // DEATH RE-OPENS: latch on the wall, then clear it; the (stale-side) tokens can now cross.
+    var _g5 = sim_blank("familiargrotto"); _wall(_g5, 3);
+    _g5.phase = "orders"; _g5.activePlayer = 0;
+    repeat (2) array_push(_g5.players[0].tokens, { typeId: "red", loc: { kind: "space", lane: 0, idx: 3 } });
+    _g5.board.lanes[0].spaces[3].structure = undefined;   // wall destroyed
+    game_order_move(_g5, { kind: "space", lane: 0, idx: 3 }, { kind: "space", lane: 0, idx: 4 }, { red: 2 });
+    _all &= sim_expect(_nAt(_g5, 4), 2, "wall: once the blocker dies, they cross freely");
+
+    // CROSS-LANE ESCAPE (the reported bug): a lane change routes through home, so a
+    // back-side token stuck behind a wall must NOT slip into another lane by picking a
+    // forward space there. (Pre-fix, exit dir was sign(dstIdx-srcIdx) across lanes.)
+    var _g6 = sim_blank("familiargrotto"); _wall(_g6, 3);
+    _g6.phase = "orders"; _g6.activePlayer = 0;
+    array_push(_g6.players[0].tokens, { typeId: "red", loc: { kind: "space", lane: 0, idx: 3 }, side: 1 });
+    game_order_move(_g6, { kind: "space", lane: 0, idx: 3 }, { kind: "space", lane: 1, idx: 5 }, { red: 1 });
+    _all &= sim_expect(array_length(game_tokens_at(_g6, 0, { kind: "space", lane: 1, idx: 5 })), 0,
+        "wall: back-side token can't escape to a forward space in another lane");
+
+    // FRONT-side latch is NOT trapped: it may retreat home and redeploy to another lane.
+    var _g7 = sim_blank("familiargrotto"); _wall(_g7, 3);
+    _g7.phase = "orders"; _g7.activePlayer = 0;
+    array_push(_g7.players[0].tokens, { typeId: "red", loc: { kind: "space", lane: 0, idx: 3 } }); // home-side default
+    game_order_move(_g7, { kind: "space", lane: 0, idx: 3 }, { kind: "space", lane: 1, idx: 1 }, { red: 1 });
+    _all &= sim_expect(array_length(game_tokens_at(_g7, 0, { kind: "space", lane: 1, idx: 1 })), 1,
+        "wall: front-side latch may still change lanes (retreat + redeploy)");
+
+    // ONION ESCAPE: dismissing to the Onion is a retreat home, so a back-side token stuck
+    // behind a wall can't walk out to the Onion either.
+    var _g8 = sim_blank("familiargrotto"); _wall(_g8, 3);
+    _g8.phase = "orders"; _g8.activePlayer = 0;
+    array_push(_g8.players[0].tokens, { typeId: "red", loc: { kind: "space", lane: 0, idx: 3 }, side: 1 });
+    game_order_discard(_g8, { kind: "space", lane: 0, idx: 3 }, { red: 1 });
+    _all &= sim_expect(_nAt(_g8, 3), 1, "wall: back-side token can't dismiss to the Onion across the wall");
+    // ...but a FRONT-side latch can (it's a legit retreat home).
+    var _g9 = sim_blank("familiargrotto"); _wall(_g9, 3);
+    _g9.phase = "orders"; _g9.activePlayer = 0;
+    array_push(_g9.players[0].tokens, { typeId: "red", loc: { kind: "space", lane: 0, idx: 3 } }); // front default
+    game_order_discard(_g9, { kind: "space", lane: 0, idx: 3 }, { red: 1 });
+    _all &= sim_expect(_nAt(_g9, 3), 0, "wall: front-side latch may dismiss to the Onion (legit retreat)");
+
+    // CROSS-LANE ATTACH: routing to a wall in ANOTHER lane goes via HOME, so the attacker arrives on
+    // the wall's HOME/front half (side -1 for p0) - not stranded on the back (bug: used old lane's idx).
+    var _gX = sim_blank("familiargrotto");
+    _gX.board.lanes[1].spaces[3].structure = { structId: "wall", curHp: 10 };
+    _gX.phase = "orders"; _gX.activePlayer = 0;
+    array_push(_gX.players[0].tokens, { typeId: "red", loc: { kind: "space", lane: 0, idx: 5 } });
+    game_order_move(_gX, { kind: "space", lane: 0, idx: 5 }, { kind: "space", lane: 1, idx: 3 }, { red: 1 });
+    var _xt = game_tokens_at(_gX, 0, { kind: "space", lane: 1, idx: 3 });
+    _all &= sim_expect(array_length(_xt), 1, "wall: cross-lane attacker reaches the wall");
+    _all &= sim_expect(array_length(_xt) > 0 ? _xt[0].side : 999, -1, "wall: cross-lane attacker clings to the HOME/front half (side -1)");
+
+    // TREASURE CARRIERS: a pile only blocks going DEEPER; home is ALWAYS reachable (carriers aren't
+    // "trapped" by a pile they can drop) - even if the token's stored side is the centre half.
+    var _gT = sim_blank("familiargrotto");
+    _gT.treasures = [{ cards: [TW5], lane: 0, idx: 3, boss: undefined }];
+    _gT.phase = "orders"; _gT.activePlayer = 0;
+    array_push(_gT.players[0].tokens, { typeId: "red", loc: { kind: "space", lane: 0, idx: 3 }, side: 1 }); // pretend centre-side
+    game_order_move(_gT, { kind: "space", lane: 0, idx: 3 }, { kind: "space", lane: 0, idx: 4 }, { red: 1 });
+    _all &= sim_expect(_nAt(_gT, 4), 0, "treasure: carriers can't move DEEPER past the pile");
+    game_order_move(_gT, { kind: "space", lane: 0, idx: 3 }, { kind: "home" }, { red: 1 });
+    _all &= sim_expect(array_length(game_tokens_at(_gT, 0, { kind: "home" })), 1, "treasure: carriers CAN always be called home");
+
+    sim_report(_all ? "=== mid-tile wall: ALL PASS ===" : "=== mid-tile wall: FAILURES ABOVE ===");
+    return _all;
+}
+
+/// SUICIDE-DEFENCE only kills the pikmin actually needed to strike the kill - extras
+/// beyond the enemy's HP hang back unharmed; immune bodies strike for free.
+function sim_test_defense_cap() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: suicide-defence death cap (only the needed strike) ===");
+    var _all = true;
+    var _enemy = function(_g, _i) { _g.board.lanes[0].spaces[_i].enemy = { enemyDefId: "wolpole", curHp: 3, dead: false, attacked: false }; }; // water defence, hp 3
+    var _nAt = function(_g, _i) { return array_length(game_tokens_at(_g, 0, { kind: "space", lane: 0, idx: _i })); };
+
+    // 4 yellows (non-immune to water) on a 3-hp Wolpole -> only 3 needed strike + die, 1 survives.
+    var _g1 = sim_blank("familiargrotto"); _enemy(_g1, 3); _g1.activePlayer = 0;
+    repeat (4) array_push(_g1.players[0].tokens, { typeId: "yellow", loc: { kind: "space", lane: 0, idx: 3 } });
+    game_combat_step(_g1, 0, false, false, "all");
+    _all &= sim_expect(_nAt(_g1, 3), 1, "defence: 4 yellows on hp-3 Wolpole -> 1 survives (only 3 melt)");
+    var _we1 = _g1.board.lanes[0].spaces[3].enemy;   // game_enemy_die -> game_clear_enemy removes it (dead is a transient in-combat flag)
+    _all &= sim_expect((_we1 == undefined || _we1.dead) ? 1 : 0, 1, "defence: the Wolpole dies (cleared from the board)");
+
+    // exactly 3 -> all 3 are needed, all melt (no regression / over-sparing).
+    var _g2 = sim_blank("familiargrotto"); _enemy(_g2, 3); _g2.activePlayer = 0;
+    repeat (3) array_push(_g2.players[0].tokens, { typeId: "yellow", loc: { kind: "space", lane: 0, idx: 3 } });
+    game_combat_step(_g2, 0, false, false, "all");
+    _all &= sim_expect(_nAt(_g2, 3), 0, "defence: exactly 3 yellows all melt (all were needed)");
+
+    // blues are water-immune: they strike for free, none die.
+    var _g3 = sim_blank("familiargrotto"); _enemy(_g3, 3); _g3.activePlayer = 0;
+    repeat (4) array_push(_g3.players[0].tokens, { typeId: "blue", loc: { kind: "space", lane: 0, idx: 3 } });
+    game_combat_step(_g3, 0, false, false, "all");
+    _all &= sim_expect(_nAt(_g3, 3), 4, "defence: water-immune blues all survive");
+
+    // mixed: 2 immune blues cover 2 of the 3 hp, so only 1 yellow needs to (and does) die.
+    var _g4 = sim_blank("familiargrotto"); _enemy(_g4, 3); _g4.activePlayer = 0;
+    repeat (2) array_push(_g4.players[0].tokens, { typeId: "blue", loc: { kind: "space", lane: 0, idx: 3 } });
+    repeat (3) array_push(_g4.players[0].tokens, { typeId: "yellow", loc: { kind: "space", lane: 0, idx: 3 } });
+    game_combat_step(_g4, 0, false, false, "all");
+    _all &= sim_expect(_nAt(_g4, 3), 4, "defence: 2 blues cover 2hp -> only 1 of 3 yellows melts (4 survive)");
+
+    sim_report(_all ? "=== suicide-defence cap: ALL PASS ===" : "=== suicide-defence cap: FAILURES ABOVE ===");
+    return _all;
+}
+
+/// ELEMENT/IMMUNITY MODEL: chips (immunities incl. HEIGHT) gate movement; winged's ground-hazard
+/// TRAIT is separate. Rebooting (_noImm) suppresses chips but not traits.
+function sim_test_immunity_model() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: element/immunity model (height as element, Rebooting) ===");
+    var _all = true;
+    var _hz = function(_h) { return { kind: "hazard", hazard: _h, enemy: undefined, structure: undefined }; };
+    // helper: can _type ENTER a hazard tile heading toward centre (_noImm off then on)
+    var _enter = function(_type, _haz, _toward, _noImm) {
+        return game_type_can_enter(pikmin_type_get(_type), { kind: "hazard", hazard: _haz, enemy: undefined, structure: undefined }, _toward, false, false, _noImm) ? 1 : 0;
+    };
+    // HEIGHT is now an element: yellow + winged climb it toward centre; red can't
+    _all &= sim_expect(_enter("yellow", "height", true, false), 1, "immunity: yellow climbs height (element)");
+    _all &= sim_expect(_enter("winged", "height", true, false), 1, "immunity: winged crosses height (element)");
+    _all &= sim_expect(_enter("red",    "height", true, false), 0, "immunity: red can't climb height toward centre");
+    _all &= sim_expect(_enter("red",    "height", false, false), 1, "immunity: red CAN stand on height going downhill (one-way)");
+    // ground elements: matching chip OR winged fly
+    _all &= sim_expect(_enter("blue",   "water", true, false), 1, "immunity: blue crosses water");
+    _all &= sim_expect(_enter("yellow", "water", true, false), 0, "immunity: yellow can't cross water");
+    _all &= sim_expect(_enter("winged", "water", true, false), 1, "immunity: winged flies over water (trait)");
+    _all &= sim_expect(_enter("winged", "chasm", true, false), 1, "immunity: winged flies over chasm (ground)");
+    // REBOOTING (_noImm): chips off, traits kept
+    _all &= sim_expect(_enter("yellow", "height", true, true), 0, "rebooting: yellow loses height (chip off)");
+    _all &= sim_expect(_enter("winged", "height", true, true), 0, "rebooting: winged loses height (chip off)");
+    _all &= sim_expect(_enter("blue",   "water", true, true), 0, "rebooting: blue loses water (chip off)");
+    _all &= sim_expect(_enter("winged", "water", true, true), 1, "rebooting: winged STILL flies over water (trait kept)");
+    _all &= sim_expect(_enter("red",    "fire", true, true), 0, "rebooting: red loses fire immunity (chip off)");
+    sim_report(_all ? "=== immunity model: ALL PASS ===" : "=== immunity model: FAILURES ABOVE ===");
     return _all;
 }
 
@@ -2645,6 +2871,9 @@ function sim_run_scenarios() {
     sim_test_v4_discard();
     sim_test_v4_send2();
     sim_test_v4_gather();
+    sim_test_wall_cross();
+    sim_test_defense_cap();
+    sim_test_immunity_model();
 }
 
 // ---------- probe ----------

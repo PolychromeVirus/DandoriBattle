@@ -7,6 +7,21 @@ music_sync();   // start/stop/switch the map's day track (silent in menus + when
 if (menuScreen != prevMenuScreen) { sfx(menuScreen == "main" ? "sfxMenuClose" : "sfxMenuOpen"); prevMenuScreen = menuScreen; }
 if (paused != prevPaused)         { sfx(paused ? "sfxMenuOpen" : "sfxMenuClose"); prevPaused = paused; }
 
+// dismiss pikmin that finished walking into the Onion (Draw flags them onionDone once shrunk):
+// fire the home burst + discard sfx, then delete - freeing the cap + dropping the tally as each poofs.
+if (game != undefined && mode == "playing") {
+    for (var _osp = 0; _osp < array_length(game.players); _osp++) {
+        var _ostoks = game.players[_osp].tokens;
+        for (var _ost = array_length(_ostoks) - 1; _ost >= 0; _ost--) {
+            if (variable_struct_exists(_ostoks[_ost], "onionDone") && _ostoks[_ost].onionDone) {
+                game_fx_onion(game, _osp, _ostoks[_ost].typeId);   // tint the pulse to the pikmin's colour
+                game_sfx(game, "sfxPikDiscard");
+                array_delete(_ostoks, _ost, 1);
+            }
+        }
+    }
+}
+
 // drain queued one-shot SFX (game.sfxCue, pushed by the engine at events). Play only a COUPLE per
 // frame + a slight random pitch, so a burst (e.g. several pikmin dying) lands as offset hits rather
 // than one phase-aligned slam. The rest carry to the next frame(s). Batch runs: no audio, just clear.
@@ -29,8 +44,11 @@ if (game != undefined && variable_struct_exists(game, "sfxCue") && array_length(
         for (var _sq = 0; _sq < _sqBudget; _sq++) {
             var _ce = game.sfxCue[_sq];
             var _cn = is_struct(_ce) ? _ce.n : _ce;
-            // 2/frame drain already staggers a burst; fall gets a WIDER pitch spread so tumbling pikmin overlap
-            var _cpitch = (_cn == "fall1") ? random_range(0.82, 1.18) : random_range(0.95, 1.05);
+            // 2/frame drain already staggers a burst; fall gets a WIDER pitch spread so tumbling pikmin overlap.
+            // A cue may carry its own base pitch (_ce.p, e.g. type-tinted "ah" order reactions) - wobble around it.
+            var _cpitch;
+            if (is_struct(_ce) && variable_struct_exists(_ce, "p")) _cpitch = _ce.p * random_range(1.0, 1.09); // base pitch is the FLOOR; only wobble UP
+            else _cpitch = (_cn == "fall1") ? random_range(0.82, 1.18) : random_range(0.95, 1.05);
             snd_play_cue(_ce, 8, _cpitch);
         }
         array_delete(game.sfxCue, 0, _sqBudget);
@@ -68,9 +86,10 @@ if (mode != "playing") {
 
 // Esc: cancel active targeting first; otherwise open/close the pause menu. While paused the
 // whole game is frozen here (only the pause-menu buttons, drawn in the GUI event, respond).
-if (keyboard_check_pressed(vk_escape)) {
+if (!chatFocused && keyboard_check_pressed(vk_escape)) {   // chat box eats Esc to blur (handled in Draw)
     if (paused) {
-        paused = false;
+        if (pauseScreen == "options") pauseScreen = "";   // Esc backs out of the options sub-panel first
+        else paused = false;
     } else if (selSrc != undefined || pelletMenuIdx >= 0 || posyMenuIdx >= 0 || pendingCard != undefined) {
         selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined;
     } else {
@@ -104,11 +123,11 @@ if (game.phase == "gather" && ctl[game.activePlayer] == "human" && !tutorial_rol
     game.phase = "orders";
 }
 
-// --- toggles ---
-if (keyboard_check_pressed(vk_space)) autoOrbit = !autoOrbit;
+// --- toggles --- (letter/space/tab keys are suppressed while typing in the chat box)
+if (!chatFocused && keyboard_check_pressed(vk_space)) autoOrbit = !autoOrbit;
 if (keyboard_check_pressed(vk_f11)) window_set_fullscreen(!window_get_fullscreen());
-if (keyboard_check_pressed(vk_tab))   showDebug = !showDebug;
-if (keyboard_check_pressed(ord("V")))  showCollection = !showCollection;
+if (!chatFocused && keyboard_check_pressed(vk_tab))   showDebug = !showDebug;
+if (!chatFocused && keyboard_check_pressed(ord("V")))  showCollection = !showCollection;
 if (keyboard_check_pressed(vk_f1)) { // cycle P2's controller mid-game
     ctl[1] = (ctl[1] == "human") ? "v1" : ((ctl[1] == "v1") ? "v2" : ((ctl[1] == "v2") ? "v3" : ((ctl[1] == "v3") ? "v3b" : ((ctl[1] == "v3b") ? "v4" : "human"))));
     game_log(game, "P2 controller: " + ctl[1]);
@@ -138,7 +157,7 @@ if (keyboard_check_pressed(vk_f12)) {
     sim_tournament_run_boards(["familiargrotto", "stonesweptvalley", "undergroundplateau", "frozenriverbank",
         "floodedgarden", "scorchedplayground", "frigidwasteland", "theburrow", "thedoghouse", "theminefield",
         "hauntingswampland", "pricklypasture", "trickystaircase", "thehillswitheyesandteeth", "discodancefloor",
-        "meadowofmelancholy"], 100);
+        "meadowofmelancholy", "beatprocessingzone"], 100);
 }
 // F9: run the fast scenario tests (decision-node logic checks) -> sim_bench.txt +
 // console. Instant. This is the build-one-piece-at-a-time verification loop.
@@ -192,6 +211,42 @@ if (game.phase == "gameover") {
     }
     // fall through so the camera still works on the end screen; the blocks below are
     // all guarded against phase == "gameover"
+}
+
+// --- ADVENTURE CAMPAIGN: detect a board CLEAR (all treasures banked) or a run FAIL (the
+// --- shared day budget spent), then run the between-board / result banner (advBanner). ---
+if (advRun != undefined && mode == "playing" && advBanner == "" && advResults == "") {
+    if (game.phase == "gameover" && gameoverSettled) {
+        advBanner = "failed"; advBannerHold = 0;                 // out of days before clearing
+        // save this play's population history onto the failed mission so the menu can still graph it
+        var _failCp = adventure_mission_checkpoint(advRun.slot, advRun.scen, advRun.board);
+        if (_failCp != undefined && variable_struct_exists(game, "popHistory")) { _failCp.popHistory = game.popHistory; adventure_saves_save(); }
+        sfx("sfxWhistle"); music_stop();                         // end-of-board whistle + cut the track
+    } else if (game.phase != "gameover"
+               && array_length(game.treasures) == 0 && array_length(game.departing) == 0
+               && !presMoving && settleHold <= 0) {
+        advBanner = (adventure_on_clear() == "complete") ? "complete" : "cleared";
+        advBannerHold = 0;
+        sfx("sfxWhistle"); music_stop();                         // end-of-board whistle + cut the track
+    }
+}
+// the brief "Board Complete!" flash holds ~2s (silent), then hands off to the results screen (pop
+// graph), which lives on the MENU backdrop (mode=menu) with the Results track fading in.
+if (advBanner != "") {
+    advBannerHold += 1;
+    if (advBannerHold >= 110) { advResults = advBanner; advBanner = ""; mode = "menu"; menuScreen = "advResults"; exit; }
+}
+
+// --- ADVENTURE "Nap Time..." event: the turn is skipped entirely. End it now (no gather/orders/combat)
+// --- once nothing else is pending. game_end_turn does upkeep + hands the turn over. ---
+if (game.phase != "gameover" && variable_struct_exists(game, "advSkipTurn") && game.advSkipTurn
+    && game.pendingEvent == undefined && game.pendingTypePick == undefined && game.pendingLose == undefined
+    && game.pendingDiscard == undefined && game.pendingDaySwap == undefined && game.pendingDayPlace == undefined
+    && array_length(game.eventPending) == 0 && array_length(game.resolveQueue) == 0) {
+    game.advSkipTurn = false;
+    game_log(game, "Nap Time - the turn is skipped.");
+    game_end_turn(game);
+    exit;
 }
 
 // --- day-transition cinematic: fires when a new day dawns (sunset rollover) and
@@ -248,10 +303,16 @@ if (dayCine == undefined && game.phase != "gameover") {
     turnSettling = false;
 }
 
+// Spy peek: only a HUMAN viewer needs the modal (Draw_64). An AI/remote-driven viewer never
+// opens it, so clear the pending peek so resolution isn't stuck waiting on it.
+if (game.pendingSpy != undefined && ctl[game.pendingSpy.viewer] != "human" && ctl[game.pendingSpy.viewer] != "remote") game.pendingSpy = undefined;
+// Reveal: an AI/remote-driven chooser auto-resolves (a human picks via the board + modal in Draw_64).
+if (game.pendingReveal != undefined && ctl[game.pendingReveal.chooser] != "human" && ctl[game.pendingReveal.chooser] != "remote") game_reveal_auto(game);
+
 // --- resolution pump: the move phase resolves as BEATS (carry, wind-up jump, pikmin
 // --- strike, enemy strike...). Fire one beat, then wait for walks + death spirits to
 // --- clear plus a short breath, so every step reads as its own mini-scene. ---
-if (array_length(game.resolveQueue) > 0 && dayCine == undefined) {
+if (array_length(game.resolveQueue) > 0 && dayCine == undefined && game.pendingSpy == undefined && game.pendingReveal == undefined) {
     if (!global.expRules.anims) {
         while (array_length(game.resolveQueue) > 0) game_resolve_step(game); // anims off: instant resolution
     } else {
@@ -288,9 +349,59 @@ if (game.phase != "gameover" && array_length(game.pendingFree) > 0 && ctl[game.p
         if (_fhb == "v3" || _fhb == "v3b" || _fhb == "v4") ai3_place_free_hazard(game); else if (_fhb == "v2") ai2_place_free_hazard(game); else ai_place_free_hazard(game);
     }
 } else
+// --- SOFTLOCK GUARD: an adventure event space-pick with NO legal target must never trap the player
+// (e.g. a Soil event whose only "empty" space turns out to hold a treasure). Auto-clear + pump. ---
+if (game.phase != "gameover" && game.pendingEvent != undefined && !game_event_any_target(game)) {
+    game.pendingEvent = undefined;
+    game_adv_event_pump(game);
+}
+// --- day-track SWAP choice: the acting player picks one of their own tiles to flip. An AI/sim
+// seat auto-resolves; a human picks a space via the targeter (Draw_64). Blocks the turn. ---
+if (game.phase != "gameover" && game.pendingDaySwap != undefined) {
+    if (ctl[game.pendingDaySwap.playerIdx] != "human" && ctl[game.pendingDaySwap.playerIdx] != "remote") {
+        aiTickTimer += 1;
+        if (aiTickTimer >= (global.expRules.anims ? 20 : 1)) { aiTickTimer = 0; game_day_swap_auto(game); }
+    } else {
+        aiTickTimer = 0;
+    }
+} else
+// --- day-track POD / STORM choice: the acting player places enemies / a hazard. AI/sim auto,
+// human picks spaces via the targeter (Draw_64). Blocks the turn. ---
+if (game.phase != "gameover" && game.pendingDayPlace != undefined) {
+    if (ctl[game.pendingDayPlace.playerIdx] != "human" && ctl[game.pendingDayPlace.playerIdx] != "remote") {
+        aiTickTimer += 1;
+        if (aiTickTimer >= (global.expRules.anims ? 20 : 1)) { aiTickTimer = 0; game_day_place_auto(game); }
+    } else {
+        aiTickTimer = 0;
+    }
+} else
+if (game.phase != "gameover" && game.pendingEvent != undefined) {
+    if (ctl[game.pendingEvent.playerIdx] != "human" && ctl[game.pendingEvent.playerIdx] != "remote") {
+        aiTickTimer += 1;
+        if (aiTickTimer >= (global.expRules.anims ? 20 : 1)) { aiTickTimer = 0; game_event_auto(game); }
+    } else {
+        aiTickTimer = 0;
+    }
+} else
+if (game.phase != "gameover" && game.pendingTypePick != undefined) {
+    if (ctl[game.pendingTypePick.playerIdx] != "human" && ctl[game.pendingTypePick.playerIdx] != "remote") {
+        aiTickTimer += 1;
+        if (aiTickTimer >= (global.expRules.anims ? 20 : 1)) { aiTickTimer = 0; game_type_pick_auto(game); }
+    } else {
+        aiTickTimer = 0;
+    }
+} else
+if (game.phase != "gameover" && game.pendingLose != undefined) {
+    if (ctl[game.pendingLose.playerIdx] != "human" && ctl[game.pendingLose.playerIdx] != "remote") {
+        aiTickTimer += 1;
+        if (aiTickTimer >= (global.expRules.anims ? 20 : 1)) { aiTickTimer = 0; game_lose_auto(game); }
+    } else {
+        aiTickTimer = 0;
+    }
+} else
 // --- AI turn: perform one chunk every ~third of a second so it's watchable. A "remote" seat is
 // NOT an AI - it waits for the opponent's networked state (Phase 2), so it's excluded here. ---
-if (game.phase != "gameover" && ctl[game.activePlayer] != "human" && ctl[game.activePlayer] != "remote" && array_length(game.pendingFree) == 0) {
+if (game.phase != "gameover" && ctl[game.activePlayer] != "human" && ctl[game.activePlayer] != "remote" && array_length(game.pendingFree) == 0 && game.pendingDaySwap == undefined && game.pendingDayPlace == undefined && game.pendingEvent == undefined && game.pendingTypePick == undefined && game.pendingLose == undefined) {
     selSrc = undefined;
     pelletMenuIdx = -1;
     posyMenuIdx = -1;
@@ -346,10 +457,12 @@ var _panSpeed = camDist * 0.016;
 var _fwdX = -dcos(camYaw), _fwdY = -dsin(camYaw);   // camera -> target, on the ground plane
 var _rgtX =  dsin(camYaw), _rgtY = -dcos(camYaw);   // screen right, on the ground plane
 var _panX = 0, _panY = 0;
-if (keyboard_check(ord("W"))) { _panX += _fwdX; _panY += _fwdY; }
-if (keyboard_check(ord("S"))) { _panX -= _fwdX; _panY -= _fwdY; }
-if (keyboard_check(ord("D"))) { _panX += _rgtX; _panY += _rgtY; }
-if (keyboard_check(ord("A"))) { _panX -= _rgtX; _panY -= _rgtY; }
+if (!chatFocused) {   // WASD pan is suppressed while typing in the chat box
+    if (keyboard_check(ord("W"))) { _panX += _fwdX; _panY += _fwdY; }
+    if (keyboard_check(ord("S"))) { _panX -= _fwdX; _panY -= _fwdY; }
+    if (keyboard_check(ord("D"))) { _panX += _rgtX; _panY += _rgtY; }
+    if (keyboard_check(ord("A"))) { _panX -= _rgtX; _panY -= _rgtY; }
+}
 if (_panX != 0 || _panY != 0) {
     camTargetX = clamp(camTargetX + _panX * _panSpeed, panMinX, panMaxX);
     camTargetY = clamp(camTargetY + _panY * _panSpeed, panMinY, panMaxY);

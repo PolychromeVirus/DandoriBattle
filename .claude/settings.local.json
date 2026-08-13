@@ -91,7 +91,20 @@
       "Bash(sed -n '/function board_space_xy/,/^}/p' scripts/scrBoard/scrBoard.gml)",
       "Bash(sed -n '/function board_home_y/,/^}/p' scripts/scrBoard/scrBoard.gml)",
       "PowerShell(Select-String -Path \"DandoriBattle.yyp\" -Pattern \"sprTextBox|fntDialog\" | ForEach-Object { $_.Line.Trim\\(\\) })",
-      "Bash(python tools/extract_adventure.py)"
+      "Bash(python tools/extract_adventure.py)",
+      "Bash(python tools/extract_daytracks.py)",
+      "Bash(python -c \"import json;d=json.load\\(open\\('datafiles/data/adventure.json'\\)\\);print\\('scenarios:',len\\(d['scenarios']\\)\\);[print\\(' -',s['name'],'| boards:',len\\(s['boards']\\),'| timed:',s.get\\('timed'\\)\\) for s in d['scenarios']]\")",
+      "Bash(python -c \"import openpyxl; print\\('openpyxl ok'\\)\")",
+      "Bash(python -c \"import json;d=json.load\\(open\\('datafiles/data/adventure.json'\\)\\);[print\\(s.get\\('name'\\), '| keys:', [k for k in s.keys\\(\\) if k!='boards']\\) for s in d['scenarios']]\")",
+      "Bash(python -c \"import json;d=json.load\\(open\\('datafiles/data/adventure.json'\\)\\);[print\\(' -',s['name'],'| boards:',len\\(s['boards']\\)\\) for s in d['scenarios']]\")",
+      "Bash(cd /c/Users/polyc/.claude/projects/C--Users-polyc-GameMakerProjects-DandoriBattle/memory *)",
+      "Bash(python -c \"import json; d=json.load\\(open\\('datafiles/data/adventure.json'\\)\\); print\\([s['name'] for s in d['scenarios']]\\)\")",
+      "Bash(python -c 'import json,glob *)",
+      "Bash(cd /c/Users/polyc *)",
+      "Bash(awk '/######## TOURNAMENT/{blk=NR} END{}' \"AppData/Local/DandoriBattle/sim_bench.txt\")",
+      "Bash(awk '{print} /######## TOURNAMENT/{exit}')",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(k, '3day:', [s.get\\('ev'\\) for s in v.get\\('threeDay',[]\\)], '| 2day:', [s.get\\('ev'\\) for s in v.get\\('twoDay',[]\\)]\\) for k,v in d.items\\(\\)]\")",
+      "Bash(python tools/extract_boards.py)"
     ]
   }
 }

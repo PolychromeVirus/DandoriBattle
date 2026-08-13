@@ -7,7 +7,7 @@
   },
   "bitDepth":1,
   "channelFormat":0,
-  "compression":0,
+  "compression":3,
   "compressionQuality":4,
   "conversionMode":0,
   "duration":2.096009,
@@ -22,5 +22,5 @@
   "resourceVersion":"2.0",
   "sampleRate":44100,
   "soundFile":"sfxPikminLogo.wav",
-  "volume":1.0,
+  "volume":0.41,
 }
