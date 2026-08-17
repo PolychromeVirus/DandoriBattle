@@ -360,7 +360,13 @@ if (game.phase != "gameover" && game.pendingEvent != undefined && !game_event_an
 if (game.phase != "gameover" && game.pendingDaySwap != undefined) {
     if (ctl[game.pendingDaySwap.playerIdx] != "human" && ctl[game.pendingDaySwap.playerIdx] != "remote") {
         aiTickTimer += 1;
-        if (aiTickTimer >= (global.expRules.anims ? 20 : 1)) { aiTickTimer = 0; game_day_swap_auto(game); }
+        if (aiTickTimer >= (global.expRules.anims ? 20 : 1)) {
+            aiTickTimer = 0;
+            var _dsB = ctl[game.pendingDaySwap.playerIdx];   // strategic placement: v4 full argmax, v3/v3b cheap proxy, else first-legal
+            if (_dsB == "v4") ai4_day_swap_place(game, false);
+            else if (_dsB == "v3" || _dsB == "v3b") ai4_day_swap_place(game, true);
+            else game_day_swap_auto(game);
+        }
     } else {
         aiTickTimer = 0;
     }

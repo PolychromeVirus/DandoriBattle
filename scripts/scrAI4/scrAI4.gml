@@ -767,6 +767,64 @@ function ai4_optimize(_g, _p, _skip = undefined) {
     return { value: _bestVal, chosen: _chosen };
 }
 
+/// Cheap board-access proxy for _p: total VALUE of the reachable outcomes (best variant each). Skips
+/// the exponential combo search ai4_optimize runs - a fast "how much can I still reach?" score, used by
+/// the v3 day-swap placer (its slightly-less-sophisticated evaluation).
+function ai4_reach_value(_g, _p) {
+    var _out = ai4_enumerate(_g, _p);
+    var _sum = 0;
+    for (var _i = 0; _i < array_length(_out); _i++) {
+        var _vs = _out[_i].variants; var _bv = 0;
+        for (var _v = 0; _v < array_length(_vs); _v++) {
+            var _vv = variable_struct_exists(_vs[_v], "value") ? _vs[_v].value : 0;
+            if (_vv > _bv) _bv = _vv;
+        }
+        _sum += _bv;
+    }
+    return _sum;
+}
+
+/// STRATEGIC day-swap placement. The swap is SELF-INFLICTED (own side), so we pick WHERE the hazard
+/// hurts our own dandori LEAST: for each legal own-side target, apply the hypothetical swap, score the
+/// resulting board FOR US, restore, keep the best (stable first-max tiebreak -> deterministic). Because
+/// the score comes from our own value model, a type we're immune to, a conceded lane, or a space off our
+/// haul path all read as ~free automatically - no bespoke hazard weights needed. `_cheap` uses the
+/// reachable-value proxy (v3); otherwise the full ai4_optimize plan value (v4). game_space_set_type +
+/// ai4_optimize/ai4_reach_value are pure w.r.t. the rest of _g, so apply/score/restore needs no clone.
+function ai4_day_swap_place(_g, _cheap) {
+    if (_g.pendingDaySwap == undefined) return;
+    var _p = _g.pendingDaySwap.playerIdx;
+    var _to = _g.pendingDaySwap.to;
+    var _EPS = 0.5;   // values below this apart count as TIED -> break the tie by consolidation
+    var _bestL = -1, _bestI = -1, _bestV = -999999999, _bestCons = -1;
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces); _i++) {
+            if (!game_day_swap_target_ok(_g, _l, _i)) continue;
+            var _sp = _g.board.lanes[_l].spaces[_i];
+            var _oKind = _sp.kind;
+            var _oHazHas = variable_struct_exists(_sp, "hazard");
+            var _oHaz = _oHazHas ? _sp.hazard : "";
+            var _oEn = _sp.enemy, _oSt = _sp.structure;
+            game_space_set_type(_sp, _to);                                  // hypothetical
+            var _v = _cheap ? ai4_reach_value(_g, _p) : ai4_optimize(_g, _p).value;
+            _sp.kind = _oKind; _sp.enemy = _oEn; _sp.structure = _oSt;       // restore
+            if (_oHazHas) _sp.hazard = _oHaz; else if (variable_struct_exists(_sp, "hazard")) variable_struct_remove(_sp, "hazard");
+            // CONSOLIDATION tiebreak: when the value ties, prefer a lane that ALREADY holds a `to`-type
+            // space, so hazards herd into fewer lanes (rest stay universally open) instead of oscillating.
+            var _cons = 0;
+            var _laneSp = _g.board.lanes[_l].spaces;
+            for (var _k = 0; _k < array_length(_laneSp); _k++)
+                if (_k != _i && game_space_type_matches(_laneSp[_k], _to)) { _cons = 1; break; }
+            if (_v > _bestV + _EPS) { _bestV = _v; _bestCons = _cons; _bestL = _l; _bestI = _i; }         // clearly better value
+            else if (_v >= _bestV - _EPS && _cons > _bestCons) { _bestCons = _cons; _bestL = _l; _bestI = _i; } // tied value -> more consolidated
+        }
+    }
+    ai_dbg("day-swap place (" + (_cheap ? "v3/cheap" : "v4/full") + ") P" + string(_p + 1) + " "
+        + string(_g.pendingDaySwap.from) + "->" + string(_to) + ": lane " + string(_bestL) + " idx " + string(_bestI) + " val " + string(_bestV));
+    if (_bestL >= 0) game_day_swap_choose(_g, _bestL, _bestI);
+    else _g.pendingDaySwap = undefined;
+}
+
 // ---------------------------------------------------------------------------
 // BRICK 5 — THE THREE-PASS DRIVER + policy wiring.
 //   gather -> PLAN pass: roll if more bodies raise the plan more than a card would, else draw.
@@ -1328,7 +1386,7 @@ function ai4_lane_removals(_g, _p, _t) {
             // RESPAWN ruling: an enemy killed on the LAST turn of the day respawns before the opening
             // can be used - salvage value only (flat 20). Any other turn: full value (days are 5 turns).
             array_push(_out, { laneId: _t.lane, type: "remove", lane: _t.lane, idx: _o.idx, grab: _grab, nOpen: _nOpen, variants: _variants,
-                stale: (_o.kind == "enemy" && _g.dayTrack >= global.rules.dayTrackLength) });
+                stale: (_o.kind == "enemy" && _g.dayTrack >= _g.dayTrackLength) });
     }
 
     for (var _mi = 0; _mi < array_length(_mines); _mi++) {

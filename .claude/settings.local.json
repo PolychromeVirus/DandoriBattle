@@ -104,7 +104,10 @@
       "Bash(awk '/######## TOURNAMENT/{blk=NR} END{}' \"AppData/Local/DandoriBattle/sim_bench.txt\")",
       "Bash(awk '{print} /######## TOURNAMENT/{exit}')",
       "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(k, '3day:', [s.get\\('ev'\\) for s in v.get\\('threeDay',[]\\)], '| 2day:', [s.get\\('ev'\\) for s in v.get\\('twoDay',[]\\)]\\) for k,v in d.items\\(\\)]\")",
-      "Bash(python tools/extract_boards.py)"
+      "Bash(python tools/extract_boards.py)",
+      "Bash(python -c \"import json; d=json.load\\(open\\('datafiles/data/enemies.json'\\)\\); print\\([e['id'] for e in d['enemies'] if 'bulblax' in e['id'].lower\\(\\) or 'sover' in e['id'].lower\\(\\)]\\)\")",
+      "Bash(cd /c/Users/polyc/GameMakerProjects/DandoriBattle *)",
+      "Bash(awk '/function ai4_enumerate|function ai4_lane_removals|function ai4_lane_moves/{f=1} f&&/^}/{f=0} f' scripts/scrAI4/scrAI4.gml)"
     ]
   }
 }

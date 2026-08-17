@@ -48,6 +48,8 @@ def load_enemy_ids():
     # man-at-legs) still match a spaced/hyphenated overlay name.
     return {re.sub(r'[^a-z]', '', e['id'].lower()): e['id'] for e in d['enemies']}
 ENEMY_IDS = load_enemy_ids()
+# typo fixups for names misspelled in the xlsx overlays (normalized letters-only key -> real id)
+ENEMY_IDS.setdefault('soverignbulblax', 'sovereignbulblax')   # ADV1.6 boss: "SOVERIGN BULBLAX" (missing E)
 
 def enemy_id(text):
     """UPPER SPACED name -> the game's enemy id (matches enemies.json for most). Returns id or None."""

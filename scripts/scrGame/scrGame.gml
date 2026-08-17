@@ -543,6 +543,11 @@ function game_type_can_enter(_typeDef, _space, _towardCenter, _isDest = false, _
         // blue lifeguard (_waterOk) crosses a covered group over water.
         case "water":  return (!_noImm && arr_has(_typeDef.immunities, "water")) || _waterOk || _fly;
         case "poison": return true;         // non-blocking; damages on pass (game_poison_step / poison_resolve)
+        // ICE FLOOR (experimental): ice is an ACCESSIBLE floor for everyone - any pikmin may enter/stand on
+        // it. The catch (a non-ice pikmin can't step OFF ice toward centre onto non-ice) is a PATH property,
+        // enforced in the reachability walks below; per-space, ice is just passable when the rule is on.
+        case "ice":    if (global.expRules.iceFloor) return true;
+                       return (!_noImm && arr_has(_typeDef.immunities, "ice")) || _fly;
         default:       return (!_noImm && arr_has(_typeDef.immunities, _space.hazard)) || _fly;
     }
 }
@@ -625,6 +630,40 @@ function token_poison_add(_tok, _key) {
 /// emitters and floor hazards only block non-immune pikmin. The target square
 /// itself is legal if the type can enter/attack it. Height is one-way relative to
 /// the treasure space.
+/// A plain ICE FLOOR tile (not a wall/structure). Used by the iceFloor movement rule.
+function game_space_is_ice(_sp) {
+    return _sp.kind == "hazard" && _sp.hazard == "ice";
+}
+/// # of non-disabled ICE pikmin (either player) standing on (lane,idx).
+function game_ice_freezers_at(_g, _lane, _idx) {
+    var _n = 0;
+    for (var _q = 0; _q < 2; _q++) {
+        var _toks = _g.players[_q].tokens;
+        for (var _t = 0; _t < array_length(_toks); _t++) {
+            var _tk = _toks[_t];
+            if (_tk.typeId == "ice" && _tk.loc.kind == "space" && _tk.loc.lane == _lane && _tk.loc.idx == _idx && !token_is_disabled(_tk)) _n += 1;
+        }
+    }
+    return _n;
+}
+/// FREEZE WATER (experimental iceFreezeWater): a WATER tile held by >=3 ICE pikmin (and with NO treasure
+/// on it - freezers can't also be carrying) turns to ICE while they hold it, and reverts to water when
+/// they leave. `frozenWater` marks a tile WE converted, so we only ever thaw our own conversions (never a
+/// real ice tile). Recomputed at turn start + each resolve beat, so rules 1 (floor) + 2 (slide) then apply
+/// to the frozen run. Bumps tileVersion so the tile re-colours. No-op unless the rule is on.
+function game_freeze_update(_g) {
+    if (!global.expRules.iceFreezeWater) return;
+    for (var _l = 0; _l < _g.board.laneCount; _l++) {
+        var _sps = _g.board.lanes[_l].spaces;
+        for (var _i = 0; _i < array_length(_sps); _i++) {
+            var _sp = _sps[_i];
+            var _frozen = variable_struct_exists(_sp, "frozenWater") && _sp.frozenWater;
+            var _hold = (game_treasure_at(_g, _l, _i) == undefined) && (game_ice_freezers_at(_g, _l, _i) >= 3);
+            if (_frozen && !_hold) { _sp.hazard = "water"; _sp.frozenWater = false; _g.tileVersion += 1; }   // freezers gone / a pile arrived -> thaw
+            else if (!_frozen && _sp.kind == "hazard" && _sp.hazard == "water" && _hold) { _sp.hazard = "ice"; _sp.frozenWater = true; _g.tileVersion += 1; }
+        }
+    }
+}
 function game_dest_legal(_g, _p, _typeId, _lane, _idx, _waterOk = false) {
     var _typeDef = pikmin_type_get(_typeId);
     var _laneLen = array_length(_g.board.lanes[_lane].spaces);
@@ -632,17 +671,26 @@ function game_dest_legal(_g, _p, _typeId, _lane, _idx, _waterOk = false) {
     var _dir = (_p == 0) ? 1 : -1;
     var _s = (_p == 0) ? 0 : _laneLen - 1;
     var _prevDist = abs(((_p == 0) ? -1 : _laneLen) - _peak); // HOME sits beyond the outermost space
+    // ICE FLOOR rule for a NON-ice pikmin: it may stand anywhere on a run of ice, but it can't step OFF
+    // the ice TOWARD CENTRE onto a non-ice tile - it entered the ice from the HOME side, so it can only
+    // leave that way (retreat) or onto more ice. Directional (toward-centre = _toward); applies whether
+    // it's crossing into the ice this move OR already standing on it.
+    var _iceRule = global.expRules.iceFloor && !arr_has(_typeDef.immunities, "ice");
+    var _prevIce = false;       // HOME (beyond the edge) is not ice
     while (_s != _idx) {
         var _toward = abs(_s - _peak) < _prevDist;
         var _space = _g.board.lanes[_lane].spaces[_s];
         if (_space.enemy != undefined) return false;                 // fight it, or stop short of it
         if (game_treasure_at(_g, _lane, _s) != undefined) return false;
+        if (_iceRule && _prevIce && _toward && !game_space_is_ice(_space)) return false;   // no forward exit off the ice
         if (!game_type_can_enter(_typeDef, _space, _toward, false, _waterOk, game_no_imm(_g))) return false; // wall / non-immune hazard
+        _prevIce = game_space_is_ice(_space);
         _prevDist = abs(_s - _peak);
         _s += _dir;
         if (_s < 0 || _s >= _laneLen) return false;
     }
     var _towardDest = abs(_idx - _peak) < _prevDist;
+    if (_iceRule && _prevIce && _towardDest && !game_space_is_ice(_g.board.lanes[_lane].spaces[_idx])) return false;
     return game_type_can_enter(_typeDef, _g.board.lanes[_lane].spaces[_idx], _towardDest, true, _waterOk, game_no_imm(_g));
 }
 
@@ -693,6 +741,9 @@ function game_can_reach_home(_g, _p, _typeId, _lane, _srcIdx, _waterOk = false) 
     var _homeEdge = (_p == 0) ? 0 : array_length(_g.board.lanes[_lane].spaces) - 1;
     var _s = _srcIdx;
     var _prevDist = abs(_srcIdx - _peak);
+    // ICE FLOOR: retreating toward HOME needs no ice check at all - a lane can only ever be entered from
+    // its own home edge, so heading home is always "the way you came" and never blocked by the rule
+    // (only the toward-centre exit off ice is restricted; see game_dest_legal / game_direct_reachable).
     while (_s != _homeEdge) {
         _s += _dir;
         var _toward = abs(_s - _peak) < _prevDist;   // this step heads toward the centre / uphill?
@@ -720,11 +771,17 @@ function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx, _srcSid
     var _dir = (_dstIdx > _srcIdx) ? 1 : -1;
     var _s = _srcIdx;
     var _prevDist = abs(_srcIdx - _peak);
+    // ICE FLOOR: same directional rule as game_dest_legal - can't step off ice TOWARD CENTRE onto non-ice
+    // (this function can walk either direction, so gate on the per-step _toward flag, not an assumed
+    // direction). Retreat-direction steps off ice are never blocked.
+    var _iceRule = global.expRules.iceFloor && !arr_has(_typeDef.immunities, "ice");
+    var _prevIce = game_space_is_ice(_g.board.lanes[_lane].spaces[_srcIdx]);   // the tile it's standing on
     while (_s != _dstIdx) {
         _s += _dir;
         var _toward = abs(_s - _peak) < _prevDist;
         var _space = _g.board.lanes[_lane].spaces[_s];
         var _isDest = (_s == _dstIdx);
+        if (_iceRule && _prevIce && _toward && !game_space_is_ice(_space)) return false;   // no forward exit off the ice
         if (!_isDest) {
             if (_space.enemy != undefined) return false;
             if (game_treasure_at(_g, _lane, _s) != undefined) return false;
@@ -732,6 +789,7 @@ function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx, _srcSid
         } else if (!game_type_can_enter(_typeDef, _space, _toward, true, false, game_no_imm(_g))) {
             return false;
         }
+        _prevIce = game_space_is_ice(_space);
         _prevDist = abs(_s - _peak);
     }
     return true;
@@ -795,6 +853,7 @@ function game_pop_snapshot(_g, _label) {
 // ---------- turn flow ----------
 
 function game_begin_turn(_g) {
+    game_freeze_update(_g);   // ice pikmin stationed on water tiles freeze them (rule iceFreezeWater); reflect it before this turn's planning
     // baseline point at the very start of the game, so every colour's line begins at its kit count
     if (!variable_struct_exists(_g, "popHistory") || array_length(_g.popHistory) == 0) game_pop_snapshot(_g, "Start");
     _g.phase = "gather";
@@ -1719,6 +1778,7 @@ function game_bomb_hit(_g, _p, _lane, _idx, _dmg, _bName) {
 /// -> enemy damage (incl. explosive splash) -> red 2nd strike -> upkeep/end turn.
 function game_resolve_step(_g) {
     if (array_length(_g.resolveQueue) == 0) return;
+    game_freeze_update(_g);   // pikmin move between beats - keep frozen water tiles current before this beat's carries
     var _p = _g.activePlayer;
     var _beat = _g.resolveQueue[0];
     array_delete(_g.resolveQueue, 0, 1);
@@ -1954,7 +2014,7 @@ function game_bridge_break_check(_g, _lane, _idx) {
     game_log(_g, "The Bridge collapses as the treasure is hauled off it!");
 }
 
-function game_carry_one_space(_g, _p, _t) {
+function game_carry_one_space(_g, _p, _t, _sliding = false) {
     var _dir = (_p == 0) ? -1 : 1;
     var _newIdx = _t.idx + _dir;
     var _oldIdx = _t.idx;
@@ -2071,6 +2131,19 @@ function game_carry_one_space(_g, _p, _t) {
     _t.idx = _newIdx;
     // no per-space carry log - the treasure visibly slides on the board
     game_bridge_break_check(_g, _t.lane, _oldIdx);
+    // ICE SLIDE (experimental): a pile carried ONTO ice keeps gliding in the carry direction across the
+    // whole ice run, coming to rest on the first non-ice tile on the far side ("great coming back"). If the
+    // run edges up to the home edge it stops on the LAST ice tile (no auto-bank); a blocked tile stops it
+    // too. Re-uses this same one-space carry per glide tile (_sliding guards against re-triggering).
+    if (!_sliding && global.expRules.iceSlide && game_space_is_ice(_destSpace)) {
+        var _sguard = 0;
+        while (game_space_is_ice(_g.board.lanes[_t.lane].spaces[_t.idx]) && _sguard < 40) {
+            _sguard += 1;
+            var _snext = _t.idx + _dir;
+            if (_snext < 0 || _snext >= array_length(_g.board.lanes[_t.lane].spaces)) break;   // ice runs to home -> rest on the last ice tile
+            if (game_carry_one_space(_g, _p, _t, true) != "moved") break;                       // glide one tile; stalled/blocked -> stop
+        }
+    }
     return "moved";
 }
 
@@ -3295,7 +3368,10 @@ function game_advance_day(_g) {
     // ADVENTURE runs share a day budget across all their boards, passed in as _g.dayLimit;
     // a normal versus match uses the global rule. When the budget is spent the board ends
     // (the controller reads it as a run FAIL - out of days before clearing the board).
-    var _dayLimit = variable_struct_exists(_g, "dayLimit") ? _g.dayLimit : global.rules.days;
+    // day count: adventure's shared budget (dayLimit) wins; else the board's day-track days (2 in
+    // 2-day mode, 3 normally); else the global rule. Keeps 2-day maps ending after day 2.
+    var _dayLimit = variable_struct_exists(_g, "dayLimit") ? _g.dayLimit
+                  : (variable_struct_exists(_g, "dayTrackDef") ? _g.dayTrackDef.days : global.rules.days);
     _g.dayTrack += 1;
     // final day's final turn is about to begin: sound the alarm, once
     if (_g.dayNumber == _dayLimit && _g.dayTrack == _g.dayTrackLength) game_sfx(_g, "sfxTimeAlert");
@@ -3413,7 +3489,10 @@ function game_day_track_fire(_g, _phaseStart) {
                 // Skip silently if they have none of that type on their side.
                 _g.pendingDaySwap = { playerIdx: _p, from: _ev.from, to: _ev.to };
                 if (!game_day_swap_any_target(_g)) _g.pendingDaySwap = undefined;
-                else game_log(_g, "Day event (P" + string(_p + 1) + "): choose a " + string_upper(_ev.from) + " space to swap to " + string_upper(_ev.to) + ".");
+                else if (variable_struct_exists(global.expRules, "randomSwaps") && global.expRules.randomSwaps) {
+                    game_log(_g, "Chaos Swaps (P" + string(_p + 1) + "): a RANDOM " + string_upper(_ev.from) + " space warps to " + string_upper(_ev.to) + "!");
+                    game_day_swap_random(_g);   // resolve now on a random legal tile - no choice for human or AI
+                } else game_log(_g, "Day event (P" + string(_p + 1) + "): choose a " + string_upper(_ev.from) + " space to swap to " + string_upper(_ev.to) + ".");
             }
             break;
 
@@ -3725,8 +3804,24 @@ function game_space_set_type(_sp, _type) {
 /// space of the swap's FROM type? Drives the targeter highlight and the click validation.
 function game_day_swap_target_ok(_g, _lane, _idx) {
     if (_g.pendingDaySwap == undefined) return false;
-    if (!game_side_match(_g, _g.pendingDaySwap.playerIdx, _idx)) return false;
-    return game_space_type_matches(_g.board.lanes[_lane].spaces[_idx], _g.pendingDaySwap.from);
+    var _pi = _g.pendingDaySwap.playerIdx;
+    if (!game_side_match(_g, _pi, _idx)) return false;
+    var _sp = _g.board.lanes[_lane].spaces[_idx];
+    if (!game_space_type_matches(_sp, _g.pendingDaySwap.from)) return false;
+    // ENEMY-FROM protection (provisional, pending Zak): you can't swap AWAY an OCCUPIED enemy tile while
+    // an EMPTY enemy space still exists on your side to swap instead - only convert an occupied one when
+    // all your enemy spaces are filled (the swap is then forced). Stops the swap being a free enemy-kill.
+    if (_g.pendingDaySwap.from == "enemy" && _sp.enemy != undefined && game_day_swap_has_empty_enemy(_g, _pi)) return false;
+    return true;
+}
+/// Does the swap player's OWN side have an EMPTY enemy space (enemy-kind, no enemy on it)?
+function game_day_swap_has_empty_enemy(_g, _p) {
+    for (var _l = 0; _l < _g.board.laneCount; _l++)
+        for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces); _i++) {
+            var _s = _g.board.lanes[_l].spaces[_i];
+            if (_s.kind == "enemy" && _s.enemy == undefined && game_side_match(_g, _p, _i)) return true;
+        }
+    return false;
 }
 
 /// Does the pending day-swap player have any legal target? (auto-skip a swap with nothing to hit)
@@ -3755,6 +3850,19 @@ function game_day_swap_auto(_g) {
         for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces); _i++)
             if (game_day_swap_target_ok(_g, _l, _i)) { game_day_swap_choose(_g, _l, _i); return; }
     _g.pendingDaySwap = undefined;
+}
+/// EXPERIMENTAL "Chaos Swaps" rule: resolve the pending swap on a RANDOM legal tile (respects
+/// game_day_swap_target_ok, so still own-side + from-type + the enemy protection). Nondeterministic
+/// on purpose - a digital-only bit of fun. Applied at fire time for BOTH human and AI when the rule is on.
+function game_day_swap_random(_g) {
+    if (_g.pendingDaySwap == undefined) return;
+    var _cands = [];
+    for (var _l = 0; _l < _g.board.laneCount; _l++)
+        for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces); _i++)
+            if (game_day_swap_target_ok(_g, _l, _i)) array_push(_cands, { lane: _l, idx: _i });
+    if (array_length(_cands) == 0) { _g.pendingDaySwap = undefined; return; }
+    var _pick = _cands[irandom(array_length(_cands) - 1)];
+    game_day_swap_choose(_g, _pick.lane, _pick.idx);
 }
 
 // ---- day POD / STORM placement (player-driven) -------------------------------------------
@@ -3862,10 +3970,12 @@ function game_event_choose(_g, _lane, _idx) {
         case "killbridge":  _sp.structure = undefined; game_log(_g, "A bridge is destroyed!"); break;
         case "killemitter": _sp.structure = undefined; game_log(_g, "An emitter is destroyed!"); break;
         case "rerollwall":
-            // pick which wall it BECOMES via the generic type picker (a subset of the map's wall types)
-            var _walls = _g.boardDef.structures.walls;
+            // pick which wall it BECOMES via the generic type picker - ANY wall in the game (not just the
+            // map's buildable set), since a Reconstruction event can turn it into anything wall-like
+            var _allHaz = global.hazardData.hazards;
             var _cur = _sp.structure.structId; var _opts = [];
-            for (var _w = 0; _w < array_length(_walls); _w++) if (_walls[_w] != _cur) array_push(_opts, _walls[_w]);
+            for (var _w = 0; _w < array_length(_allHaz); _w++)
+                if (_allHaz[_w].type == "wall" && _allHaz[_w].id != _cur) array_push(_opts, _allHaz[_w].id);
             if (array_length(_opts) == 0) { game_log(_g, "No other wall type to change into."); break; }
             _g.pendingTypePick = { playerIdx: _pe.playerIdx, purpose: "reconstruct", options: _opts, lane: _lane, idx: _idx };
             game_log(_g, "Choose the new wall type.");

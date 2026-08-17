@@ -140,7 +140,13 @@ function sim_tick(_g, _ctl) {
         _g.fx = [];
         return;
     }
-    if (_g.pendingDaySwap != undefined) { game_day_swap_auto(_g); _g.fx = []; return; }
+    if (_g.pendingDaySwap != undefined) {
+        var _dsB = sim_ctl(_ctl, _g.pendingDaySwap.playerIdx);   // strategic placement per brain (v4 full / v3 cheap / else first-legal)
+        if (_dsB == "v4") ai4_day_swap_place(_g, false);
+        else if (_dsB == "v3" || _dsB == "v3b") ai4_day_swap_place(_g, true);
+        else game_day_swap_auto(_g);
+        _g.fx = []; return;
+    }
     if (_g.pendingDayPlace != undefined) { game_day_place_auto(_g); _g.fx = []; return; }
     if (variable_struct_exists(_g, "pendingEvent") && _g.pendingEvent != undefined) { game_event_auto(_g); _g.fx = []; return; }
     if (variable_struct_exists(_g, "pendingTypePick") && _g.pendingTypePick != undefined) { game_type_pick_auto(_g); _g.fx = []; return; }
@@ -2830,10 +2836,55 @@ function sim_test_immunity_model() {
     return _all;
 }
 
+/// ICE FLOOR rule: ice is an accessible floor (anyone stands on it) but a non-ice pikmin can't step OFF
+/// ice toward centre onto a non-ice tile; a run of ice = one big ice space; retreat "the way it came" is
+/// fine. Ice pikmin exempt. Rule OFF = ice is a wall (old behaviour). Toggles the expRule (save+restore).
+function sim_test_ice_floor() {
+    sim_report("");
+    sim_report("=== SCENARIO TEST: ice floor (accessible, no forward exit) ===");
+    var _all = true;
+    var _was = global.expRules.iceFloor;
+    var _ice = function(_g, _i) { game_space_set_type(_g.board.lanes[0].spaces[_i], "ice"); };
+    // P0 home = low idx; toward-centre = increasing idx. idx1 = ICE, idx2 = plain beyond it.
+    var _g = sim_blank("familiargrotto"); _ice(_g, 1);
+    global.expRules.iceFloor = true;
+    _all &= sim_expect(game_dest_legal(_g, 0, "red", 0, 1) ? 1 : 0, 1, "ice ON: a non-ice pikmin CAN stand on ice (idx1)");
+    _all &= sim_expect(game_dest_legal(_g, 0, "red", 0, 2) ? 1 : 0, 0, "ice ON: a non-ice pikmin CAN'T exit ice forward onto non-ice (idx2)");
+    _all &= sim_expect(game_dest_legal(_g, 0, "ice", 0, 2) ? 1 : 0, 1, "ice ON: an ICE pikmin crosses ice freely (idx2)");
+    _all &= sim_expect(game_can_reach_home(_g, 0, "red", 0, 1) ? 1 : 0, 1, "ice ON: a non-ice pikmin STANDING on ice CAN step home off its entry side");
+    // RETREAT is NEVER ice-gated, even crossing an ice run: a lane can only be entered from its own home
+    // edge, so heading home is always "the way you came" (this is a deliberate simplification - see memory).
+    var _gc = sim_blank("familiargrotto"); _ice(_gc, 2);
+    global.expRules.iceFloor = true;
+    _all &= sim_expect(game_can_reach_home(_gc, 0, "red", 0, 3) ? 1 : 0, 1, "ice ON: retreat toward home is UNRESTRICTED even crossing an ice run");
+    // a RUN of ice = one big ice space: reach within it, not past its far edge
+    var _g2 = sim_blank("familiargrotto"); _ice(_g2, 1); _ice(_g2, 2);
+    global.expRules.iceFloor = true;
+    _all &= sim_expect(game_dest_legal(_g2, 0, "red", 0, 2) ? 1 : 0, 1, "ice ON: non-ice moves ice->ice within the frozen run (idx2)");
+    _all &= sim_expect(game_dest_legal(_g2, 0, "red", 0, 3) ? 1 : 0, 0, "ice ON: still can't exit the far edge of the ice run (idx3)");
+    // REGRESSION (2026-08-14 bug: a rock reached centre over an all-ice lane): a token ALREADY STANDING on
+    // ice (placed there on a prior turn, not entering it THIS move) must still be blocked from pushing
+    // further toward centre - game_direct_reachable is the path a field token's "push deeper" order takes.
+    _all &= sim_expect(game_direct_reachable(_g2, 0, "red", 0, 2, 3) ? 1 : 0, 0, "ice ON: a token ALREADY on ice (idx2) can't be pushed further to non-ice (idx3)");
+    _all &= sim_expect(game_direct_reachable(_g2, 0, "red", 0, 2, 1) ? 1 : 0, 1, "ice ON: that same token CAN shuffle homeward within the ice run (idx2->idx1)");
+    _all &= sim_expect(game_direct_reachable(_g2, 0, "red", 0, 0, 3) ? 1 : 0, 0, "ice ON: direct_reachable also blocks a fresh crossing straight through the run (idx0->idx3)");
+    // rule OFF: ice is a WALL again - non-ice can't even step on it
+    global.expRules.iceFloor = false;
+    _all &= sim_expect(game_dest_legal(_g, 0, "red", 0, 1) ? 1 : 0, 0, "ice OFF: ice is a wall - non-ice can't enter (idx1)");
+    global.expRules.iceFloor = _was;   // restore
+    sim_report(_all ? "=== ice floor: ALL PASS ===" : "=== ice floor: FAILURES ABOVE ===");
+    return _all;
+}
+
 /// Run all scenario tests (add each node's tests here as it's built).
 function sim_run_scenarios() {
     sim_report("");
     sim_report("######## SCENARIO TESTS  " + date_datetime_string(date_current_datetime()) + " ########");
+    // the experimental ICE rules are movement-behaviour overrides; the baseline tests assume ice-is-a-wall.
+    // Snapshot the player's live Options toggles and force the ice rules OFF so a regression run doesn't
+    // depend on what's enabled in the menu (sim_test_ice_floor opts iceFloor back on for its own checks).
+    var _iceF = global.expRules.iceFloor, _iceS = global.expRules.iceSlide, _iceW = global.expRules.iceFreezeWater;
+    global.expRules.iceFloor = false; global.expRules.iceSlide = false; global.expRules.iceFreezeWater = false;
     sim_test_survey();
     sim_test_freeze();
     sim_test_pikpik();
@@ -2874,6 +2925,8 @@ function sim_run_scenarios() {
     sim_test_wall_cross();
     sim_test_defense_cap();
     sim_test_immunity_model();
+    sim_test_ice_floor();
+    global.expRules.iceFloor = _iceF; global.expRules.iceSlide = _iceS; global.expRules.iceFreezeWater = _iceW;   // restore the player's live toggles
 }
 
 // ---------- probe ----------

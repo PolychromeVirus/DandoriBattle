@@ -11,6 +11,10 @@
 /// The full default _g skeleton for a board: two empty players, empty decks, day 1 (1/5), 2-player.
 /// Both a normal game (via game_new) and any scenario start here and override what differs.
 function scenario_base(_boardDef) {
+    // VERSUS 2-day toggle: build the 7-space/2-day track when the rule is on (adventure re-pins its own
+    // length below, so this only affects normal matches). dayTrackLength = the track's segment count.
+    var _twoDay = variable_struct_exists(global.expRules, "twoDayMode") && global.expRules.twoDayMode;
+    var _dtDef = game_day_track_for_board(_boardDef, _twoDay);
     return {
         boardDef: _boardDef,
         board: board_create(_boardDef),
@@ -25,8 +29,8 @@ function scenario_base(_boardDef) {
         gatherActionsLeft: 3,// game_begin_turn resets this per turn (3 first turn, else 2)
         dayNumber: 1,
         dayTrack: 1,
-        dayTrackLength: global.rules.dayTrackLength, // per-game phase count; a scenario can lengthen the day (e.g. long tutorials)
-        dayTrackDef: game_day_track_for_board(_boardDef),  // NEW day system: the board's real per-space step events {days, spaces:[{ev,..}]} (3-day/5-space variant; distinct from dayTrack, the within-day counter above)
+        dayTrackLength: array_length(_dtDef.spaces), // per-day segment count (5 = 3-day, 7 = 2-day); a scenario can override to lengthen the day (e.g. long tutorials)
+        dayTrackDef: _dtDef,  // NEW day system: the board's real per-space step events {days, spaces:[{ev,..}]}; days (2/3) drives the day limit (distinct from dayTrack, the within-day counter above)
         dayRawFree: false,      // RAW day event: building costs 1 raw this turn (reset each turn)
         dayPelletBonus: false,  // PELLET day event: pellets give +1 pikmin this turn (reset each turn)
         // (FLARLIC's persistent cap boost lives PER-PLAYER as players[_p].flarlicBonus, above)
@@ -283,6 +287,7 @@ function scenario_adventure(_advBoard, _daysLeft = 3, _enemyIds = undefined) {
     // BLANK day tracker: still SHOWN in the HUD (all blank-sun segments), but it fires NOTHING -
     // adventure uses random EVENT CARDS (one drawn per turn) instead of the standard day events.
     // (all-"none" spaces => game_day_track_fire / day-spawn are no-ops, and the strip draws suns.)
+    _g.dayTrackLength = global.rules.dayTrackLength;   // adventure uses the STANDARD day length - isolate from the versus 2-day toggle
     var _blankTrack = [];
     repeat (_g.dayTrackLength) array_push(_blankTrack, { ev: "none" });
     _g.dayTrackDef = { days: _g.dayLimit, spaces: _blankTrack };

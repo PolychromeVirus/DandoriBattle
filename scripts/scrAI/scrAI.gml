@@ -367,8 +367,9 @@ function ai_risk_pref(_g, _p) {
         _inPlay += max(ai_pile_marginal(_g, _p, _g.treasures[_ti]), ai_pile_marginal(_g, 1 - _p, _g.treasures[_ti]));
     }
     _inPlay = max(_inPlay, 150);
-    var _totalRounds = global.rules.days * global.rules.dayTrackLength;
-    var _curRound = (_g.dayNumber - 1) * global.rules.dayTrackLength + _g.dayTrack;
+    var _dtLen = _g.dayTrackLength;   // per-day segment count (7 in 2-day mode, 5 normally)
+    var _totalRounds = _g.dayTrackDef.days * _dtLen;
+    var _curRound = (_g.dayNumber - 1) * _dtLen + _g.dayTrack;
     var _timeUrg = clamp(_curRound / max(1, _totalRounds), 0, 1);
     return clamp(-(_lead / _inPlay) * (0.8 + _timeUrg), -1, 1);
 }

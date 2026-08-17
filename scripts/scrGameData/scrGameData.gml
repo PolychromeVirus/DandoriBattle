@@ -78,7 +78,16 @@ function data_load_all() {
     //  iceFreeze = ice pikmin >= ceil(hp/2) freeze an enemy (skip a turn); off = ice just damages
     //  bossCap = max bosses per spawn instance: -1 no cap, 0 none, 1..5 that many
     //  explodeEnemies = an explosive enemy's + blast also damages OTHER enemies (no reward)
-    global.expRules = { red: true, blue: true, yellow: true, rush: true, enemyHeal: false, anims: true, iceFreeze: true, bossCap: -1, explodeEnemies: false };
+    //  twoDayMode = versus maps run the 7-space / 2-day day-track instead of the 5-space / 3-day one
+    //  randomSwaps = day-track hazard SWAPs land on a RANDOM legal tile instead of being chosen (chaos)
+    //  iceFloor = ice is an accessible floor, not a wall: any pikmin may stand on / cross ICE, but a
+    //    non-ice pikmin can't step OFF ice toward centre onto a non-ice space (a run of ice = one big
+    //    ice space; you can only leave it back the way you came or onto more ice). Ice pikmin exempt.
+    //  iceSlide = a treasure carried onto ICE keeps sliding across the whole ice run, resting on the
+    //    first non-ice tile on the far side (rough going centre, GREAT coming back); stops on the last
+    //    ice tile if the run edges up to home (no auto-bank).
+    //  iceFreezeWater = 3 ice pikmin held on a WATER tile (not carrying) turn it to ICE while present
+    global.expRules = { red: true, blue: true, yellow: true, rush: true, enemyHeal: false, anims: true, iceFreeze: true, bossCap: -1, explodeEnemies: false, twoDayMode: false, randomSwaps: false, iceFloor: false, iceSlide: false, iceFreezeWater: false };
 
     // Persisted menu/options (seat choices + selection default + fullscreen). Defaults here;
     // settings_load() overlays whatever's saved in settings.ini from a previous run.
@@ -386,6 +395,11 @@ function settings_load() {
     _r.enemyHeal = ini_read_real("rules", "enemyHeal", _r.enemyHeal ? 1 : 0) != 0;
     _r.anims     = ini_read_real("rules", "anims",     _r.anims     ? 1 : 0) != 0;
     _r.iceFreeze = ini_read_real("rules", "iceFreeze", _r.iceFreeze ? 1 : 0) != 0;
+    _r.twoDayMode = ini_read_real("rules", "twoDayMode", (variable_struct_exists(_r, "twoDayMode") && _r.twoDayMode) ? 1 : 0) != 0;
+    _r.randomSwaps = ini_read_real("rules", "randomSwaps", (variable_struct_exists(_r, "randomSwaps") && _r.randomSwaps) ? 1 : 0) != 0;
+    _r.iceFloor = ini_read_real("rules", "iceFloor", (variable_struct_exists(_r, "iceFloor") && _r.iceFloor) ? 1 : 0) != 0;
+    _r.iceSlide = ini_read_real("rules", "iceSlide", (variable_struct_exists(_r, "iceSlide") && _r.iceSlide) ? 1 : 0) != 0;
+    _r.iceFreezeWater = ini_read_real("rules", "iceFreezeWater", (variable_struct_exists(_r, "iceFreezeWater") && _r.iceFreezeWater) ? 1 : 0) != 0;
     _r.bossCap   = ini_read_real("rules", "bossCap",   _r.bossCap);
     _r.explodeEnemies = ini_read_real("rules", "explodeEnemies", _r.explodeEnemies ? 1 : 0) != 0;
     var _s = global.settings;
@@ -413,6 +427,11 @@ function settings_save() {
     ini_write_real("rules", "enemyHeal", _r.enemyHeal ? 1 : 0);
     ini_write_real("rules", "anims",     _r.anims     ? 1 : 0);
     ini_write_real("rules", "iceFreeze", _r.iceFreeze ? 1 : 0);
+    ini_write_real("rules", "twoDayMode", (variable_struct_exists(_r, "twoDayMode") && _r.twoDayMode) ? 1 : 0);
+    ini_write_real("rules", "randomSwaps", (variable_struct_exists(_r, "randomSwaps") && _r.randomSwaps) ? 1 : 0);
+    ini_write_real("rules", "iceFloor", (variable_struct_exists(_r, "iceFloor") && _r.iceFloor) ? 1 : 0);
+    ini_write_real("rules", "iceSlide", (variable_struct_exists(_r, "iceSlide") && _r.iceSlide) ? 1 : 0);
+    ini_write_real("rules", "iceFreezeWater", (variable_struct_exists(_r, "iceFreezeWater") && _r.iceFreezeWater) ? 1 : 0);
     ini_write_real("rules", "bossCap",   _r.bossCap);
     ini_write_real("rules", "explodeEnemies", _r.explodeEnemies ? 1 : 0);
     var _s = global.settings;

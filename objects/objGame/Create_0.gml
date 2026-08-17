@@ -240,7 +240,10 @@ music_sync = function() {
         var _base  = string_replace_all(boardDef.name, " ", "");             // "Familiar Grotto" -> "FamiliarGrotto"
         // key off prevDayNumber (the day the cinematic has revealed), not game.dayNumber - the latter
         // ticks over mid-resolution, which would start the next track a few frames early
-        var _track = music_track_for_day(prevDayNumber, global.rules.days);
+        // total days for THIS game (2 in 2-day mode, adventure's budget, else the 3-day default) so the
+        // final-day track fires on the actual last day, not a hardcoded 3
+        var _totalDays = variable_struct_exists(game, "dayLimit") ? game.dayLimit : game.dayTrackDef.days;
+        var _track = music_track_for_day(prevDayNumber, _totalDays);
         _asset = asset_get_index(_base + string(_track));                    // -1 if this map has no music yet
     }
     if (_asset == musicAsset) return;                                        // already correct (incl. both -1 = stay silent)
@@ -595,7 +598,9 @@ adventure_launch_board = function() {
 // current mission cleared: bank the day cost, apply the bonus, checkpoint the NEXT mission (which
 // also unlocks it) and truncate any re-derived future. Returns "next" or "complete".
 adventure_on_clear = function() {
-    var _spent = max(0, game.dayNumber - 1);         // completed days spent on this mission
+    var _spent = game.dayNumber;                      // FINISH OUT the current day - clearing mid-day still
+                                                      // burns the whole day, so the next chapter opens on the
+                                                      // NEXT day (dayNumber, not dayNumber-1)
     advRun.daysUsed += _spent;                        // cumulative campaign days elapsed (for the HUD)
     // carry the remaining budget from game.dayLimit (which includes any mid-mission treasure bonus for
     // Glutton's dayPerTreasure), then add the flat per-clear bonus. Equivalent to daysLeft-=spent for

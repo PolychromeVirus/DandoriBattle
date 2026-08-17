@@ -291,7 +291,10 @@ for (var _ti = 0; _ti < array_length(game.treasures); _ti++) {
     vb_billboard(sprite_batches_vb(_spriteBatches, _tSpr), _tSpr, 0, _t.vx, _t.vy - 6, 1, 40, _camRight, _camUp, c_white, 1);
     var _pileVal = 0;
     for (var _c = 0; _c < array_length(_t.cards); _c++) _pileVal += treasure_def_get(_t.cards[_c]).value;
-    array_push(_labels, { labelX: _t.vx, labelY: _t.vy - 6, labelZ: 46, labelText: string(_pileVal) + "p (w" + string(_topDef.weight) + ")" });
+    // weight shown must match what game_carry_step actually charges - incl. the adventure "What's This
+    // Made Of?!?" event bonus (advTreasureHeavier), else the preview lies while that event is active
+    var _wDisp = _topDef.weight + (variable_struct_exists(game, "advTreasureHeavier") ? game.advTreasureHeavier : 0);
+    array_push(_labels, { labelX: _t.vx, labelY: _t.vy - 6, labelZ: 46, labelText: string(_pileVal) + "p (w" + string(_wDisp) + ")" });
     if (_pd > 1) presMoving = true;
 }
 

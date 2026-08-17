@@ -264,9 +264,14 @@ if (mode == "menu") {
             save_settings();
         }
         if (ui_button(_ox1, _oy + _orh * 3, _ow, _obh, "Explosions Damage Enemies: " + (global.expRules.explodeEnemies ? "ON" : "off"), fntMaru)) { global.expRules.explodeEnemies = !global.expRules.explodeEnemies; save_settings(); }
+        if (ui_button(_ox0, _oy + _orh * 4, _ow, _obh, "Two-Day Maps (7-phase track): " + (global.expRules.twoDayMode ? "ON" : "off"), fntMaru)) { global.expRules.twoDayMode = !global.expRules.twoDayMode; save_settings(); }
+        if (ui_button(_ox1, _oy + _orh * 4, _ow, _obh, "Chaos Swaps (random tiles): " + (global.expRules.randomSwaps ? "ON" : "off"), fntMaru)) { global.expRules.randomSwaps = !global.expRules.randomSwaps; save_settings(); }
+        if (ui_button(_ox0, _oy + _orh * 5, _ow, _obh, "Ice Is A Floor (not a wall): " + (global.expRules.iceFloor ? "ON" : "off"), fntMaru)) { global.expRules.iceFloor = !global.expRules.iceFloor; save_settings(); }
+        if (ui_button(_ox1, _oy + _orh * 5, _ow, _obh, "Treasures Slide On Ice: " + (global.expRules.iceSlide ? "ON" : "off"), fntMaru)) { global.expRules.iceSlide = !global.expRules.iceSlide; save_settings(); }
+        if (ui_button(_ox0, _oy + _orh * 6, _ow, _obh, "Ice Pikmin Freeze Water (x3): " + (global.expRules.iceFreezeWater ? "ON" : "off"), fntMaru)) { global.expRules.iceFreezeWater = !global.expRules.iceFreezeWater; save_settings(); }
 
         // --- Graphics ---
-        var _gfxHeadY = _oy + _orh * 4 + 18;
+        var _gfxHeadY = _oy + _orh * 7 + 18;
         draw_set_halign(fa_center);
         draw_set_font(fntMaru);
         draw_set_color(make_color_rgb(200, 210, 205));
@@ -1269,15 +1274,17 @@ draw_set_halign(fa_left);
 draw_set_color(c_white);
 // ADVENTURE: the top-left day shows the CAMPAIGN day (cumulative across boards) out of the run's
 // day budget, not just this board's day. daysUsed = completed days on prior boards.
+var _leftHdr;
 if (advRun != undefined) {
     var _campDay  = advRun.daysUsed + game.dayNumber;
     // use game.dayLimit (== daysLeft at mission start, but GROWS for Glutton's dayPerTreasure) so the
     // HUD total climbs as treasures are banked.
     var _campTotal = advRun.daysUsed + game.dayLimit;
-    dtext(10, _midY, advRun.name + "    Day " + string(_campDay) + " / " + string(_campTotal) + " (" + string(game.dayTrack) + "/" + string(game.dayTrackLength) + ")");
+    _leftHdr = advRun.name + "    Day " + string(_campDay) + " / " + string(_campTotal) + " (" + string(game.dayTrack) + "/" + string(game.dayTrackLength) + ")";
 } else {
-    dtext(10, _midY, boardDef.name + "    Day " + string(game.dayNumber) + " (" + string(game.dayTrack) + "/" + string(game.dayTrackLength) + ")");
+    _leftHdr = boardDef.name + "    Day " + string(game.dayNumber) + " (" + string(game.dayTrack) + "/" + string(game.dayTrackLength) + ")";
 }
+dtext(10, _midY, _leftHdr);
 if (batchRemaining > 0) {
     draw_set_halign(fa_center);
     draw_set_color(make_color_rgb(255, 224, 120));
@@ -1321,8 +1328,10 @@ if (variable_struct_exists(game, "dayTrackDef")) {
     }
 }
 
-// middle: current player's detailed pikmin breakdown (token icons + counts + total)
-var _bx = 320;
+// middle: current player's detailed pikmin breakdown (token icons + counts + total). Start it AFTER
+// the left day/name header's actual width (floored at 320 so short names keep the old layout), so a
+// long map name + day can't overlap the score/pikmin readout. Plenty of room before the right readout.
+var _bx = max(320, 10 + dtext_width(_leftHdr) + 24);
 // difficulty word for an AI seat: prefer the saved menu tier (persisted in the ini via
 // global.settings), falling back to the live brain id for F1/rematch/batch swaps where the
 // menu tier no longer describes the seat.

@@ -2533,6 +2533,11 @@
        "enemyDefId": "armoredcannonbeetle"
       },
       {
+       "lane": 2,
+       "idx": 6,
+       "enemyDefId": "sovereignbulblax"
+      },
+      {
        "lane": 3,
        "idx": 6,
        "enemyDefId": "pileatedsnagret"
@@ -2543,13 +2548,7 @@
        "enemyDefId": "emperorbulblax"
       }
      ],
-     "unmapped": [
-      {
-       "lane": 2,
-       "idx": 6,
-       "text": "SOVERIGN BULBLAX"
-      }
-     ],
+     "unmapped": [],
      "enemyDeck": [
       {
        "id": "spottybulbear",

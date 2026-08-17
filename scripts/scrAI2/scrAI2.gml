@@ -30,8 +30,9 @@
 /// so a seat gets days x dayTrackLength turns total - do NOT halve. (The halved
 /// version made v2 play day-3 panic ball from day 2 and skip killable bosses.)
 function ai2_my_turns_left(_g) {
-    var _total = global.rules.days * global.rules.dayTrackLength;
-    var _cur = (_g.dayNumber - 1) * global.rules.dayTrackLength + _g.dayTrack;
+    var _dtLen = _g.dayTrackLength;   // per-day segment count (7 in 2-day mode, 5 normally)
+    var _total = _g.dayTrackDef.days * _dtLen;
+    var _cur = (_g.dayNumber - 1) * _dtLen + _g.dayTrack;
     return max(1, _total - _cur + 1);
 }
 
