@@ -77,11 +77,18 @@ menuDebugBatches = [];   // debugResults screen: parsed sim_tourney.csv batch fo
 menuDebugExpanded = [];  // debugResults screen: batch ids currently expanded (open folders) in the run-list tree
 menuDebugRunsScroll = 0; // debugResults screen: top row index of the scrolling batch/run tree
 menuDebugOpenRun = undefined; // debugResults screen: the selected run STRUCT (not an index - runs live inside batch folders) whose report is shown; undefined = none selected
+prevNetPaused = false;   // edge detection for the host-controlled global pause (see Step_0)
+pausedByNet = false;     // is the current freeze the HOST's doing? keeps a host resume from lifting the player's own pause
+menuTutIdx = 0;          // tutorial lesson-select: index into the flattened pickable-lesson list
+menuTutScroll = 0;       // tutorial lesson-select: first visible row (headers included)
+menuNetBrowseScroll = 0; // online screen: first visible row in the discovered-games browser
+menuLobbyScroll = 0;     // online lobby: first visible row in the connected-players list (spectators are uncapped, so it scrolls)
+menuDebugOpenBatch = undefined; // debugResults screen: the batch FOLDER the selected run sits in (kept alongside menuDebugOpenRun so "Resume Batch" knows which batch it belongs to - a run struct carries no back-pointer)
 menuDebugMatrixPct = false; // debugResults screen: win-matrix cells show "wins/played" (off) or a raw win% (on)
 menuOptionsScroll = 0;  // options screen: vertical pixel offset of the scrolling options body
 menuAdvIdx = 0;         // chapter-select: index of the previewed adventure board (flat across scenarios)
 menuAdvScroll = 0;      // chapter-select: top row index of the scrolling chapter/board list
-menuNetName = "Player"; // online lobby: local player name field
+menuNetName = global.settings.netName; // online lobby: local player name field (persisted - defaults to the last name used)
 menuNetIP   = "127.0.0.1"; // online lobby: host IP to join
 menuNetPort = string(NET_PORT); // online lobby: TCP port (host + join), editable; defaults to NET_PORT
 menuNetField = "";      // which lobby text field has focus: "" | "name" | "ip" | "port"
@@ -311,6 +318,7 @@ save_settings = function() {
     global.settings.ctl = [menuCtl[0], menuCtl[1]];
     global.settings.defaultSelectAll = defaultSelectAll;
     global.settings.fullscreen = window_get_fullscreen();
+    global.settings.netName = menuNetName;
     settings_save();
 };
 
@@ -408,7 +416,16 @@ sync_resolution = function() {
 // joiner sits at P2, so they view/orient from the red side). Hotseat (both human, future): whoever's
 // turn it is. Otherwise (vs AI): the human seat, which is P1 unless the human is explicitly seat 1.
 view_seat = function() {
-    if (net_online() && (ctl[0] == "remote" || ctl[1] == "remote")) return global.net.localSeat;
+    // A SPECTATOR's localSeat is NET_SEAT_SPECTATOR (-1), which is not a real seat - it exists so it
+    // can never match game.activePlayer. Callers treat this as a player index (Draw_0 does
+    // `1 - view_seat()`, which turns -1 into 2 and indexes past the end of players[]), so it must be
+    // normalised to a viewable seat HERE rather than at every call site. Spectators watch from P1's
+    // side. This also covers the one-frame race where a demotion's `seat` message lands via the async
+    // event AFTER Step_0 has run, so localSeat is already -1 while ctl still says we're a player.
+    if (net_online() && (ctl[0] == "remote" || ctl[1] == "remote")) {
+        var _vs = global.net.localSeat;
+        return (_vs == 0 || _vs == 1) ? _vs : 0;
+    }
     if (ctl[0] == "human" && ctl[1] == "human") return game.activePlayer;
     return (ctl[0] != "human" && ctl[1] == "human") ? 1 : 0;
 };
@@ -494,9 +511,18 @@ start_game = function(_boardId, _ctl = undefined, _scenario = undefined, _keepTu
 // launch an ONLINE game: the host is seat 0 (local human) vs the remote at seat 1; the joiner is
 // seat 1 (local human) vs the remote host at seat 0. A "remote" seat waits for network state
 // instead of running the AI (see Step). Turn sync itself is Phase 2.
+// Launch an online game in whichever seat the lobby assigned us. A SPECTATOR gets ["remote","remote"]:
+// no seat is locally controlled, so every existing `ctl[..] == "human"` input path is closed and every
+// `ctl[..] != "remote"` AI path is closed too - the game only ever advances by adopting state off the
+// wire. Combined with localSeat == NET_SEAT_SPECTATOR (which can never equal activePlayer), a
+// spectator physically cannot input or broadcast, without a single new check anywhere else.
 start_game_online = function(_boardId, _isHost) {
-    start_game(_boardId, _isHost ? ["human", "remote"] : ["remote", "human"]);
-    netLastSent = "";       // fresh game -> the host will broadcast it; the joiner will adopt the host's
+    var _ctl;
+    if (net_is_spectator())  _ctl = ["remote", "remote"];
+    else if (_isHost)        _ctl = ["human", "remote"];
+    else                     _ctl = ["remote", "human"];
+    start_game(_boardId, _ctl);
+    netLastSent = "";       // fresh game -> the host will broadcast it; everyone else adopts the host's
     netWasMyTurn = false;
 };
 
@@ -823,13 +849,51 @@ net_apply_state = function(_json) {
 
 // launch the guided tutorial. The tutorial is a sequence of SCENES (chapters), each a full solo
 // scenario + its own ruleset + steps. Snapshot the player's expRules first; return_to_menu restores.
+// Run the WHOLE script from a given scene onward. No longer called by the menu (the lesson-select
+// screen launches filtered sets via start_tutorial_set instead) - kept as the plain "play everything
+// in order" entry point, and for jumping to a scene when testing.
 start_tutorial = function(_startScene = 0) {
-    tutorialSavedExpRules = variable_clone(global.expRules);
-    compactBoard = true;   // clean lesson board (stays set through completion until return_to_menu)
     var _scenes = tutorial_scenes();
     _startScene = clamp(_startScene, 0, array_length(_scenes) - 1);   // jump straight to a scene (testing / replay)
+    start_tutorial_set(_scenes, _startScene);
+};
+
+/// Run an ARBITRARY set of scenes as the tutorial, in the order given. `tutorial.scenes` is what
+/// tutorial_advance walks scene-to-scene, so handing it a filtered list is all it takes to play just
+/// the basic lessons, just the advanced ones, or a single lesson on its own - no changes to the
+/// advance logic, and the run ends naturally when the list runs out.
+start_tutorial_set = function(_scenes, _startScene = 0) {
+    if (array_length(_scenes) == 0) return;
+    tutorialSavedExpRules = variable_clone(global.expRules);
+    compactBoard = true;   // clean lesson board (stays set through completion until return_to_menu)
     tutorial = { scenes: _scenes, si: _startScene, cur: 0, checkpoint: undefined, revealChars: 0 };
     tutorial_load_scene(tutorial.scenes[_startScene]);
+};
+
+/// The tutorial's DIFFICULTY TIERS, in presentation order: id, the list header, and the word used in
+/// the "Play <X> Tutorial" button. Single source of truth - the lesson-select screen builds both its
+/// list headers and its bottom-bar buttons from this, and a tier with NO lessons yet renders neither,
+/// so the two unbuilt tiers stay invisible until their lessons exist.
+///   basic        - the four core lessons that exist today
+///   intermediate - PER-COLOUR mechanics (one lesson per Pikmin colour)   [not built yet]
+///   advanced     - the EXPERIMENTAL RULES (rush, ice floor/slide, two-day, etc.)  [not built yet]
+tutorial_tiers = function() {
+    return [
+        { id: "basic",        label: "BASIC",        word: "Basic" },
+        { id: "intermediate", label: "INTERMEDIATE", word: "Intermediate" },
+        { id: "advanced",     label: "ADVANCED",     word: "Advanced" },
+    ];
+};
+
+/// Every lesson of one tier, in script order. A scene with no `tier` counts as basic, so a newly
+/// added lesson still shows up somewhere rather than silently vanishing.
+tutorial_scenes_of_tier = function(_tier) {
+    var _all = tutorial_scenes(), _out = [];
+    for (var _i = 0; _i < array_length(_all); _i++) {
+        var _t = variable_struct_exists(_all[_i], "tier") ? _all[_i].tier : "basic";
+        if (_t == _tier) array_push(_out, _all[_i]);
+    }
+    return _out;
 };
 
 // Load one tutorial scene: apply its ruleset (a fixed tutorial base + per-scene deltas), swap in
@@ -981,7 +1045,9 @@ tutorial_tick = function() {
 tutorial_scenes = function() {
     return [
         // ---- Scene 1: the basics (pellets, movement, elements, combat) ----
-        { scenario: scenario_tutorial(), steps: [
+        { name: "Introduction", tier: "basic",
+          desc: "Covers pellets, enemies, tiles, and movement",
+          scenario: scenario_tutorial(), steps: [
             { kind: "intro", text: "Welcome to Dandori Battle! The classic game of Tug-of-War with Pikmin!" },
             { kind: "intro", text: "All actions in this game require assigning Pikmin - and to do that, you'll need reinforcements." },
             { kind: "action", text: "Roll the pellet die a few times to collect some Pellet Cards!",
@@ -1017,7 +1083,9 @@ tutorial_scenes = function() {
         ] },
         // ---- Scene 2: items + the three ways a treasure moves twice ----
         // rush ON (needed for the 4-red method); 1 gather action so the draw = the single Spicy Spray.
-        { scenario: scenario_tutorial2(), rules: { rush: true }, gatherActions: 1, steps: [
+        { name: "Items & Moving Quickly", tier: "basic",
+          desc: "Covers item use and moving treasures more than one space",
+          scenario: scenario_tutorial2(), rules: { rush: true }, gatherActions: 1, steps: [
             // hideRoll through these intros so the player can't burn the single gather action before
             // the draw step (rolling is never needed in this scene anyway).
             { kind: "intro", hideRoll: true, text: "At the start of each turn you get 2-3 gather actions, each action lets you either draw a card, or roll the pellet die once." },
@@ -1042,7 +1110,9 @@ tutorial_scenes = function() {
         // Starts in ORDERS (hand is pre-dealt, no gathering). checkpoint on the intro (taken at load,
         // before the player acts) so a failed attempt resets clean to orders phase / full hand / pile
         // reset. Success = the heavy item reaches home in the collected pile.
-        { scenario: scenario_tutorial3(), startPhase: "orders", steps: [
+        { name: "Treasure Piles", tier: "basic",
+          desc: "Covers treasure piles and how to manipulate them.",
+          scenario: scenario_tutorial3(), startPhase: "orders", steps: [
             { kind: "intro", checkpoint: true, text: "In a real game, treasures aren't single cards, they're piles of around 500p. The weight of the pile is the card on top. You can use the Survey Drone or Ship Signal to change which item's weight is being used." },
             { kind: "action", text: "Bank this heavy item to continue.",
               done: function(_g) {
@@ -1064,7 +1134,9 @@ tutorial_scenes = function() {
         // 1 = the chasm/swift lane. Helper reads inline (winged count, lane-treasure position).
         // rush RULE ON so a weight-1 treasure with 3 carriers hauls TWO spaces/turn (the first haul
         // is one turn, not three) - matches the intended pacing.
-        { scenario: scenario_tutorial4(), startPhase: "move", rules: { rush: true }, steps: [
+        { name: "Enemy Elements & Pikmin Types", tier: "basic",
+          desc: "Covers attack and defense elements on enemies, and introduces strategic use of items for future planning, as well as rock and winged Pikmin's special abilities.",
+          scenario: scenario_tutorial4(), startPhase: "move", rules: { rush: true }, steps: [
             // turn 1: forced demo - Reds kill the first Wollyhop but get stomped.
             { kind: "action", hideRoll: true, text: "Just you and a treasure. You've got twice as many Pikmin as you need, and there should be nothing in your way. Right? Take them out and claim the treasure!",
               done: function(_g) {

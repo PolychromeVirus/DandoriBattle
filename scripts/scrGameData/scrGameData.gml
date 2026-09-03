@@ -100,7 +100,8 @@ function data_load_all() {
     // devTools = show dev/debug-only surfaces (Tab lane/space overlay, the "Debug" + "Adv Test" main-menu
     // buttons) - default OFF so a normal player never sees them; toggled in Options > Interface.
     global.settings = { ctl: ["human", "hard"], defaultSelectAll: false, fullscreen: false, allSet: 1, advCleared: 0,
-                        masterVol: 0.8, bgmVol: 0.8, sfxVol: 0.8, devTools: false };
+                        masterVol: 0.8, bgmVol: 0.8, sfxVol: 0.8, devTools: false,
+                        netName: "Player" };
     settings_load();
 
     // procedural "random" board as the last entry of the board list (regenerated on demand
@@ -419,6 +420,8 @@ function settings_load() {
     _s.allSet           = ini_read_real("game", "allSet", _s.allSet);
     _s.advCleared       = ini_read_real("game", "advCleared", _s.advCleared);
     _s.devTools         = ini_read_real("game", "devTools", _s.devTools ? 1 : 0) != 0;
+    // online display name - persisted so it defaults to whatever was used last rather than "Player"
+    _s.netName          = ini_read_string("game", "netName", _s.netName);
     _s.masterVol        = clamp(ini_read_real("audio", "master", _s.masterVol), 0, 1);
     _s.bgmVol           = clamp(ini_read_real("audio", "bgm",    _s.bgmVol),    0, 1);
     _s.sfxVol           = clamp(ini_read_real("audio", "sfx",    _s.sfxVol),    0, 1);
@@ -452,6 +455,7 @@ function settings_save() {
     ini_write_real("game", "allSet", _s.allSet);
     ini_write_real("game", "advCleared", _s.advCleared);
     ini_write_real("game", "devTools", _s.devTools ? 1 : 0);
+    ini_write_string("game", "netName", _s.netName);
     ini_write_real("audio", "master", _s.masterVol);
     ini_write_real("audio", "bgm",    _s.bgmVol);
     ini_write_real("audio", "sfx",    _s.sfxVol);

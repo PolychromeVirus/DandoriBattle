@@ -403,12 +403,16 @@ function sim_tournament_run_boards(_boardList, _perPair = 100) {
     for (var _i = 1; _i < array_length(_boardList); _i++) array_push(global.simBoardQueue, _boardList[_i]);
     sim_report("");
     sim_report(">>> BATCH RUN: " + string(array_length(_boardList)) + " boards @ " + string(_perPair) + "/pairing: " + string(_boardList));
-    sim_tournament_begin(_boardList[0], _perPair, 20260717, sim_new_batch_id());
+    sim_tournament_begin(_boardList[0], _perPair, 20260717, sim_new_batch_id(), undefined, _boardList);
 }
 
 /// _resumeAt (optional): { a, b, k, done } - picks up mid-matrix instead of starting from (0,0,0).
 /// Used by sim_tournament_resume to continue an interrupted run without redoing already-logged games.
-function sim_tournament_begin(_boardId, _perPair = 60, _seed = 20260717, _batchId = undefined, _resumeAt = undefined) {
+/// _batchBoards (optional): every board this BATCH intends to run, not just this one. Recorded in the
+/// CSV header so a batch cancelled part-way can later be resumed IN FULL - the boards that never got
+/// started have no rows at all, so without this the file has no record they were ever meant to run
+/// (which is why "Resume" used to only ever finish the one board it was pointed at).
+function sim_tournament_begin(_boardId, _perPair = 60, _seed = 20260717, _batchId = undefined, _resumeAt = undefined, _batchBoards = undefined) {
     if (variable_global_exists("simTourney") && global.simTourney != undefined) return; // already running
     if (_batchId == undefined) _batchId = sim_new_batch_id();   // a lone tournament is its own 1-board batch
     var _pols = sim_policies();
@@ -421,8 +425,14 @@ function sim_tournament_begin(_boardId, _perPair = 60, _seed = 20260717, _batchI
     sim_report("policies " + string(_n) + ", " + string(_perPair) + " games/pairing, "
         + string(_n * _n * _perPair) + " games total, paired seeds from " + string(_seed));
 
+    if (_batchBoards == undefined) _batchBoards = [_boardId];   // a lone tournament is its own 1-board batch
+
+    // 14th HEADER field = the batch's whole board list, "|"-joined (must stay space-free, same
+    // constraint as the batch id). Written once per run rather than on every data row - it's
+    // constant for the batch and the rows are the bulk of the file.
     var _f = file_text_open_append("sim_tourney.csv");
-    file_text_write_string(_f, "board,seed,p1pol,p2pol,p1score,p2score,winner,p1switch,p2switch,p1replan,p2replan,batch,perPair");
+    file_text_write_string(_f, "board,seed,p1pol,p2pol,p1score,p2score,winner,p1switch,p2switch,p1replan,p2replan,batch,perPair,"
+        + sim_join_pipe(_batchBoards));
     file_text_writeln(_f);
     file_text_close(_f);
 
@@ -430,6 +440,7 @@ function sim_tournament_begin(_boardId, _perPair = 60, _seed = 20260717, _batchI
     for (var _i = 0; _i < _n; _i++) { _wins[_i] = array_create(_n, 0); _pts[_i] = 0; }
     global.simTourney = {
         boardId: _boardId, pols: _pols, n: _n, perPair: _perPair, seed: _seed, batchId: _batchId,
+        batchBoards: _batchBoards,   // carried forward by the queue hook so every run in the chain re-records it
         a: (_resumeAt != undefined) ? _resumeAt.a : 0,
         b: (_resumeAt != undefined) ? _resumeAt.b : 0,
         k: (_resumeAt != undefined) ? _resumeAt.k : 0,
@@ -479,7 +490,16 @@ function sim_tourney_run_expected(_run) {
 /// can't be mapped back to policy indices, or the run already has every pairing complete.
 function sim_tournament_resume(_run) {
     if (variable_global_exists("simTourney") && global.simTourney != undefined) return; // already running
-    if (_run.perPair == undefined) return;   // logged before this column existed - can't tell the target
+    var _res = sim_tourney_run_resume_at(_run);
+    if (_res == undefined) return;   // pre-column run, unmappable roster, or already complete
+    sim_tournament_begin(_run.boardId, _run.perPair, 20260717, _run.batchId, _res, [_run.boardId]);
+}
+
+/// The { a, b, k, done } resume point for ONE parsed run, or undefined when there's nothing to resume
+/// (the run predates the perPair column so its target is unknowable, or every pairing is already
+/// full). Shared by the single-board resume above and the batch resume below.
+function sim_tourney_run_resume_at(_run) {
+    if (_run.perPair == undefined) return undefined;   // logged before this column existed - can't tell the target
     var _pols = sim_policies();
     var _n = array_length(_pols);
     var _pairPlayed = array_create(_n);
@@ -494,8 +514,92 @@ function sim_tournament_resume(_run) {
         _totalPlayed += 1;
     }
     var _pt = sim_tourney_resume_point(_pairPlayed, _n, _run.perPair);
-    if (_pt == undefined) return;   // every pairing already complete - nothing to resume
-    sim_tournament_begin(_run.boardId, _run.perPair, 20260717, _run.batchId, { a: _pt.a, b: _pt.b, k: _pt.k, done: _totalPlayed });
+    if (_pt == undefined) return undefined;   // every pairing already complete - nothing to resume
+    return { a: _pt.a, b: _pt.b, k: _pt.k, done: _totalPlayed };
+}
+
+/// Every board a BATCH was meant to cover, in its original order. Prefers the board list recorded in
+/// the CSV header (batch.boardList, written by sim_tournament_begin) - that's the only thing that
+/// knows about boards the batch never reached before being cancelled. Falls back to the boards that
+/// actually have runs, for batches logged before that header field existed.
+function sim_tourney_batch_board_list(_batch) {
+    if (variable_struct_exists(_batch, "boardList") && _batch.boardList != undefined
+        && array_length(_batch.boardList) > 0) return _batch.boardList;
+    var _out = [];
+    for (var _i = 0; _i < array_length(_batch.runs); _i++) {
+        var _bid = _batch.runs[_i].boardId;
+        if (_bid != undefined && arr_index_of(_out, _bid) == -1) array_push(_out, _bid);
+    }
+    return _out;
+}
+
+/// The run in _batch that logged games for _boardId, or undefined if that board was never started.
+function sim_tourney_batch_run_for(_batch, _boardId) {
+    for (var _i = 0; _i < array_length(_batch.runs); _i++) if (_batch.runs[_i].boardId == _boardId) return _batch.runs[_i];
+    return undefined;
+}
+
+/// The batch's perPair target (from any run that recorded one), or undefined if none did.
+function sim_tourney_batch_per_pair(_batch) {
+    for (var _i = 0; _i < array_length(_batch.runs); _i++) if (_batch.runs[_i].perPair != undefined) return _batch.runs[_i].perPair;
+    return undefined;
+}
+
+/// How many games the whole batch is still missing across ALL its boards - including boards it never
+/// started at all (which contribute a full n*n*perPair each). undefined when the target is unknowable
+/// (a batch logged before the perPair column). Drives the "Resume Batch (missing N)" button's label
+/// and whether it shows at all.
+function sim_tourney_batch_missing(_batch) {
+    var _pp = sim_tourney_batch_per_pair(_batch);
+    if (_pp == undefined) return undefined;
+    var _n = array_length(sim_policies());
+    var _perBoard = _n * _n * _pp;
+    var _boards = sim_tourney_batch_board_list(_batch);
+    var _missing = 0;
+    for (var _i = 0; _i < array_length(_boards); _i++) {
+        var _run = sim_tourney_batch_run_for(_batch, _boards[_i]);
+        _missing += (_run == undefined) ? _perBoard : max(0, _perBoard - array_length(_run.rows));
+    }
+    return _missing;
+}
+
+/// Resume a whole cancelled BATCH, not just one board of it: walks the batch's intended board list in
+/// order, starts the first board that's short of its target (picking up mid-matrix if it already has
+/// rows), and QUEUES every remaining incomplete board behind it - so the chain runs to completion and
+/// the batch ends up with a full matrix for every board, all under the original batch id.
+/// Boards the batch never reached are queued as plain ids (start from scratch); boards with a partial
+/// matrix are queued as { board, resumeAt } so they pick up where they stopped rather than double-log.
+function sim_tournament_resume_batch(_batch) {
+    if (variable_global_exists("simTourney") && global.simTourney != undefined) return; // already running
+    var _pp = sim_tourney_batch_per_pair(_batch);
+    if (_pp == undefined) return;   // pre-perPair-column batch - can't tell what it was aiming for
+    var _boards = sim_tourney_batch_board_list(_batch);
+    var _n = array_length(sim_policies());
+    var _perBoard = _n * _n * _pp;
+
+    // collect every board still short of a full matrix, in the batch's original order
+    var _todo = [];
+    for (var _i = 0; _i < array_length(_boards); _i++) {
+        var _bid = _boards[_i];
+        var _run = sim_tourney_batch_run_for(_batch, _bid);
+        if (_run == undefined) { array_push(_todo, _bid); continue; }             // never started
+        if (array_length(_run.rows) >= _perBoard) continue;                        // already complete
+        var _res = sim_tourney_run_resume_at(_run);
+        if (_res == undefined) continue;                                           // unmappable / actually full
+        array_push(_todo, { board: _bid, resumeAt: _res });
+    }
+    if (array_length(_todo) == 0) return;   // whole batch already complete - nothing to do
+
+    // everything after the first entry becomes the board queue sim_tournament_tick pulls from
+    global.simBoardQueue = [];
+    for (var _q = 1; _q < array_length(_todo); _q++) array_push(global.simBoardQueue, _todo[_q]);
+
+    var _first = _todo[0];
+    sim_report("");
+    sim_report(">>> BATCH RESUME: " + string(array_length(_todo)) + " incomplete board(s) in batch " + _batch.id
+        + " @ " + string(_pp) + "/pairing");
+    if (is_struct(_first)) sim_tournament_begin(_first.board, _pp, 20260717, _batch.id, _first.resumeAt, _boards);
+    else                   sim_tournament_begin(_first,       _pp, 20260717, _batch.id, undefined,       _boards);
 }
 
 /// Run ONE tournament game (called once per frame by Step_0 while active).
@@ -546,15 +650,22 @@ function sim_tournament_tick() {
             if (_st.a >= _st.n) {
                 sim_tournament_report(_st);
                 var _pp = _st.perPair;
-                var _batchIdNext = _st.batchId;   // capture before the struct is dropped
+                var _batchIdNext = _st.batchId;       // capture before the struct is dropped
+                var _batchBoardsNext = _st.batchBoards;
                 global.simTourney = undefined;
                 // BATCH: if more boards are queued, roll straight into the next one, carrying the SAME
                 // batch id forward so the whole chain groups together in the Results screen
                 if (variable_global_exists("simBoardQueue") && array_length(global.simBoardQueue) > 0) {
-                    var _next = global.simBoardQueue[0];
+                    var _q = global.simBoardQueue[0];
                     array_delete(global.simBoardQueue, 0, 1);
-                    sim_report(">>> BATCH: starting next board '" + _next + "'  (" + string(array_length(global.simBoardQueue)) + " left after)");
-                    sim_tournament_begin(_next, _pp, 20260717, _batchIdNext);
+                    // a queue entry is either a plain board id (start that board from scratch) or a
+                    // { board, resumeAt } struct - the latter is how sim_tournament_resume_batch queues
+                    // a board that already has SOME games logged from the cancelled original attempt
+                    var _next    = is_struct(_q) ? _q.board    : _q;
+                    var _nextRes = is_struct(_q) ? _q.resumeAt : undefined;
+                    sim_report(">>> BATCH: starting next board '" + _next + "'  (" + string(array_length(global.simBoardQueue)) + " left after)"
+                        + ((_nextRes != undefined) ? ("  [resuming, " + string(_nextRes.done) + " already logged]") : ""));
+                    sim_tournament_begin(_next, _pp, 20260717, _batchIdNext, _nextRes, _batchBoardsNext);
                 }
             }
         }
@@ -665,6 +776,32 @@ function csv_split(_line) {
     return _out;
 }
 
+/// Join board ids with "|" for the CSV header's batch-board-list field. "|" rather than "," so the
+/// whole list stays ONE csv_split field, and no spaces (the same constraint the batch id carries).
+function sim_join_pipe(_arr) {
+    var _s = "";
+    for (var _i = 0; _i < array_length(_arr); _i++) _s += (_i > 0 ? "|" : "") + string(_arr[_i]);
+    return _s;
+}
+
+/// Inverse of sim_join_pipe. Same string_pos_ext scan as csv_split (see its note on why this doesn't
+/// re-slice the tail each iteration); "" yields an empty array, not [""].
+function sim_split_pipe(_s) {
+    var _out = [];
+    if (_s == "") return _out;
+    var _len = string_length(_s);
+    var _start = 1;
+    var _guard = _len + 2;
+    while (_guard > 0) {
+        _guard -= 1;
+        var _p = string_pos_ext("|", _s, _start);
+        if (_p == 0) { array_push(_out, string_copy(_s, _start, _len - _start + 1)); break; }
+        array_push(_out, string_copy(_s, _start, _p - _start));
+        _start = _p + 1;
+    }
+    return _out;
+}
+
 /// Index of _val in _arr, or -1. (arr_has, scrGameData.gml, only returns bool.)
 function arr_index_of(_arr, _val) {
     for (var _i = 0; _i < array_length(_arr); _i++) if (_arr[_i] == _val) return _i;
@@ -680,11 +817,42 @@ function arr_index_of(_arr, _val) {
 /// Find (or create) the batch folder with this id in _batches and append _run to it. Batches appear
 /// in _batches in first-encountered order (roughly chronological, since real batch ids sort that way
 /// and the file is append-only).
+/// The batch's boardList is taken from the first run that carries one (every run in a chain records
+/// the same list, but a legacy run mixed into the same folder may carry none).
+///
+/// RETURNS the run the caller should keep accumulating rows into - which is NOT always the _run
+/// passed in. A RESUMED board writes a SECOND header line for a board the batch already has rows
+/// for, and one header = one run to the parser, so a resumed board would otherwise show up as two
+/// sibling entries (the abandoned partial one, plus the continuation) instead of one run that simply
+/// finished. When this batch already holds a run for the same board, we MERGE into that existing run
+/// and hand it back, so the parse loop's later rows land there too - a resumed board then reads
+/// exactly like a board that ran straight through, and the incomplete entry disappears.
+///
+/// NOT done in the "Unknown" folder: that's the catch-all for rows logged before batch ids existed,
+/// where several genuinely separate historical tournaments of the SAME board sit together - merging
+/// those would fuse unrelated runs into one bogus oversized entry.
 function sim_tourney_batch_attach(_batches, _batchId, _run) {
     for (var _i = 0; _i < array_length(_batches); _i++) {
-        if (_batches[_i].id == _batchId) { array_push(_batches[_i].runs, _run); return; }
+        if (_batches[_i].id != _batchId) continue;
+        var _bat = _batches[_i];
+        if (_batchId != "Unknown") {
+            for (var _r = 0; _r < array_length(_bat.runs); _r++) {
+                var _ex = _bat.runs[_r];
+                if (_ex.boardId != _run.boardId) continue;
+                // fold this header block's rows-so-far into the run that's already here
+                for (var _k = 0; _k < array_length(_run.rows); _k++) array_push(_ex.rows, _run.rows[_k]);
+                if (_ex.perPair == undefined) _ex.perPair = _run.perPair;
+                if (_ex.boardList == undefined) _ex.boardList = _run.boardList;
+                if (_bat.boardList == undefined) _bat.boardList = _run.boardList;
+                return _ex;
+            }
+        }
+        array_push(_bat.runs, _run);
+        if (_bat.boardList == undefined) _bat.boardList = _run.boardList;
+        return _run;
     }
-    array_push(_batches, { id: _batchId, runs: [_run] });
+    array_push(_batches, { id: _batchId, boardList: _run.boardList, runs: [_run] });
+    return _run;
 }
 
 /// Parse sim_tourney.csv into a list of BATCH FOLDERS: [{id, runs:[{boardId, rows}]}]. A "run" is one
@@ -746,7 +914,14 @@ function sim_tourney_csv_parse() {
         if (_line == "") continue;
         var _fields = csv_split(_line);
         if (array_length(_fields) < 1) continue;
-        if (_fields[0] == "board") { _cur = { boardId: undefined, perPair: undefined, rows: [] }; _curAttached = false; continue; }
+        if (_fields[0] == "board") {
+            // 14th header field (if present) = the whole batch's intended board list, "|"-joined.
+            // This is the ONLY record of boards a cancelled batch never got around to starting.
+            var _hdrBoards = (array_length(_fields) >= 14) ? sim_split_pipe(_fields[13]) : undefined;
+            _cur = { boardId: undefined, perPair: undefined, boardList: _hdrBoards, rows: [] };
+            _curAttached = false;
+            continue;
+        }
         if (_cur == undefined || array_length(_fields) < 11) continue;   // stray line before any header
         // guard every numeric column BEFORE calling real() - a torn/truncated write (app killed
         // mid-row during an earlier hang/crash) can leave garbage in what should be a number, and
@@ -764,7 +939,9 @@ function sim_tourney_csv_parse() {
         array_push(_cur.rows, _row);
         if (!_curAttached) {
             var _batchId = (array_length(_fields) >= 12 && _fields[11] != "") ? _fields[11] : "Unknown";
-            sim_tourney_batch_attach(_batches, _batchId, _cur);
+            // attach may hand back a DIFFERENT run to accumulate into - that's how a resumed board's
+            // second header block folds into the run it's continuing (see sim_tourney_batch_attach)
+            _cur = sim_tourney_batch_attach(_batches, _batchId, _cur);
             _curAttached = true;
         }
     }

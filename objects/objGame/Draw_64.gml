@@ -216,13 +216,10 @@ if (mode == "menu") {
         var _bw = 320, _bh = 54, _bx = _guiW * 0.5 - _bw * 0.5, _by = 312;
         if (ui_button(_bx, _by,        _bw, _bh, "Play",        fntMaru)) menuScreen = "board";
         if (ui_button(_bx + _bw + 10, _by, 150, _bh, "Adventure", fntMaru)) { menuScreen = "adventure"; menuAdvIdx = 0; menuAdvScroll = 0; advSaveConfirm = undefined; }
-        if (ui_button(_bx, _by + 66,   _bw, _bh, "How to Play", fntMaru)) { start_tutorial(); exit; }
-        // TESTING: square numbered buttons jump straight to a specific tutorial scene (skip ahead).
-        // Final ship: gate these (locked until reached) and reuse for replaying a specific lesson.
-        var _tsN = array_length(tutorial_scenes());
-        for (var _ts = 0; _ts < _tsN; _ts++) {
-            if (ui_button(_bx + _bw + 10 + _ts * (_bh + 8), _by + 66, _bh, _bh, string(_ts + 1), fntMaru)) { start_tutorial(_ts); exit; }
-        }
+        // "How to Play" now opens the LESSON SELECT screen rather than launching straight into
+        // scene 1 - replaying a single lesson used to be dev-only (the numbered squares that lived
+        // here), and that's now a first-class player-facing choice on that screen.
+        if (ui_button(_bx, _by + 66,   _bw, _bh, "How to Play", fntMaru)) { menuScreen = "tutorial"; menuTutIdx = 0; menuTutScroll = 0; }
         if (ui_button(_bx, _by + 132,  _bw, _bh, "Online",      fntMaru)) { menuScreen = "online"; menuNetField = ""; }
         if (ui_button(_bx, _by + 198,  _bw, _bh, "Options",     fntMaru)) menuScreen = "options";
         if (ui_button(_bx, _by + 264,  _bw, _bh, "Quit",        fntMaru)) game_end();
@@ -246,9 +243,221 @@ if (mode == "menu") {
     }
 
     // ============================== ONLINE LOBBY ==============================
+    // ======================= TUTORIAL / LESSON SELECT =======================
+    // Same shape as the adventure menu: a scrolling list on the left with tier HEADERS and one row
+    // per lesson, a description panel on the right, and a bottom action bar. Replaces the old
+    // "How to Play launches scene 1, plus dev-only numbered jump squares" - replaying one lesson is
+    // a normal thing a player wants, not a testing shortcut.
+    if (menuScreen == "tutorial") {
+        var _tuAll = tutorial_scenes();
+        // flatten to display rows: a header per tier, then that tier's lessons. _tuIdx maps a row
+        // back to its index in the FULL scene list, which is what the action buttons launch from.
+        var _tuFlat = [];
+        var _tuPick = [];
+        var _tiers = tutorial_tiers();
+        for (var _ti = 0; _ti < array_length(_tiers); _ti++) {
+            var _tierId = _tiers[_ti].id;
+            var _hdrPushed = false;
+            for (var _li = 0; _li < array_length(_tuAll); _li++) {
+                var _lt = variable_struct_exists(_tuAll[_li], "tier") ? _tuAll[_li].tier : "basic";
+                if (_lt != _tierId) continue;
+                if (!_hdrPushed) { array_push(_tuFlat, { hdr: true, text: _tiers[_ti].label }); _hdrPushed = true; }
+                array_push(_tuFlat, { hdr: false, pick: array_length(_tuPick), scene: _tuAll[_li] });
+                array_push(_tuPick, { scene: _tuAll[_li], idx: _li });
+            }
+        }
+        var _nTu = array_length(_tuPick);
+        menuTutIdx = clamp(menuTutIdx, 0, max(0, _nTu - 1));
+        var _selL = (_nTu > 0) ? _tuPick[menuTutIdx] : undefined;
+
+        draw_set_alpha(0.62); draw_set_color(c_black); draw_rectangle(0, 0, _guiW, _guiH, false); draw_set_alpha(1);
+
+        draw_set_halign(fa_center); draw_set_font(fntMaru);
+        draw_set_color(make_color_rgb(255, 224, 120));
+        draw_text_transformed(_guiW * 0.5, 14, "HOW TO PLAY", 2.0 * UI_TS, 2.0 * UI_TS, 0);
+        draw_set_halign(fa_left); draw_set_color(c_white);
+        if (ui_button(20, 12, 110, 30, "< Back")) { menuScreen = "main"; exit; }
+
+        var _tuBarY = _guiH - 74;
+        var _tuLX = 20, _tuLW = 340, _tuLTop = 74, _tuRowH = 34;
+        var _tuMgx = device_mouse_x_to_gui(0), _tuMgy = device_mouse_y_to_gui(0);
+        var _tuRows = max(1, floor((_tuBarY - 12 - _tuLTop) / _tuRowH));
+        var _tuMaxTop = max(0, array_length(_tuFlat) - _tuRows);
+        if (_tuMgx >= _tuLX && _tuMgx <= _tuLX + _tuLW && _tuMgy >= _tuLTop && _tuMgy <= _tuLTop + _tuRows * _tuRowH) {
+            if (mouse_wheel_up())   menuTutScroll -= 1;
+            if (mouse_wheel_down()) menuTutScroll += 1;
+        }
+        menuTutScroll = clamp(menuTutScroll, 0, _tuMaxTop);
+
+        draw_set_alpha(0.45); draw_set_color(make_color_rgb(18, 22, 26));
+        draw_rectangle(_tuLX, _tuLTop, _tuLX + _tuLW, _tuLTop + _tuRows * _tuRowH, false); draw_set_alpha(1);
+        for (var _r = 0; _r < _tuRows; _r++) {
+            var _fi = menuTutScroll + _r;
+            if (_fi >= array_length(_tuFlat)) break;
+            var _fe = _tuFlat[_fi];
+            var _ey = _tuLTop + _r * _tuRowH;
+            draw_set_font(fntMaru);
+            if (_fe.hdr) {
+                draw_set_color(make_color_rgb(255, 224, 120));
+                dtext(_tuLX + 8, _ey + 8, _fe.text);
+                draw_set_color(c_white);
+            } else {
+                var _sel = (_fe.pick == menuTutIdx);
+                var _hov = (_tuMgx >= _tuLX && _tuMgx < _tuLX + _tuLW && _tuMgy >= _ey && _tuMgy < _ey + _tuRowH);
+                if (_hov) global.uiMouseConsumed = true;
+                draw_set_alpha(_sel ? 0.9 : (_hov ? 0.7 : 0.4));
+                draw_set_color(_sel ? make_color_rgb(58, 82, 66) : make_color_rgb(38, 46, 52));
+                draw_rectangle(_tuLX + 20, _ey + 2, _tuLX + _tuLW - 4, _ey + _tuRowH - 2, false); draw_set_alpha(1);
+                draw_set_color(_sel ? make_color_rgb(255, 224, 120) : make_color_rgb(200, 210, 215));
+                dtext(_tuLX + 30, _ey + 8, _fe.scene.name);
+                draw_set_color(c_white);
+                if (_hov && mouse_check_button_pressed(mb_left)) menuTutIdx = _fe.pick;
+            }
+        }
+        draw_set_halign(fa_center); draw_set_color(make_color_rgb(255, 224, 120));
+        if (menuTutScroll > 0)         dtext(_tuLX + _tuLW * 0.5, _tuLTop + 1, "^");
+        if (menuTutScroll < _tuMaxTop) dtext(_tuLX + _tuLW * 0.5, _tuLTop + _tuRows * _tuRowH - 15, "v");
+        draw_set_halign(fa_left); draw_set_color(c_white);
+
+        // ---- right: what this lesson teaches ----
+        if (_selL != undefined) {
+            var _tuPX = _tuLX + _tuLW + 40, _tuPW = _guiW - _tuPX - 30;
+            draw_set_color(make_color_rgb(255, 224, 120));
+            draw_text_transformed(_tuPX, _tuLTop + 4, _selL.scene.name, 1.6 * UI_TS, 1.6 * UI_TS, 0);
+            draw_set_color(make_color_rgb(160, 168, 176));
+            dtext(_tuPX, _tuLTop + 44, (variable_struct_exists(_selL.scene, "tier") ? string_upper(_selL.scene.tier) : "BASIC") + " LESSON");
+            draw_set_color(make_color_rgb(215, 222, 228));
+            var _tuDesc = variable_struct_exists(_selL.scene, "desc") ? _selL.scene.desc : "";
+            dtext_ext(_tuPX, _tuLTop + 80, _tuDesc, 24, _tuPW);
+            draw_set_color(c_white);
+        }
+
+        // ---- bottom bar: the two full runs, then the single selected lesson ----
+        draw_set_alpha(0.5); draw_set_color(make_color_rgb(14, 18, 22));
+        draw_rectangle(0, _tuBarY, _guiW, _guiH, false); draw_set_alpha(1);
+        // one "Play <Tier> Tutorial" button per tier that ACTUALLY HAS lessons - the intermediate
+        // (per-colour) and advanced (experimental-rule) tiers therefore show nothing at all until
+        // their lessons are written, instead of offering a button that would launch an empty run.
+        var _tuBw = 250, _tuBg = 14, _tuBx = _tuLX;
+        for (var _ti = 0; _ti < array_length(_tiers); _ti++) {
+            var _tierScenes = tutorial_scenes_of_tier(_tiers[_ti].id);
+            if (array_length(_tierScenes) == 0) continue;
+            if (ui_button(_tuBx, _tuBarY + 14, _tuBw, 44, "Play " + _tiers[_ti].word + " Tutorial", fntMaru)) {
+                start_tutorial_set(_tierScenes); exit;
+            }
+            _tuBx += _tuBw + _tuBg;
+        }
+        // a single lesson is launched as a ONE-ENTRY scene list, so it ends after itself instead of
+        // rolling on into the rest of the script
+        if (_selL != undefined && ui_button(_guiW - _tuBw - 20, _tuBarY + 14, _tuBw, 44, "Start Lesson", fntMaru)) {
+            start_tutorial_set([_selL.scene]); exit;
+        }
+        exit;
+    }
+
+    // ======================= LOBBY =======================
+    // Sits between the connect screen and board-select. Everyone who is connected appears here -
+    // the host, the one P2 player, and any number of spectators - and the HOST assigns who plays.
+    // The host advances to board-select when ready; everyone else waits for the START broadcast.
+    if (menuScreen == "lobby") {
+        if (!net_online() || global.net.status == "disconnected" || global.net.status == "closed") { net_close(); menuScreen = "main"; exit; }
+        // a client that connected MID-GAME is pushed a start + state by the host (Step_0) and drops
+        // straight into the live game from here, without ever seeing board-select
+        if (global.net.startBoard != "") { var _sb = global.net.startBoard; global.net.startBoard = ""; start_game_online(_sb, false); exit; }
+
+        draw_set_halign(fa_center); draw_set_font(fntMaru);
+        draw_set_color(make_color_rgb(255, 224, 120));
+        draw_text_transformed(_guiW * 0.5, 40, "LOBBY", 2.4 * UI_TS, 2.4 * UI_TS, 0);
+        draw_set_halign(fa_left); draw_set_color(c_white);
+
+        if (ui_button(20, 16, 120, 30, "< Leave")) { net_close(); menuScreen = "main"; exit; }
+
+        var _lbX = _guiW * 0.5 - 300, _lbW = 600, _lbTop = 110, _lbRowH = 44;
+        draw_set_color(make_color_rgb(190, 200, 210));
+        dtext(_lbX, _lbTop - 26, net_is_host() ? "Connected (click a row's button to seat them):" : "Connected:");
+        draw_set_color(c_white);
+
+        // The HOST renders from its own authoritative client list (it needs each client's SOCKET to
+        // reseat them); everyone else renders the roster the host broadcasts. Same visual either way.
+        var _rows = [];
+        if (net_is_host()) {
+            array_push(_rows, { name: global.net.localName + "  (you)", role: "player", seat: 0, sock: -1 });
+            var _cl = global.net.clients;
+            for (var _i = 0; _i < array_length(_cl); _i++) array_push(_rows, { name: _cl[_i].name, role: _cl[_i].role, seat: _cl[_i].seat, sock: _cl[_i].sock });
+        } else {
+            var _ro = global.net.roster;
+            for (var _i = 0; _i < array_length(_ro); _i++) {
+                var _isMe = (_ro[_i].seat == global.net.localSeat && _ro[_i].role == global.net.role && _ro[_i].name == global.net.localName);
+                array_push(_rows, { name: _ro[_i].name + (_isMe ? "  (you)" : ""), role: _ro[_i].role, seat: _ro[_i].seat, sock: -1 });
+            }
+        }
+
+        var _lbVis = max(1, floor((_guiH - 150 - _lbTop) / _lbRowH));
+        var _lbMax = max(0, array_length(_rows) - _lbVis);
+        if (ui_mouse_in(_lbX, _lbTop, _lbW, _lbVis * _lbRowH)) {
+            if (mouse_wheel_up())   menuLobbyScroll -= 1;
+            if (mouse_wheel_down()) menuLobbyScroll += 1;
+        }
+        menuLobbyScroll = clamp(menuLobbyScroll, 0, _lbMax);
+
+        draw_set_alpha(0.35); draw_set_color(make_color_rgb(18, 22, 26));
+        draw_rectangle(_lbX, _lbTop, _lbX + _lbW, _lbTop + _lbVis * _lbRowH, false);
+        draw_set_alpha(1);
+
+        for (var _d = 0; _d < _lbVis; _d++) {
+            var _ri = menuLobbyScroll + _d;
+            if (_ri >= array_length(_rows)) break;
+            var _row = _rows[_ri];
+            var _ry = _lbTop + _d * _lbRowH;
+
+            // seat badge: P1 / P2 for the two player seats, SPECTATOR for everyone else
+            var _seatLbl = (_row.seat == 0) ? "P1" : ((_row.seat == 1) ? "P2" : "SPECTATOR");
+            var _seatCol = (_row.seat == 0) ? make_color_rgb(120, 180, 255)
+                         : ((_row.seat == 1) ? make_color_rgb(255, 140, 140) : make_color_rgb(150, 155, 162));
+            draw_set_color(_seatCol);
+            dtext(_lbX + 12, _ry + 14, _seatLbl);
+            draw_set_color(c_white);
+            dtext(_lbX + 130, _ry + 14, _row.name);
+
+            // host-only reseat control. The host's OWN row has no button - the host is permanently P1;
+            // letting it demote itself would leave the authoritative seat empty.
+            if (net_is_host() && _row.sock >= 0) {
+                var _mkPlayer = (_row.role != "player");
+                if (ui_button(_lbX + _lbW - 170, _ry + 6, 160, 32, _mkPlayer ? "Make Player" : "Make Spectator", fntMaru)) {
+                    net_assign_role(_row.sock, _mkPlayer ? "player" : "spectator");
+                }
+            }
+        }
+
+        // footer
+        var _lbFy = _lbTop + _lbVis * _lbRowH + 18;
+        draw_set_color(make_color_rgb(150, 160, 175));
+        dtext(_lbX, _lbFy, "Spectators mirror the game and never take input. They can join at any time, including mid-game.");
+        draw_set_color(c_white);
+        if (net_is_host()) {
+            if (array_length(global.net.clients) == 0) {
+                draw_set_halign(fa_center); draw_set_color(make_color_rgb(255, 224, 120));
+                dtext(_guiW * 0.5, _lbFy + 26, "Waiting for players to connect...");
+                draw_set_halign(fa_left); draw_set_color(c_white);
+            }
+            // deliberately NOT gated on anyone having joined - the host may want to set up the board
+            // first, and clients can still arrive later (including after the game has started)
+            if (ui_button(_guiW * 0.5 - 130, _lbFy + 54, 260, 40, "Board Select >", fntMaru)) { menuScreen = "board"; exit; }
+        } else {
+            draw_set_halign(fa_center); draw_set_color(make_color_rgb(255, 224, 120));
+            dtext(_guiW * 0.5, _lbFy + 44, "Waiting for " + ((global.net.remoteName != "") ? global.net.remoteName : "the host") + " to choose a board...");
+            draw_set_halign(fa_left); draw_set_color(c_white);
+        }
+        exit;
+    }
+
     if (menuScreen == "online") {
-        // handshake complete -> board select (the board screen is online-aware for both sides)
-        if (net_online() && global.net.status == "ready") { menuScreen = "board"; exit; }
+        // handshake complete -> LOBBY (seat assignment happens there; the host moves everyone on to
+        // board-select). Was straight to board-select back when a session was strictly 1v1.
+        // The HOST enters the lobby the moment its server is up ("listening"), rather than waiting on
+        // a first connection - the lobby IS the waiting room now, and it shows the roster filling up.
+        // A client still waits here until its handshake completes ("ready").
+        if (net_online() && (global.net.status == "ready" || (global.net.mode == "host" && global.net.status == "listening"))) { menuScreen = "lobby"; menuLobbyScroll = 0; exit; }
 
         draw_set_halign(fa_center);
         draw_set_font(fntMaru);
@@ -257,7 +466,8 @@ if (mode == "menu") {
         draw_set_halign(fa_left);
         draw_set_color(c_white);
 
-        if (ui_button(20, 16, 120, 30, "< Back")) { net_close(); menuScreen = "main"; }
+        // also persist on the way out, so a name typed and then abandoned is still remembered next time
+        if (ui_button(20, 16, 120, 30, "< Back")) { save_settings(); net_close(); menuScreen = "main"; }
 
         // --- editable text field helper (immediate mode, backed by keyboard_string) ---
         var _fx = _guiW * 0.5 - 210, _fw = 420, _fh = 40;
@@ -275,53 +485,121 @@ if (mode == "menu") {
             return (ui_mouse_in(_x, _y, _w, _h) && mouse_check_button_pressed(mb_left)); // clicked -> focus
         };
 
-        if (net_online() && (global.net.status == "listening" || global.net.status == "connecting")) {
+        // resolve the chosen port up front - HOST needs it, and so does the manual-join fallback.
+        var _netPort = (menuNetPort != "") ? clamp(real(menuNetPort), 1, 65535) : NET_PORT;
+
+        if (net_online() && global.net.status == "connecting") {
             draw_set_halign(fa_center);
             draw_set_color(make_color_rgb(255, 224, 120));
-            dtext(_guiW * 0.5, 300, (global.net.mode == "host") ? "Waiting for a player to join..." : "Connecting...");
+            dtext(_guiW * 0.5, 300, "Connecting...");
             draw_set_halign(fa_left);
             draw_set_color(c_white);
             if (ui_button(_guiW * 0.5 - 90, 340, 180, 36, "Cancel", fntMaru)) net_close();
-        } else {
-            // NAME - a single shared field, used whether you host OR join.
-            if (_drawField(_fx, 130, _fw, _fh, "Your name (used for host or join):", menuNetName, "name")) { menuNetField = "name"; keyboard_string = menuNetName; }
-            if (menuNetField == "name") menuNetName = keyboard_string;
-
-            // resolve the chosen port up front (the port field is drawn on the IP row below, but
-            // HOST needs the value too). Falls back to the default if empty / out of range.
-            var _netPort = (menuNetPort != "") ? clamp(real(menuNetPort), 1, 65535) : NET_PORT;
-
-            draw_set_alpha(0.45); draw_set_color(make_color_rgb(90, 100, 120));
-            draw_line(_fx, 198, _fx + _fw, 198);   // divider between the shared name and the two options
-            draw_set_alpha(1); draw_set_color(c_white);
-
-            // OPTION 1: host and wait for a joiner
-            if (ui_button(_fx, 222, _fw, 46, "HOST a game", fntMaru)) { net_host(menuNetName, _netPort); menuNetField = ""; }
-
-            draw_set_halign(fa_center); draw_set_color(make_color_rgb(150, 160, 175));
-            dtext(_guiW * 0.5, 294, "- or -");
             draw_set_halign(fa_left); draw_set_color(c_white);
+            exit;
+        }
 
-            // OPTION 2: join a host by IP + PORT. The IP field was needlessly wide, so it now
-            // shares the row: IP takes most of it, the port field the last stretch (small gap).
-            var _ipW = _fw - 150, _portW = 130, _portX = _fx + _ipW + 20;
-            if (_drawField(_fx, 350, _ipW, _fh, "Host IP:", menuNetIP, "ip")) { menuNetField = "ip"; keyboard_string = menuNetIP; }
-            if (menuNetField == "ip") menuNetIP = keyboard_string;
-            if (_drawField(_portX, 350, _portW, _fh, "Port:", menuNetPort, "port")) { menuNetField = "port"; keyboard_string = menuNetPort; }
-            if (menuNetField == "port") {   // digits only, max 5
-                menuNetPort = string_digits(keyboard_string);
-                if (string_length(menuNetPort) > 5) menuNetPort = string_copy(menuNetPort, 1, 5);
-                keyboard_string = menuNetPort;
-            }
+        // ---- BROWSER-FIRST. Games announce themselves over UDP (net_beacon_tick on the host), so
+        // the list fills in by itself and nobody types an IP in the normal case. Manual entry stays
+        // as a demoted fallback at the bottom, because broadcast legitimately fails on some networks
+        // (different subnets, or Wi-Fi client isolation) and then it's the ONLY way in.
+        net_discovery_listen();     // idempotent - opens the listen socket the first frame we're here
+        net_discovery_prune();      // hosts that stopped announcing drop off on their own
 
-            if (ui_button(_fx, 410, _fw, 46, "JOIN a game", fntMaru)) { net_join(menuNetIP, menuNetName, _netPort); menuNetField = ""; }
+        // NAME - shared by hosting and joining alike, so it stays at the top above everything.
+        if (_drawField(_fx, 96, _fw, _fh, "Your name:", menuNetName, "name")) { menuNetField = "name"; keyboard_string = menuNetName; }
+        if (menuNetField == "name") menuNetName = keyboard_string;
 
-            if (global.net.status == "failed" || global.net.status == "disconnected") {
-                draw_set_halign(fa_center); draw_set_color(make_color_rgb(230, 120, 110));
-                dtext(_guiW * 0.5, 470, (global.net.status == "failed") ? "Connection failed - check the IP." : "Opponent disconnected.");
-                draw_set_halign(fa_left); draw_set_color(c_white);
+        if (ui_button(_guiW * 0.5 - 130, 152, 260, 42, "HOST A GAME", fntMaru)) { save_settings(); net_host(menuNetName, _netPort); menuNetField = ""; }
+
+        // ---- discovered games ----
+        var _glX = _guiW * 0.5 - 340, _glW = 680, _glTop = 236, _glRowH = 52;
+        var _found = global.net.discFound;
+        draw_set_color(make_color_rgb(200, 210, 220));
+        dtext(_glX, _glTop - 26, "Games on your network:");
+        draw_set_color(make_color_rgb(150, 160, 175));
+        draw_set_halign(fa_right);
+        dtext(_glX + _glW, _glTop - 26, "searching...");
+        draw_set_halign(fa_left);
+        draw_set_color(c_white);
+
+        var _glVis = max(1, floor((_guiH - 190 - _glTop) / _glRowH));
+        var _glMax = max(0, array_length(_found) - _glVis);
+        if (ui_mouse_in(_glX, _glTop, _glW, _glVis * _glRowH)) {
+            if (mouse_wheel_up())   menuNetBrowseScroll -= 1;
+            if (mouse_wheel_down()) menuNetBrowseScroll += 1;
+        }
+        menuNetBrowseScroll = clamp(menuNetBrowseScroll, 0, _glMax);
+
+        draw_set_alpha(0.35); draw_set_color(make_color_rgb(18, 22, 26));
+        draw_rectangle(_glX, _glTop, _glX + _glW, _glTop + _glVis * _glRowH, false);
+        draw_set_alpha(1);
+
+        if (array_length(_found) == 0) {
+            draw_set_color(make_color_rgb(150, 155, 162));
+            dtext(_glX + 14, _glTop + 16, "No games found");
+            draw_set_color(c_white);
+        }
+        for (var _d = 0; _d < _glVis; _d++) {
+            var _fi = menuNetBrowseScroll + _d;
+            if (_fi >= array_length(_found)) break;
+            var _fe = _found[_fi];
+            var _fy = _glTop + _d * _glRowH;
+            var _fHov = ui_mouse_in(_glX, _fy, _glW - 130, _glRowH);
+            if (_fHov) { draw_set_alpha(0.3); draw_set_color(make_color_rgb(50, 58, 66)); draw_rectangle(_glX, _fy, _glX + _glW, _fy + _glRowH, false); draw_set_alpha(1); }
+
+            draw_set_color(c_white);
+            dtext(_glX + 14, _fy + 10, _fe.name);
+            // STATUS badge. SETUP = still in the lobby/board-select, so joining can actually get you
+            // a seat; LIVE = a match is under way, where joining always makes you a spectator (the
+            // seat's position is already committed - see the HELLO handler in scrNet).
+            draw_set_color(_fe.inGame ? make_color_rgb(255, 150, 90) : make_color_rgb(130, 210, 140));
+            dtext(_glX + 14 + dtext_width(_fe.name) + 14, _fy + 10, _fe.inGame ? "LIVE" : "SETUP");
+            draw_set_color(make_color_rgb(160, 168, 176));
+            var _sub = string(_fe.players) + " player" + ((_fe.players == 1) ? "" : "s");
+            if (_fe.spectators > 0) _sub += ", " + string(_fe.spectators) + " watching";
+            if (_fe.board != "") _sub += "  -  " + string(_fe.board);
+            dtext(_glX + 14, _fy + 30, _sub);
+            draw_set_color(make_color_rgb(120, 128, 136));
+            draw_set_halign(fa_right);
+            dtext(_glX + _glW - 140, _fy + 30, string(_fe.ip));
+            draw_set_halign(fa_left);
+            draw_set_color(c_white);
+
+            if (ui_button(_glX + _glW - 126, _fy + 10, 116, 32, _fe.inGame ? "Watch" : "Join", fntMaru)) {
+                save_settings();   // the name is genuinely "picked" at the moment it's used
+                net_join(_fe.ip, menuNetName, _fe.port);
+                menuNetField = "";
             }
         }
+
+        // ---- manual fallback, deliberately small and last ----
+        var _mfY = _glTop + _glVis * _glRowH + 16;
+        draw_set_alpha(0.45); draw_set_color(make_color_rgb(90, 100, 120));
+        draw_line(_glX, _mfY, _glX + _glW, _mfY);
+        draw_set_alpha(1);
+        draw_set_color(make_color_rgb(150, 160, 175));
+        dtext(_glX, _mfY + 12, "Join by IP:");
+        draw_set_color(c_white);
+        var _mIpW = 260, _mPortW = 90;
+        if (_drawField(_glX + 190, _mfY + 6, _mIpW, 32, "", menuNetIP, "ip")) { menuNetField = "ip"; keyboard_string = menuNetIP; }
+        if (menuNetField == "ip") menuNetIP = keyboard_string;
+        if (_drawField(_glX + 190 + _mIpW + 10, _mfY + 6, _mPortW, 32, "", menuNetPort, "port")) { menuNetField = "port"; keyboard_string = menuNetPort; }
+        if (menuNetField == "port") {   // digits only, max 5
+            menuNetPort = string_digits(keyboard_string);
+            if (string_length(menuNetPort) > 5) menuNetPort = string_copy(menuNetPort, 1, 5);
+            keyboard_string = menuNetPort;
+        }
+        if (ui_button(_glX + 190 + _mIpW + _mPortW + 24, _mfY + 6, 110, 32, "Connect", fntMaru)) { save_settings(); net_join(menuNetIP, menuNetName, _netPort); menuNetField = ""; }
+
+        if (global.net.status == "failed" || global.net.status == "disconnected" || global.net.status == "kicked") {
+            draw_set_halign(fa_center); draw_set_color(make_color_rgb(230, 120, 110));
+            var _errMsg = (global.net.status == "failed") ? "Connection failed - check the IP and port."
+                        : ((global.net.status == "kicked") ? "The host removed you from the session." : "Disconnected from the host.");
+            dtext(_guiW * 0.5, _mfY + 56, _errMsg);
+            draw_set_halign(fa_left); draw_set_color(c_white);
+        }
+
         draw_set_halign(fa_left);
         draw_set_color(c_white);
         exit;
@@ -539,6 +817,7 @@ if (mode == "menu") {
             menuDebugBatches = sim_tourney_csv_parse();
             menuDebugExpanded = [];
             menuDebugOpenRun = undefined;
+            menuDebugOpenBatch = undefined;
             menuDebugRunsScroll = 0;
         }
 
@@ -598,7 +877,7 @@ if (mode == "menu") {
         draw_set_color(c_white);
 
         if (ui_button(20, 16, 120, 30, "< Back")) menuScreen = "debug";
-        if (ui_button(_guiW - 150, 60, 130, 30, "Refresh", fntMaru)) { menuDebugBatches = sim_tourney_csv_parse(); menuDebugExpanded = []; menuDebugOpenRun = undefined; }
+        if (ui_button(_guiW - 150, 60, 130, 30, "Refresh", fntMaru)) { menuDebugBatches = sim_tourney_csv_parse(); menuDebugExpanded = []; menuDebugOpenRun = undefined; menuDebugOpenBatch = undefined; }
 
         var _mgxR = device_mouse_x_to_gui(0), _mgyR = device_mouse_y_to_gui(0);
 
@@ -614,7 +893,7 @@ if (mode == "menu") {
             var _bat = menuDebugBatches[_bi];
             array_push(_flat, { kind: "batch", batch: _bat });
             if (arr_has(menuDebugExpanded, _bat.id)) {
-                for (var _ri = 0; _ri < array_length(_bat.runs); _ri++) array_push(_flat, { kind: "run", run: _bat.runs[_ri] });
+                for (var _ri = 0; _ri < array_length(_bat.runs); _ri++) array_push(_flat, { kind: "run", run: _bat.runs[_ri], batch: _bat });
             }
         }
 
@@ -654,15 +933,22 @@ if (mode == "menu") {
                 var _totalGames = 0;
                 for (var _ci = 0; _ci < array_length(_item.batch.runs); _ci++) _totalGames += array_length(_item.batch.runs[_ci].rows);
                 dtext(_rlX + 10, _rY + 12, (_bOpen ? "[-] " : "[+] ") + _item.batch.id);
-                draw_set_color(make_color_rgb(170, 175, 180));
-                dtext(_rlX + 10, _rY + 28, string(array_length(_item.batch.runs)) + " board(s), " + string(_totalGames) + " games");
+                // board COUNT comes from the batch's intended list, not from how many runs exist -
+                // a cancelled batch's unstarted boards have no run, and showing only started boards
+                // is exactly what made a half-finished batch look complete
+                var _bBoards = sim_tourney_batch_board_list(_item.batch);
+                var _bMissing = sim_tourney_batch_missing(_item.batch);
+                var _bShort = (_bMissing != undefined && _bMissing > 0);
+                draw_set_color(_bShort ? make_color_rgb(235, 170, 90) : make_color_rgb(170, 175, 180));
+                dtext(_rlX + 10, _rY + 28, string(array_length(_item.batch.runs)) + "/" + string(array_length(_bBoards))
+                    + " board(s), " + string(_totalGames) + " games" + (_bShort ? "  (incomplete)" : ""));
                 draw_set_color(c_white);
             } else {
                 var _rSel = (menuDebugOpenRun == _item.run);
                 if (_rSel) { draw_set_alpha(0.55); draw_set_color(make_color_rgb(74, 96, 132)); draw_rectangle(_rlX, _rY, _rlX + _rlW, _rY + _rEntH, false); draw_set_alpha(1); }
                 else if (_rHov) { draw_set_alpha(0.3); draw_set_color(make_color_rgb(50, 58, 66)); draw_rectangle(_rlX, _rY, _rlX + _rlW, _rY + _rEntH, false); draw_set_alpha(1); }
                 if (_rHov) global.uiMouseConsumed = true;
-                if (_rHov && mouse_check_button_pressed(mb_left)) menuDebugOpenRun = _item.run;
+                if (_rHov && mouse_check_button_pressed(mb_left)) { menuDebugOpenRun = _item.run; menuDebugOpenBatch = _item.batch; }
                 draw_set_color(c_white);
                 dtext(_rlX + 34, _rY + 12, string(_item.run.boardId));
                 var _rExpected = sim_tourney_run_expected(_item.run);
@@ -689,14 +975,36 @@ if (mode == "menu") {
         dtext(_tx0, _titleY, string(_agg.boardId) + "  -  " + string(_agg.gameCount) + " games");
         draw_set_color(c_white);
 
-        // resume an interrupted run right where sim_tournament_resume figures out it left off -
-        // only shown/enabled when we can actually tell it's short of its target (perPair column
-        // present) and no tournament is already running
+        // ---- RESUME buttons: parked in the BOTTOM-RIGHT corner, stacked, clear of the report.
+        // They used to sit up beside the title (y = _titleY), where they overlapped the win-matrix
+        // header controls - the report grows downward from the title, so the top-right strip is not
+        // actually free space. Down here nothing else draws.
+        // "Resume Board" finishes just the selected board's matrix; "Resume Batch" finishes EVERY
+        // incomplete board in the batch, including ones the cancelled batch never started at all
+        // (recoverable because the batch's whole board list is recorded in each run's CSV header).
+        // Both are only shown when we can actually tell the run/batch is short of its target (the
+        // perPair column is present), and both read "Tournament running..." (inert) while one is live.
         var _rrExpected = sim_tourney_run_expected(menuDebugOpenRun);
         var _rrIncomplete = (_rrExpected != undefined) && (_agg.gameCount < _rrExpected);
         var _rrBusy = variable_global_exists("simTourney") && global.simTourney != undefined;
+
+        var _rbMissing = (menuDebugOpenBatch != undefined) ? sim_tourney_batch_missing(menuDebugOpenBatch) : undefined;
+        // the batch button is only worth showing when it would do MORE than the per-board one (i.e.
+        // other boards in the batch are short too); a 1-board batch is fully covered by "Resume Board"
+        var _rbShow = (_rbMissing != undefined && _rbMissing > 0
+            && (!_rrIncomplete || _rbMissing > (_rrExpected - _agg.gameCount)));
+
+        // stack UPWARD from the bottom edge, so whichever buttons are visible sit flush in the
+        // corner with no gap where a hidden one would have been
+        var _rbW = 240, _rbH = 34, _rbX = _guiW - _rbW - 20, _rbY = _guiH - 20 - _rbH;
+        if (_rbShow) {
+            if (ui_button(_rbX, _rbY, _rbW, _rbH, _rrBusy ? "Tournament running..." : ("Resume Batch (missing " + string(_rbMissing) + ")"), fntMaru)) {
+                if (!_rrBusy) sim_tournament_resume_batch(menuDebugOpenBatch);
+            }
+            _rbY -= _rbH + 8;
+        }
         if (_rrIncomplete) {
-            if (ui_button(_guiW - 260, _titleY - 4, 240, 34, _rrBusy ? "Tournament running..." : ("Resume (missing " + string(_rrExpected - _agg.gameCount) + ")"), fntMaru)) {
+            if (ui_button(_rbX, _rbY, _rbW, _rbH, _rrBusy ? "Tournament running..." : ("Resume Board (missing " + string(_rrExpected - _agg.gameCount) + ")"), fntMaru)) {
                 if (!_rrBusy) sim_tournament_resume(menuDebugOpenRun);
             }
         }
@@ -1202,7 +1510,10 @@ if (mode == "menu") {
     var _netJoin = net_online() && global.net.mode == "join";
     if (_netJoin) {
         if (global.net.previewBoard != "") for (var _bi = 0; _bi < _nB; _bi++) if (_boards[_bi].id == global.net.previewBoard) { menuBoardIdx = _bi; break; }
-        if (global.net.startBoard != "") { start_game_online(global.net.startBoard, false); exit; }
+        // consumed (cleared) so returning to board-select later can't re-trigger a stale launch;
+        // start_game_online works out player-vs-spectator from our assigned seat, so this one call
+        // covers the P2 client and every spectator alike
+        if (global.net.startBoard != "") { var _sbB = global.net.startBoard; global.net.startBoard = ""; start_game_online(_sbB, false); exit; }
     } else if (_netHost) {
         var _hid = _boards[menuBoardIdx].id;
         if (_hid != global.net.previewBoard) { net_send_board(_hid); global.net.previewBoard = _hid; }
@@ -1472,6 +1783,17 @@ if (paused) {
     draw_set_alpha(1); draw_set_color(make_color_rgb(255, 224, 120));
     draw_rectangle(_px, _py, _px + _pw, _py + _ph, true);
 
+    // A pause the player did NOT open themselves needs explaining, but it is a SYSTEM notice about
+    // the session rather than part of the panel's content - so it sits in the screen's top-left,
+    // clear of the panel, instead of inside it where it collided with the panel's own text.
+    // `_hostPaused` also gates the Resume buttons below: only the host can lift a global pause.
+    var _hostPaused = (pausedByNet && !net_is_host());
+    if (_hostPaused) {
+        draw_set_color(make_color_rgb(255, 150, 90));
+        dtext(12, 12, "The host has paused the game for everyone.");
+        draw_set_color(c_white);
+    }
+
     draw_set_font(fntMaru);
     draw_set_halign(fa_center);
     draw_set_valign(fa_top);   // establish our own text baseline - don't inherit a leaked valign from the 3D pass
@@ -1496,7 +1818,10 @@ if (paused) {
         // audio settings at the BOTTOM (above the Resume button), centred like the toggles
         var _auW = min(560, _pw - 120), _auX = _px + (_pw - _auW) * 0.5;
         draw_audio_controls(_auX, _py + _ph - 210, _auW);
-        if (ui_button(_px + (_pw - 200) * 0.5, _py + _ph - 52, 200, 40, "Resume", fntMaru)) { paused = false; pauseScreen = ""; }
+        // same host-pause gate as the main panel's Resume - the options sub-panel is otherwise a
+        // second, unguarded way out of a global pause
+        if (_hostPaused) ui_button_disabled(_px + (_pw - 200) * 0.5, _py + _ph - 52, 200, 40, "Paused by host", fntMaru);
+        else if (ui_button(_px + (_pw - 200) * 0.5, _py + _ph - 52, 200, 40, "Resume", fntMaru)) { paused = false; pauseScreen = ""; }
         draw_set_halign(fa_left); draw_set_color(c_white);
         exit;
     }
@@ -1588,11 +1913,73 @@ if (paused) {
             dtext(_cx, _stY + 48 + _k * 18, "- " + hazard_def_get(_items[_k]).name);
     }
 
+    // ---- HOST CONTROLS (host only, online only) ----
+    // Lives in the pause menu because that's the one screen already reachable mid-game, and because
+    // shuffling seats is exactly when you want play halted anyway. Note the whole pause panel is
+    // drawn (and its clicks handled) in the Draw event, which keeps running while Step_0 is frozen by
+    // `paused` - so these controls work fine even though the game itself is stopped.
+    if (net_is_host() && net_online()) {
+        var _hcX = _px + 24, _hcY = _btnY - 190, _hcW = _pw - 48;
+        draw_set_color(make_color_rgb(255, 224, 120));
+        dtext(_hcX, _hcY - 24, "HOST CONTROLS");
+        draw_set_color(c_white);
+
+        // global pause toggle
+        if (ui_button(_hcX, _hcY, 250, 32, global.net.netPaused ? "Resume Everyone" : "Pause Everyone", fntMaru)) {
+            net_set_pause(!global.net.netPaused);
+        }
+        if (global.net.netPaused) {
+            draw_set_color(make_color_rgb(255, 150, 90));
+            dtext(_hcX + 264, _hcY + 8, "Play is halted for everyone.");
+            draw_set_color(c_white);
+        }
+
+        var _hcl = global.net.clients;
+        if (array_length(_hcl) == 0) {
+            draw_set_color(make_color_rgb(150, 155, 162));
+            dtext(_hcX, _hcY + 46, "Nobody else is connected.");
+            draw_set_color(c_white);
+        }
+        // one row per connected client: who they are, then Seat/Remove-from-seat, then Kick
+        var _hcRows = min(array_length(_hcl), 3);   // the panel has room for a few; the lobby is the full list
+        for (var _h = 0; _h < _hcRows; _h++) {
+            var _hc = _hcl[_h];
+            var _hy = _hcY + 44 + _h * 36;
+            var _hSeatLbl = (_hc.seat == 1) ? "P2" : "SPECTATOR";
+            draw_set_color((_hc.seat == 1) ? make_color_rgb(255, 140, 140) : make_color_rgb(150, 155, 162));
+            dtext(_hcX, _hy + 8, _hSeatLbl);
+            draw_set_color(c_white);
+            dtext(_hcX + 130, _hy + 8, _hc.name);
+
+            // Seating a spectator mid-game hands them the COMMITTED P2 position as it stands - board,
+            // hand and army all inherited via the full-state sync (user's choice: seamless handover).
+            if (_hc.role == "player") {
+                if (ui_button(_hcX + _hcW - 300, _hy, 180, 30, "Make Spectator", fntMaru)) net_assign_role(_hc.sock, "spectator");
+            } else {
+                if (ui_button(_hcX + _hcW - 300, _hy, 180, 30, "Seat as P2", fntMaru)) net_assign_role(_hc.sock, "player");
+            }
+            if (ui_button(_hcX + _hcW - 110, _hy, 100, 30, "Kick", fntMaru)) net_kick(_hc.sock);
+        }
+        if (array_length(_hcl) > _hcRows) {
+            draw_set_color(make_color_rgb(150, 155, 162));
+            dtext(_hcX, _hcY + 44 + _hcRows * 36 + 6, "+" + string(array_length(_hcl) - _hcRows) + " more connected");
+            draw_set_color(c_white);
+        }
+    }
+
     // ---- buttons ----
     var _bw2 = 190, _bg2 = 18;
     var _btot = 4 * _bw2 + 3 * _bg2;
     var _bx0 = _px + (_pw - _btot) * 0.5;
-    if (ui_button(_bx0, _btnY, _bw2, 40, "Resume", fntMaru)) paused = false;
+    // Resume is INERT for a client under a host-imposed global pause - only the host can lift it, and
+    // a live-looking button that silently does nothing is worse than one that reads as unavailable.
+    // A HOST leaving its own pause must also lift the global pause, or everyone else stays frozen.
+    if (_hostPaused) {
+        ui_button_disabled(_bx0, _btnY, _bw2, 40, "Paused by host", fntMaru);
+    } else if (ui_button(_bx0, _btnY, _bw2, 40, "Resume", fntMaru)) {
+        paused = false;
+        if (net_is_host() && global.net.netPaused) net_set_pause(false);
+    }
     if (ui_button(_bx0 + (_bw2 + _bg2), _btnY, _bw2, 40, "Options", fntMaru)) pauseScreen = "options";
     if (ui_button(_bx0 + (_bw2 + _bg2) * 2, _btnY, _bw2, 40, "Main Menu", fntMaru)) { paused = false; return_to_menu(); exit; }
     if (ui_button(_bx0 + (_bw2 + _bg2) * 3, _btnY, _bw2, 40, "Quit", fntMaru)) game_end();
@@ -1809,7 +2196,10 @@ var _seatAiWord = function(_seat) {
     return seat_ai_label(ctl[_seat]);
 };
 // the active seat's label: "YOU" for the local human, the opponent's name online, else "P<n> (<AI>)"
-var _meLbl = (ctl[_p] == "human") ? "YOU" : ((ctl[_p] == "remote") ? global.net.remoteName : ("P" + string(_p + 1) + " (" + _seatAiWord(_p) + ")"));
+// SPECTATOR: neither seat is ours, so "YOU"/the single remoteName would be wrong (both seats would
+// read as the host). Name both seats from the roster instead.
+var _meLbl = net_is_spectator() ? net_seat_name(_p)
+           : ((ctl[_p] == "human") ? "YOU" : ((ctl[_p] == "remote") ? global.net.remoteName : ("P" + string(_p + 1) + " (" + _seatAiWord(_p) + ")")));
 var _youLbl = _meLbl + " " + string(game_realized_score(game, _p)) + "p";
 draw_set_color(make_color_rgb(255, 236, 180));
 dtext(_bx, _midY, _youLbl);
@@ -1853,8 +2243,9 @@ if (game.solo) {
     var _opp = 1 - _p;
     var _oppB = game_bulbmin_count(game, _opp);
     var _oppCap = string(game_capped_count(game, _opp)) + "/" + string(_capMax) + ((_oppB > 0) ? ("+" + string(_oppB) + "b") : "");
-    var _oppLbl = (ctl[_opp] == "remote") ? ("vs " + global.net.remoteName)
-        : ("vs P" + string(_opp + 1) + ((ctl[_opp] != "human") ? (" (" + _seatAiWord(_opp) + ")") : ""));
+    var _oppLbl = net_is_spectator() ? ("vs " + net_seat_name(_opp))
+        : ((ctl[_opp] == "remote") ? ("vs " + global.net.remoteName)
+        : ("vs P" + string(_opp + 1) + ((ctl[_opp] != "human") ? (" (" + _seatAiWord(_opp) + ")") : "")));
     dtext(_guiW - 10, _midY, _oppLbl + " " + string(game_realized_score(game, _opp)) + "p [" + _oppCap + "]        " + _meLbl + " - " + _phaseName);
 }
 draw_set_halign(fa_left);
@@ -2030,7 +2421,11 @@ if (_cine) {
     dtext_bg(12, _cy, _revealHuman ? "Click a highlighted treasure pile." : ("P" + string(game.pendingReveal.chooser + 1) + " is choosing" + string_repeat(".", 1 + (frameTick div 20) mod 3)));
     _cy += 26;
 } else if (_aiTurn) {
-    var _turnWho = (ctl[_p] == "remote") ? (global.net.remoteName + "'s turn") : "AI is taking its turn";
+    // SPECTATOR: `remoteName` is whoever we HANDSHOOK with - always the host - so using it here made
+    // every turn read as P1's regardless of who was actually acting. A spectator has no "the other
+    // player", so name the ACTIVE seat from the roster instead (same fix as _meLbl/_oppLbl).
+    var _turnWho = net_is_spectator() ? (net_seat_name(_p) + "'s turn")
+        : ((ctl[_p] == "remote") ? (global.net.remoteName + "'s turn") : "AI is taking its turn");
     dtext_bg(12, _cy, _turnWho + string_repeat(".", 1 + (frameTick div 20) mod 3));
 } else if (game.phase == "gather") {
     dtext_bg(12, _cy, "Gather actions left: " + string(game.gatherActionsLeft));

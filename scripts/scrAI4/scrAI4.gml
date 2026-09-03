@@ -797,6 +797,14 @@ function ai4_day_swap_place(_g, _cheap) {
     var _to = _g.pendingDaySwap.to;
     var _EPS = 0.5;   // values below this apart count as TIED -> break the tie by consolidation
     var _bestL = -1, _bestI = -1, _bestV = -999999999, _bestCons = -1;
+    // DIAGNOSTIC baseline + spread. The log used to print only the WINNING value, which can't
+    // distinguish "this pick is far better than every alternative" from "every candidate scored
+    // within a rounding error and the tiebreak picked arbitrarily" - the whole question of whether
+    // the placement is actually thinking. _baseV is the board's value with NO swap applied, so the
+    // log also shows whether this swap HELPS or HURTS the placer. One extra scoring call per swap
+    // event; the event is rare (and this function already does one call per candidate tile).
+    var _baseV = _cheap ? ai4_reach_value(_g, _p) : ai4_optimize(_g, _p).value;
+    var _worstV = 999999999, _nCand = 0;
     for (var _l = 0; _l < _g.board.laneCount; _l++) {
         for (var _i = 0; _i < array_length(_g.board.lanes[_l].spaces); _i++) {
             if (!game_day_swap_target_ok(_g, _l, _i)) continue;
@@ -811,6 +819,8 @@ function ai4_day_swap_place(_g, _cheap) {
             if (_oHazHas) _sp.hazard = _oHaz; else if (variable_struct_exists(_sp, "hazard")) variable_struct_remove(_sp, "hazard");
             // CONSOLIDATION tiebreak: when the value ties, prefer a lane that ALREADY holds a `to`-type
             // space, so hazards herd into fewer lanes (rest stay universally open) instead of oscillating.
+            _nCand += 1;
+            if (_v < _worstV) _worstV = _v;
             var _cons = 0;
             var _laneSp = _g.board.lanes[_l].spaces;
             for (var _k = 0; _k < array_length(_laneSp); _k++)
@@ -819,8 +829,20 @@ function ai4_day_swap_place(_g, _cheap) {
             else if (_v >= _bestV - _EPS && _cons > _bestCons) { _bestCons = _cons; _bestL = _l; _bestI = _i; } // tied value -> more consolidated
         }
     }
+    // spread = best - worst across candidates. ~0 means every tile scored the same, so the choice
+    // was made by the consolidation tiebreak / first-index order, NOT by value - flagged as FLAT so
+    // it's greppable. delta = best - baseline: positive means the swap is a net GAIN to the placer
+    // (an OPENING board like Beat Processing Zone's fire->poison), negative means it's damage being
+    // minimised (a CLOSING board). cand = how many legal tiles it actually had to choose between;
+    // cand 1 means there was no choice at all, which is not the placement failing.
+    var _spread = (_nCand > 0) ? (_bestV - _worstV) : 0;
     ai_dbg("day-swap place (" + (_cheap ? "v3/cheap" : "v4/full") + ") P" + string(_p + 1) + " "
-        + string(_g.pendingDaySwap.from) + "->" + string(_to) + ": lane " + string(_bestL) + " idx " + string(_bestI) + " val " + string(_bestV));
+        + string(_g.pendingDaySwap.from) + "->" + string(_to) + ": lane " + string(_bestL) + " idx " + string(_bestI)
+        + " val " + string(_bestV)
+        + " base " + string(_baseV) + " delta " + string(_bestV - _baseV)
+        + " worst " + string(_nCand > 0 ? _worstV : 0) + " spread " + string(_spread)
+        + " cand " + string(_nCand)
+        + ((_nCand > 1 && _spread <= _EPS) ? "  FLAT(tiebreak-only)" : ""));
     if (_bestL >= 0) game_day_swap_choose(_g, _bestL, _bestI);
     else _g.pendingDaySwap = undefined;
 }
@@ -976,7 +998,7 @@ function ai4_orders(_g) {
             ai_dbg("v4 replan: dropped " + _vdem[_worst].key + " (dry-run " + string(_dry.delivered[_worst]) + "/" + string(_vdem[_worst].amount) + ")");
         }
         ai_dbg("");
-        ai_dbg("===== v4 TURN P" + string(_p + 1) + "  Day " + string(_g.dayNumber) + " (" + string(_g.dayTrack) + "/" + string(global.rules.dayTrackLength)
+        ai_dbg("===== v4 TURN P" + string(_p + 1) + "  Day " + string(_g.dayNumber) + " (" + string(_g.dayTrack) + "/" + string(_g.dayTrackLength)
             + ")  score " + string(game_realized_score(_g, _p)) + " vs " + string(game_realized_score(_g, 1 - _p))
             + "  army " + string(ai4_available_total(_g, _p)) + "  pel " + string(array_length(_g.players[_p].pellets))
             + "  planVal " + string(round(_plan.value)) + "  outcomes " + string(array_length(_plan.chosen)) + " =====");

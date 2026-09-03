@@ -112,7 +112,9 @@
       "Bash(powershell -Command \"Get-ChildItem sim_tourney.csv,sim_bench.txt -ErrorAction SilentlyContinue | Select-Object Name, Length\")",
       "Bash(cd \"C:\\\\Users\\\\polyc\\\\GameMakerProjects\\\\DandoriBattle\" && find / -iname \"sim_tourney.csv\" 2>/dev/null | head -5 *)",
       "Bash(powershell -NoProfile -Command 'Get-ChildItem -Path '\\\\''C:\\\\Users\\\\polyc\\\\AppData\\\\Local'\\\\'' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '\\\\''Dandori|GameMaker|YoYo'\\\\'' } | Select-Object FullName')",
-      "Bash(powershell -NoProfile -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\DandoriBattle' -Filter 'sim_tourney.csv' -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length, LastWriteTime\")"
+      "Bash(powershell -NoProfile -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\DandoriBattle' -Filter 'sim_tourney.csv' -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length, LastWriteTime\")",
+      "Bash(awk 'NR>174' objects/objGame/Step_0.gml)",
+      "Bash(awk 'NR>=1160 && NR<=1230' objects/objGame/Draw_64.gml)"
     ]
   }
 }

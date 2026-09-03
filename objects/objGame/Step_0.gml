@@ -1,5 +1,60 @@
 frameTick += 1;
 
+// LAN BEACON (host only): announce this session so browsing clients see it without typing an IP.
+// MUST sit above the `mode != "playing"` exit further down - THE SAME TRAP the tournament pump and
+// adventure_lore_tick both hit. A host sitting in the LOBBY or board-select runs with mode=="menu",
+// so a beacon placed below that exit only ever fires once a game is actually underway, and games
+// waiting for players - the ones people most need to find - are exactly the ones that never appear
+// in the browser. (Found 2026-09-03: user reported the list only ever showed in-progress games.)
+// `inGame` is published on global.net every frame because scrNet can't see `mode`/`game` itself, and
+// the HELLO handler needs it to decide whether an arriving client may take the free player seat.
+if (net_is_host()) {
+    global.net.inGame = (mode == "playing");
+    var _bBoard = (mode == "playing" && game != undefined) ? game.boardDef.name : "";
+    net_beacon_tick(_bBoard, global.net.inGame, global.net.hostPort);
+}
+
+// SEAT HANDOVER (mid-game): the host moved us between playing and spectating, so rebuild the local
+// ctl array - it was baked at start_game_online and still describes the seat we USED to hold. The
+// game state needs nothing: a promoted spectator inherits the committed position straight from the
+// ongoing full-state sync, which is what makes handover seamless. netLastSent is cleared so our first
+// frame in the new seat re-broadcasts rather than being suppressed as an unchanged echo.
+if (net_online() && global.net.ctlDirty) {
+    global.net.ctlDirty = false;
+    if (mode == "playing") {
+        if (net_is_spectator())                 ctl = ["remote", "remote"];
+        else if (global.net.localSeat == 1)     ctl = ["remote", "human"];
+        else                                    ctl = ["human", "remote"];
+        netLastSent = "";
+        netWasMyTurn = false;
+        selSrc = undefined;   // any half-made selection belonged to the seat we just left
+    }
+}
+
+// HOST-CONTROLLED PAUSE: mirrors the host's pause onto everyone. Drives the SAME `paused` flag the
+// local pause menu uses, so the existing "if (paused) exit" freeze covers it with no new machinery.
+// Sits above that exit (and above the mode guard) so a paused client can still be RESUMED - a check
+// placed below the freeze could never run to lift it.
+// EDGE-triggered, not level-held: continuously forcing `paused` to match the network flag would stop
+// a client ever using its OWN pause menu (every frame would immediately un-pause it again). Instead
+// only the host's TRANSITIONS drive the local flag, and pausedByNet remembers whether the current
+// freeze is the host's doing - so a host resume lifts a host pause but never a pause the player
+// opened themselves.
+if (net_online() && global.net.netPaused != prevNetPaused) {
+    prevNetPaused = global.net.netPaused;
+    if (global.net.netPaused) { paused = true; pausedByNet = true; }
+    else if (pausedByNet)     { paused = false; pausedByNet = false; }
+}
+
+// KICKED: the host removed us. Drop the session and return to the menu rather than sitting on a dead
+// socket. The online screen reports it (status "kicked") once we're back there.
+if (net_online() && global.net.status == "kicked") {
+    if (mode == "playing") return_to_menu();      // may close the session itself; the re-stamp below covers both paths
+    net_close();
+    global.net.status = "kicked";                 // net_close stamps "closed" - restore so the online screen can say why
+    menuScreen = "online";
+}
+
 // tournament pump: while a run is active, tick one game and hold the live game (AI, cinematics,
 // input) - the sim uses its own game structs throughout, entirely independent of `game`/`mode`.
 // MUST sit above the `mode != "playing"` exit further down: tournaments triggered from the debug
@@ -109,14 +164,30 @@ if (mode != "playing") {
 if (!chatFocused && keyboard_check_pressed(vk_escape)) {   // chat box eats Esc to blur (handled in Draw)
     if (paused) {
         if (pauseScreen == "options") pauseScreen = "";   // Esc backs out of the options sub-panel first
-        else paused = false;
+        // a HOST-imposed global pause can only be lifted by the host - Esc must not let a client out
+        // of it, or "pause for everyone" is trivially ignorable by the people it's meant to halt
+        else if (!(pausedByNet && !net_is_host())) paused = false;
     } else if (selSrc != undefined || pelletMenuIdx >= 0 || posyMenuIdx >= 0 || pendingCard != undefined) {
         selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined;
     } else {
         paused = true;
     }
 }
-if (paused) exit;
+// PAUSE, two different kinds:
+//  * SOLO pause, or the HOST'S GLOBAL pause -> hard freeze, the whole Step stops (`exit`). A global
+//    pause is meant to halt play for everyone, and offline there's nobody else to keep simulating for.
+//  * ONLINE LOCAL pause (you opened your own pause menu in a network game) -> DO NOT freeze. The
+//    opponent is still playing their turn on their own machine and streaming state to us; exiting
+//    here would skip the mirror-apply below (line ~179) and the resolve pump, so we'd sit frozen on
+//    a stale frame and only snap to the truth on un-pausing. Your pause is YOUR pause: it stops you
+//    inputting, it must not stop you watching. So we fall through with _bgOnly set, and only the
+//    input-bearing sections are skipped. (Board/card clicks are already blocked by Draw_64's pause
+//    panel, which exits before the gameplay HUD - this covers the keyboard paths in here.)
+var _bgOnly = false;
+if (paused) {
+    if (!net_online() || pausedByNet) exit;
+    _bgOnly = true;
+}
 
 // online (mirror side): adopt any full state the opponent broadcast. boardDef travels with it, so
 // net_apply_state rebuilds the board buffers. Set netLastSent from OUR serialization of the adopted
@@ -143,7 +214,9 @@ if (game.phase == "gather" && ctl[game.activePlayer] == "human" && !tutorial_rol
     game.phase = "orders";
 }
 
-// --- toggles --- (letter/space/tab keys are suppressed while typing in the chat box)
+// --- toggles --- (letter/space/tab keys are suppressed while typing in the chat box, and entirely
+// while an online LOCAL pause is up - _bgOnly means "keep simulating, take no input")
+if (!_bgOnly) {
 if (!chatFocused && keyboard_check_pressed(vk_space)) autoOrbit = !autoOrbit;
 if (keyboard_check_pressed(vk_f11)) window_set_fullscreen(!window_get_fullscreen());
 if (!chatFocused && global.settings.devTools && keyboard_check_pressed(vk_tab))   showDebug = !showDebug;
@@ -193,6 +266,7 @@ if (keyboard_check_pressed(vk_f5)) sim_probe(boardDef.id, "v4", "cascade", 20260
 // F6: lane audit on THIS board (scrSim) - v2's lane evaluator vs tournament ground
 // truth over the same 60 seeded worlds. Static, ~a second, no games played.
 if (keyboard_check_pressed(vk_f6)) { sim_lane_audit(boardDef.id, 60); }
+}   // end !_bgOnly (keyboard toggles + dev hotkeys)
 
 // --- GAME OVER: the game ends as day 4 would begin. Let the board settle (last pile
 // --- hauls home, pikmin still) BEFORE finalizing the score and revealing the result,
@@ -451,7 +525,7 @@ if (game.phase != "gameover" && ctl[game.activePlayer] != "human" && ctl[game.ac
 if (autoOrbit) camYaw += 0.15;
 var _mouseX = window_mouse_get_x();
 var _mouseY = window_mouse_get_y();
-if (mouse_check_button(mb_right)) {
+if (!_bgOnly && mouse_check_button(mb_right)) {
     camYaw   += (_mouseX - dragPrevX) * 0.35;
     camPitch  = clamp(camPitch + (_mouseY - dragPrevY) * 0.25, 15, 85);
     if (_mouseX != dragPrevX || _mouseY != dragPrevY) autoOrbit = false;
@@ -465,7 +539,9 @@ var _mGuiY = device_mouse_y_to_gui(0);
 var _logPanelX = _gW - 330;
 var _logPanelBot = 40 + (16 * 14 + 10);
 var _overLog = (_mGuiX >= _logPanelX && _mGuiX <= _gW - 8 && _mGuiY >= 40 && _mGuiY <= _logPanelBot);
-if (_overLog) {
+if (_bgOnly) {
+    // online local pause: no camera/log input, but everything else below keeps running
+} else if (_overLog) {
     if (mouse_wheel_up())   logScroll += 48; // reveal older entries (clamped in Draw against content height)
     if (mouse_wheel_down()) logScroll = max(0, logScroll - 48);
 } else {
@@ -478,7 +554,7 @@ var _panSpeed = camDist * 0.016;
 var _fwdX = -dcos(camYaw), _fwdY = -dsin(camYaw);   // camera -> target, on the ground plane
 var _rgtX =  dsin(camYaw), _rgtY = -dcos(camYaw);   // screen right, on the ground plane
 var _panX = 0, _panY = 0;
-if (!chatFocused) {   // WASD pan is suppressed while typing in the chat box
+if (!chatFocused && !_bgOnly) {   // WASD pan is suppressed while typing in the chat box, and while locally paused online
     if (keyboard_check(ord("W"))) { _panX += _fwdX; _panY += _fwdY; }
     if (keyboard_check(ord("S"))) { _panX -= _fwdX; _panY -= _fwdY; }
     if (keyboard_check(ord("D"))) { _panX += _rgtX; _panY += _rgtY; }
@@ -525,4 +601,22 @@ if (net_online() && (ctl[0] == "remote" || ctl[1] == "remote")) {
     }
     if (!_resolving) netResolveSent = false;
     netWasMyTurn = _my;
+}
+
+// MID-GAME JOIN (host only): a client that connected after PLAY has no game at all. Push the board
+// launch followed by the current full state, so it catches up to the live truth immediately. This is
+// nearly free precisely BECAUSE the sync model streams whole snapshots - a late joiner doesn't need
+// history, just the latest state. Drained here rather than in scrNet because net_handle_message
+// can't see `game` (it isn't running in the objGame instance scope).
+if (net_is_host() && array_length(global.net.stateWanted) > 0) {
+    var _sw = global.net.stateWanted;
+    global.net.stateWanted = [];
+    if (mode == "playing" && game != undefined) {
+        var _liveState = net_serialize_game(game);
+        for (var _i = 0; _i < array_length(_sw); _i++) {
+            net_send_to(_sw[_i], NETMSG.start, game.boardDef.id);
+            net_send_to(_sw[_i], NETMSG.state, _liveState);
+        }
+    }
+    // not in a game yet -> nothing to catch up on; the lobby/board-select flow covers them normally
 }

@@ -1031,7 +1031,11 @@ for (var _hp = 0; _hp < 2; _hp++) {
 // --- (neither seat is human) BOTH hands are shown FACE-UP so an AI-vs-AI game can be
 // --- watched card-by-card. Each hand is rotated to face the seat it belongs to (like the
 // --- board fixtures), so from either player's camera the far hand reads as the enemy's. ---
-var _spectating = (ctl[0] != "human" && ctl[1] != "human");
+// `net_is_spectator()` is checked alongside the ctl test so a client DEMOTED mid-game reads as
+// spectating immediately. ctl is rebuilt by Step_0 a frame later (the demotion arrives on the async
+// networking event, which can land after Step has already run), and until then ctl still claims we
+// hold a seat - that one-frame window is what crashed here.
+var _spectating = (ctl[0] != "human" && ctl[1] != "human") || net_is_spectator();
 var _handPlayers = _spectating ? [0, 1] : [1 - view_seat()]; // spectate: both; else the OTHER player
 for (var _hpI = 0; _hpI < array_length(_handPlayers); _hpI++) {
     var _hpN = _handPlayers[_hpI];
