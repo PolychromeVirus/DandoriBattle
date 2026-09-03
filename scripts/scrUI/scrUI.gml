@@ -280,6 +280,17 @@ function ui_block_rect(_x, _y, _w, _h) {
 // _font: optional. undefined = draw the label in whatever font the caller has set (default
 // behaviour, unchanged). Pass fntPikmin (or any font) to render the label in it; the font is
 // saved/restored so callers aren't affected. The label auto-fits inside the button either way.
+/// Scroll helpers for a vertically-scrolling panel of fixed-position rows (e.g. the Options screen
+/// body). Plain top-level functions, NOT closures - GML function literals defined inline don't
+/// capture enclosing `var` locals (they resolve through instance scope instead), so a closure that
+/// reads an outer local throws "not set before reading it" the first time it runs. Pass the scroll
+/// offset / viewport bounds explicitly instead.
+function ui_scroll_y(_baseY, _scroll) { return _baseY - _scroll; }
+function ui_row_visible(_baseY, _h, _scroll, _viewTop, _viewBot) {
+    var _y = _baseY - _scroll;
+    return (_y + _h > _viewTop) && (_y < _viewBot);
+}
+
 function ui_button(_x, _y, _w, _h, _label, _font = undefined) {
     var _hover = ui_mouse_in(_x, _y, _w, _h);
     if (_hover) global.uiMouseConsumed = true;
@@ -304,6 +315,102 @@ function ui_button(_x, _y, _w, _h, _label, _font = undefined) {
     draw_set_valign(fa_top);
     if (_font != undefined) draw_set_font(_prevFont);
     return (_hover && mouse_check_button_pressed(mb_left));
+}
+
+/// A ui_button that is present but INERT - same footprint and label, drawn dimmed, never returns
+/// true. For actions that exist but aren't available right now (nothing selected, already done),
+/// where hiding the button entirely would make the layout jump or read as broken.
+function ui_button_disabled(_x, _y, _w, _h, _label, _font = undefined) {
+    draw_set_alpha(0.75); draw_set_color(make_color_rgb(30, 32, 36));
+    draw_rectangle(_x, _y, _x + _w, _y + _h, false);
+    draw_set_alpha(1);
+    draw_set_color(make_color_rgb(70, 74, 80));
+    draw_rectangle(_x, _y, _x + _w, _y + _h, true);
+    draw_set_color(make_color_rgb(120, 124, 130));
+    var _prevFont = draw_get_font();
+    if (_font != undefined) draw_set_font(_font);
+    draw_set_halign(fa_center); draw_set_valign(fa_middle);
+    var _fit = min(1.4 * UI_TS, (_w - 12) / max(1, string_width(_label)), (_h - 4) / max(1, string_height(_label)));
+    draw_text_transformed(_x + _w * 0.5, _y + _h * 0.5, _label, _fit, _fit, 0);
+    draw_set_halign(fa_left); draw_set_valign(fa_top);
+    if (_font != undefined) draw_set_font(_prevFont);
+    draw_set_color(c_white);
+}
+
+/// Chrome-less MENU-ITEM button: no frame or fill at all until hovered, and then only a faint
+/// translucent panel behind it while the label warms to orange. Several stacked together read as one
+/// cohesive menu list rather than a row of separate chunky buttons (which is what ui_button gives).
+/// _enabled=false draws it dimmed and inert - never highlights, never returns true.
+function ui_button_text(_x, _y, _w, _h, _label, _font = undefined, _enabled = true) {
+    var _hover = _enabled && ui_mouse_in(_x, _y, _w, _h);
+    if (_hover) {
+        global.uiMouseConsumed = true;
+        draw_set_alpha(0.22);
+        draw_set_color(make_color_rgb(235, 226, 205));
+        draw_rectangle(_x, _y, _x + _w, _y + _h, false);
+        draw_set_alpha(1);
+    }
+    var _prevFont = draw_get_font();
+    if (_font != undefined) draw_set_font(_font);
+    draw_set_color(!_enabled ? make_color_rgb(122, 126, 132)
+                             : (_hover ? make_color_rgb(255, 186, 90) : c_white));
+    draw_set_halign(fa_center); draw_set_valign(fa_middle);
+    var _fit = min(1.4 * UI_TS, (_w - 12) / max(1, string_width(_label)), (_h - 4) / max(1, string_height(_label)));
+    draw_text_transformed(_x + _w * 0.5, _y + _h * 0.5, _label, _fit, _fit, 0);
+    draw_set_halign(fa_left); draw_set_valign(fa_top);
+    draw_set_color(c_white);
+    if (_font != undefined) draw_set_font(_prevFont);
+    return (_hover && mouse_check_button_pressed(mb_left));
+}
+
+/// Circular ICON button, no label - drawn straight from a sprite. Intended sprites: sprButtonConfirm
+/// (green), sprButtonCancel (red), sprButtonDisabled (dark grey); all 1000x1000, top-left origin.
+/// Use these for wordless affirm/deny affordances (a text box's "confirm", etc), NOT as a general
+/// replacement for ui_button - anything that needs to say what it does still wants a labelled button.
+///
+/// Behaviour differs from ui_button on purpose: hover LIGHTENS, holding DARKENS, and it activates on
+/// RELEASE rather than press, with a press-latch so the release only counts if it happens over the
+/// same button the press started on (drag off to cancel - the standard OS button contract).
+///
+/// _size = on-screen diameter. _id disambiguates two buttons sharing an x/y across screens (same
+/// role as ui_slider's _id); defaults to sprite+position. _enabled=false draws it dimmed and inert.
+function ui_icon_button(_spr, _x, _y, _size, _id = undefined, _enabled = true) {
+    if (!variable_global_exists("uiIconBtnDown")) global.uiIconBtnDown = undefined;
+    var _key = (_id != undefined) ? _id : (string(_spr) + "_" + string(_x) + "_" + string(_y));
+    var _sc  = _size / sprite_get_width(_spr);
+    var _cx  = _x + _size * 0.5, _cy = _y + _size * 0.5;
+    var _mx  = device_mouse_x_to_gui(0), _my = device_mouse_y_to_gui(0);
+    // ROUND hit test - these are discs, so a rect test would also catch the empty corners
+    var _hover = _enabled && (point_distance(_mx, _my, _cx, _cy) <= _size * 0.5);
+
+    // drop a stale latch (the button that was pressed stopped being drawn, e.g. the screen changed
+    // mid-click) so it can't fire a phantom activation when a same-keyed button comes back
+    if (global.uiIconBtnDown == _key && !mouse_check_button(mb_left) && !mouse_check_button_released(mb_left)) global.uiIconBtnDown = undefined;
+
+    if (!_enabled) {
+        if (global.uiIconBtnDown == _key) global.uiIconBtnDown = undefined;
+        draw_sprite_ext(_spr, 0, _x, _y, _sc, _sc, 0, merge_color(c_white, c_black, 0.45), 0.7);
+        return false;
+    }
+
+    if (_hover) global.uiMouseConsumed = true;
+    if (_hover && mouse_check_button_pressed(mb_left)) global.uiIconBtnDown = _key;
+    var _down = (global.uiIconBtnDown == _key);
+
+    // held -> multiply toward black (darken). hover -> base sprite + a soft ADDITIVE pass (a colour
+    // blend can only darken, so lightening needs the extra additive draw).
+    draw_sprite_ext(_spr, 0, _x, _y, _sc, _sc, 0, _down ? merge_color(c_white, c_black, 0.3) : c_white, 1);
+    if (_hover && !_down) {
+        gpu_set_blendmode(bm_add);
+        draw_sprite_ext(_spr, 0, _x, _y, _sc, _sc, 0, c_white, 0.22);
+        gpu_set_blendmode(bm_normal);
+    }
+
+    if (_down && mouse_check_button_released(mb_left)) {
+        global.uiIconBtnDown = undefined;
+        return _hover;   // released off the button = cancelled, not a click
+    }
+    return false;
 }
 
 /// Horizontal 0..1 slider. Click or drag anywhere on the track sets the value; returns the (possibly

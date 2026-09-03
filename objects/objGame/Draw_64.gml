@@ -69,20 +69,115 @@ if (advResults != "") {
 
     var _rby = _grY + _grH + 66;
     draw_set_halign(fa_center);
+    // ORDER: pop graph -> (deck build, if this map has a cull rule) -> log text -> Save/Continue.
+    // So a clear with a cull hands off to advCull, and it's the CULL's confirm that opens the log
+    // (adventure_cull_confirm). Without a cull we go straight to the log from here.
+    // adventure_show_lore_or skips the log entirely when dialog_text has no entry for the beat.
     if (advResults == "cleared") {
         if (ui_button(_guiW * 0.5 - 120, _rby, 240, 46, (advCull != undefined) ? "Continue (build deck)" : "Next Board", fntMaru)) {
             advResults = "";
             if (advCull != undefined) { mode = "menu"; menuScreen = "advCull"; }
-            else adventure_launch_board();
+            else adventure_show_lore_or("cleared", "next");
             draw_set_halign(fa_left); exit;
         }
     } else {
         if (ui_button(_guiW * 0.5 - 120, _rby, 240, 46, "Campaign List", fntMaru)) {
-            advResults = ""; advRun = undefined; mode = "menu"; menuScreen = "adventure";
+            var _outc2 = advResults;
+            advResults = "";
+            adventure_show_lore_or(_outc2, "menu");
             draw_set_halign(fa_left); exit;
         }
     }
     draw_set_halign(fa_left); draw_set_color(c_white);
+    exit;
+}
+
+// ==================== ADVENTURE BETWEEN-MISSION LOG ====================
+// A big ship's-log bubble shown after the results/pop-graph screen, streaming in letter-by-letter
+// exactly like the tutorial banner - but with sfxText (a computer-log blip) instead of the
+// tutorial's sfxTalk voice chatter, since this is a written transmission rather than someone
+// speaking. Text comes from dialog_text(id) in scrDialog; the reveal is advanced by
+// adventure_lore_tick (Step_0, ABOVE its mode!="playing" exit - this screen runs with mode=="menu").
+if (advLore != undefined) {
+    var _lrW = min(1040, _guiW - 160);
+    var _lrPadX = 44, _lrPadTop = 34, _lrPadBot = 44, _lrSep = 30, _lrSc = 1.7 * UI_TS, _lrNs = 0.62;
+    var _lrCf = 48;   // confirm-disc diameter
+    draw_set_font(fntDialog);
+    draw_set_halign(fa_left); draw_set_valign(fa_top);
+    var _lrTxtW = _lrW - _lrPadX * 2;
+    var _lrTxtH = string_height_ext(advLore.text, _lrSep / _lrSc, _lrTxtW / _lrSc) * _lrSc;
+    var _lrH = max(140, _lrPadTop + _lrTxtH + _lrCf + 14 + _lrPadBot);   // disc sits BELOW a long log
+    var _lrX = (_guiW - _lrW) * 0.5;
+    var _lrY = max(24, (_guiH - _lrH) * 0.5);
+    draw_nineslice_scaled(sprTextBox, _lrX, _lrY, _lrW, _lrH, _lrNs, c_white, 1);
+    draw_set_color(c_white);
+    var _lrShown = string_copy(advLore.text, 1, floor(advLore.revealChars));
+    draw_text_ext_transformed(_lrX + _lrPadX, _lrY + _lrPadTop, _lrShown, _lrSep / _lrSc, _lrTxtW / _lrSc, _lrSc, _lrSc, 0);
+    draw_set_color(c_white);
+    // Wordless green disc, DOUBLE DUTY: while the log is still streaming the first click dumps the
+    // rest of the text; once fully revealed a click hands off to the between-mission hub.
+    var _lrDone = (advLore.revealChars >= string_length(advLore.text));
+    if (ui_icon_button(sprButtonConfirm, _lrX + _lrW - _lrPadX - _lrCf, _lrY + _lrH - _lrPadBot - _lrCf, _lrCf, "advLoreOk")) {
+        if (!_lrDone) advLore.revealChars = string_length(advLore.text);
+        else if (variable_struct_exists(advLore, "toHub") && !advLore.toHub) {
+            var _lrThen = advLore.nextAct;   // standalone log (e.g. the campaign preamble): no hub after it
+            advLore = undefined;
+            adventure_after_results(_lrThen);
+        } else adventure_show_outro(advLore.nextAct);
+        draw_set_font(fntMaru); draw_set_halign(fa_left); exit;
+    }
+    ui_block_rect(_lrX, _lrY, _lrW, _lrH);
+    draw_set_font(fntMaru); draw_set_halign(fa_left); draw_set_color(c_white);
+    exit;
+}
+
+// ==================== ADVENTURE BETWEEN-MISSION HUB ====================
+// Save / Play Next Map / Return to Menu, shown after the log text. Reached on EVERY mission, whether
+// or not that beat had lore written - the log screen is the optional part, this isn't, or Save and
+// Return-to-Menu would be unavailable on any mission without text.
+if (advOutro != undefined) {
+    var _hbW = min(620, _guiW - 200);
+    var _hbPadX = 40, _hbPadTop = 34, _hbPadBot = 40, _hbNs = 0.62;
+    var _hbBtnH = 46, _hbGap = 12;
+    var _hbNext = (advOutro.nextAct == "next");   // no "next map" to play on a completed/failed run
+    var _hbH = _hbPadTop + _hbBtnH * 3 + _hbGap * 2 + 26 + _hbPadBot;   // +26 = room for the unsaved-warning line
+    var _hbX = (_guiW - _hbW) * 0.5;
+    var _hbY = max(24, (_guiH - _hbH) * 0.5);
+    draw_nineslice_scaled(sprTextBox, _hbX, _hbY, _hbW, _hbH, _hbNs, c_white, 1);
+    var _hbBw = _hbW - _hbPadX * 2, _hbBx = _hbX + _hbPadX, _hbBy = _hbY + _hbPadTop;
+    draw_set_font(fntDialog);
+
+    // chrome-less ui_button_text entries (invisible until hovered, then a faint panel + orange
+    // label) so the three read as one menu list inside the bubble rather than three boxed buttons.
+    // Save is the ONLY path to disk for run progress - see adventure_saves_save's call sites.
+    if (advOutro.saved) ui_button_text(_hbBx, _hbBy, _hbBw, _hbBtnH, "Saved", fntDialog, false);
+    else if (ui_button_text(_hbBx, _hbBy, _hbBw, _hbBtnH, "Save", fntDialog)) { adventure_saves_save(); advOutro.saved = true; }
+    _hbBy += _hbBtnH + _hbGap;
+
+    if (!_hbNext) {
+        ui_button_text(_hbBx, _hbBy, _hbBw, _hbBtnH, "Play Next Map", fntDialog, false);
+    } else if (ui_button_text(_hbBx, _hbBy, _hbBw, _hbBtnH, "Play Next Map", fntDialog)) {
+        advOutro = undefined;
+        adventure_after_results("next");
+        draw_set_font(fntMaru); exit;
+    }
+    _hbBy += _hbBtnH + _hbGap;
+
+    if (ui_button_text(_hbBx, _hbBy, _hbBw, _hbBtnH, "Return to Menu", fntDialog)) {
+        advOutro = undefined;
+        adventure_after_results("menu");   // drops advRun and lands on the adventure/campaign select
+        draw_set_font(fntMaru); exit;
+    }
+    // Save is the ONLY route to disk now, so leaving unsaved really does discard the run's progress -
+    // say so plainly rather than letting the player find out afterwards.
+    if (!advOutro.saved) {
+        draw_set_halign(fa_center);
+        draw_set_color(make_color_rgb(235, 170, 90));
+        dtext(_hbX + _hbW * 0.5, _hbBy + _hbBtnH + 8, "Unsaved - leaving now discards this run's progress");
+        draw_set_halign(fa_left); draw_set_color(c_white);
+    }
+    ui_block_rect(_hbX, _hbY, _hbW, _hbH);
+    draw_set_font(fntMaru); draw_set_color(c_white);
     exit;
 }
 
@@ -131,8 +226,12 @@ if (mode == "menu") {
         if (ui_button(_bx, _by + 132,  _bw, _bh, "Online",      fntMaru)) { menuScreen = "online"; menuNetField = ""; }
         if (ui_button(_bx, _by + 198,  _bw, _bh, "Options",     fntMaru)) menuScreen = "options";
         if (ui_button(_bx, _by + 264,  _bw, _bh, "Quit",        fntMaru)) game_end();
-        // DEV: irregular solo board that exercises the adventure geometry (small corner; remove pre-ship)
-        if (ui_button(12, _guiH - 40, 96, 28, "Adv Test", fntMaru)) { start_advtest(); exit; }
+        // DEV: irregular solo board that exercises the adventure geometry + balance-data/board-jump
+        // panel - both hidden unless Options > Interface > "Dev/Debug Tools" is ON (default off).
+        if (global.settings.devTools) {
+            if (ui_button(12, _guiH - 40, 96, 28, "Adv Test", fntMaru)) { start_advtest(); exit; }
+            if (ui_button(116, _guiH - 40, 96, 28, "Debug", fntMaru)) { menuScreen = "debug"; menuDebugScroll = 0; }
+        }
 
         // developer logo: animated fursona head, bottom-right corner (sprite origin is bottom-right,
         // faces left into the menu). Only drawn here, so F1's HUD-hide (above) also hides it.
@@ -243,71 +342,432 @@ if (mode == "menu") {
         var _ow = 400, _og = 24, _obh = 46, _orh = 56;
         var _ox0 = _guiW * 0.5 - _ow - _og * 0.5, _ox1 = _guiW * 0.5 + _og * 0.5;
 
+        // ---- SCROLL: the body (everything below the fixed OPTIONS header/Back button) is taller
+        // than the screen once all the expRules rows exist, so it scrolls within a fixed viewport.
+        // All Y coordinates below are BASE (unscrolled) values; ui_scroll_y() converts to screen
+        // space, and rows are only drawn/clickable when ui_row_visible() says they fall inside the
+        // viewport - this is what keeps a scrolled-past row from rendering over (and stealing clicks
+        // from) the header. (Plain functions, not closures - see ui_scroll_y's doc comment in scrUI.)
+        var _viewTop = 70, _viewBot = _guiH - 14;
+
         // --- Gameplay (2 columns x 4) ---
-        draw_set_halign(fa_center);
-        draw_set_font(fntMaru);
-        draw_set_color(make_color_rgb(200, 210, 205));
-        draw_text_transformed(_guiW * 0.5, 96, "Gameplay", 1.5 * UI_TS, 1.5 * UI_TS, 0);
-        draw_set_halign(fa_left);
+        if (ui_row_visible(96, 24, menuOptionsScroll, _viewTop, _viewBot)) {
+            draw_set_halign(fa_center);
+            draw_set_font(fntMaru);
+            draw_set_color(make_color_rgb(200, 210, 205));
+            draw_text_transformed(_guiW * 0.5, ui_scroll_y(96, menuOptionsScroll), "Gameplay", 1.5 * UI_TS, 1.5 * UI_TS, 0);
+            draw_set_halign(fa_left);
+        }
 
         var _oy = 128;
-        if (ui_button(_ox0, _oy,            _ow, _obh, "Reds Strike Twice: "     + (global.expRules.red       ? "ON" : "off"), fntMaru)) { global.expRules.red = !global.expRules.red;             save_settings(); }
-        if (ui_button(_ox1, _oy,            _ow, _obh, "Blues Lifeguard: "       + (global.expRules.blue      ? "ON" : "off"), fntMaru)) { global.expRules.blue = !global.expRules.blue;           save_settings(); }
-        if (ui_button(_ox0, _oy + _orh,     _ow, _obh, "Yellows Cross Chasms: "  + (global.expRules.yellow    ? "ON" : "off"), fntMaru)) { global.expRules.yellow = !global.expRules.yellow;       save_settings(); }
-        if (ui_button(_ox1, _oy + _orh,     _ow, _obh, "2x Weight Rushes: "      + (global.expRules.rush      ? "ON" : "off"), fntMaru)) { global.expRules.rush = !global.expRules.rush;           save_settings(); }
-        if (ui_button(_ox0, _oy + _orh * 2, _ow, _obh, "Enemies Heal At Sunset: "+ (global.expRules.enemyHeal ? "ON" : "off"), fntMaru)) { global.expRules.enemyHeal = !global.expRules.enemyHeal; save_settings(); }
-        if (ui_button(_ox1, _oy + _orh * 2, _ow, _obh, "Ice Pikmin Freeze Enemies: " + (global.expRules.iceFreeze ? "ON" : "off"), fntMaru)) { global.expRules.iceFreeze = !global.expRules.iceFreeze; save_settings(); }
+        if (ui_row_visible(_oy, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox0, ui_scroll_y(_oy, menuOptionsScroll),            _ow, _obh, "Reds Strike Twice: "     + (global.expRules.red       ? "ON" : "off"), fntMaru)) { global.expRules.red = !global.expRules.red;             save_settings(); } }
+        if (ui_row_visible(_oy, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox1, ui_scroll_y(_oy, menuOptionsScroll),            _ow, _obh, "Blues Lifeguard: "       + (global.expRules.blue      ? "ON" : "off"), fntMaru)) { global.expRules.blue = !global.expRules.blue;           save_settings(); } }
+        if (ui_row_visible(_oy + _orh, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox0, ui_scroll_y(_oy + _orh, menuOptionsScroll),     _ow, _obh, "Yellows Cross Chasms: "  + (global.expRules.yellow    ? "ON" : "off"), fntMaru)) { global.expRules.yellow = !global.expRules.yellow;       save_settings(); } }
+        if (ui_row_visible(_oy + _orh, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox1, ui_scroll_y(_oy + _orh, menuOptionsScroll),     _ow, _obh, "2x Weight Rushes: "      + (global.expRules.rush      ? "ON" : "off"), fntMaru)) { global.expRules.rush = !global.expRules.rush;           save_settings(); } }
+        if (ui_row_visible(_oy + _orh * 2, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox0, ui_scroll_y(_oy + _orh * 2, menuOptionsScroll), _ow, _obh, "Enemies Heal At Sunset: "+ (global.expRules.enemyHeal ? "ON" : "off"), fntMaru)) { global.expRules.enemyHeal = !global.expRules.enemyHeal; save_settings(); } }
+        if (ui_row_visible(_oy + _orh * 2, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox1, ui_scroll_y(_oy + _orh * 2, menuOptionsScroll), _ow, _obh, "Ice Pikmin Freeze Enemies: " + (global.expRules.iceFreeze ? "ON" : "off"), fntMaru)) { global.expRules.iceFreeze = !global.expRules.iceFreeze; save_settings(); } }
         var _capLbl = (global.expRules.bossCap == -1) ? "No Cap" : ((global.expRules.bossCap == 0) ? "No Bosses" : string(global.expRules.bossCap));
-        if (ui_button(_ox0, _oy + _orh * 3, _ow, _obh, "Cap Boss Spawns: " + _capLbl, fntMaru)) {
-            var _bc = global.expRules.bossCap;   // cycle 1..5 -> No Cap(-1) -> No Bosses(0) -> 1
-            global.expRules.bossCap = (_bc >= 1 && _bc < 5) ? (_bc + 1) : ((_bc == 5) ? -1 : ((_bc == -1) ? 0 : 1));
-            save_settings();
+        if (ui_row_visible(_oy + _orh * 3, _obh, menuOptionsScroll, _viewTop, _viewBot)) {
+            if (ui_button(_ox0, ui_scroll_y(_oy + _orh * 3, menuOptionsScroll), _ow, _obh, "Cap Boss Spawns: " + _capLbl, fntMaru)) {
+                var _bc = global.expRules.bossCap;   // cycle 1..5 -> No Cap(-1) -> No Bosses(0) -> 1
+                global.expRules.bossCap = (_bc >= 1 && _bc < 5) ? (_bc + 1) : ((_bc == 5) ? -1 : ((_bc == -1) ? 0 : 1));
+                save_settings();
+            }
         }
-        if (ui_button(_ox1, _oy + _orh * 3, _ow, _obh, "Explosions Damage Enemies: " + (global.expRules.explodeEnemies ? "ON" : "off"), fntMaru)) { global.expRules.explodeEnemies = !global.expRules.explodeEnemies; save_settings(); }
-        if (ui_button(_ox0, _oy + _orh * 4, _ow, _obh, "Two-Day Maps (7-phase track): " + (global.expRules.twoDayMode ? "ON" : "off"), fntMaru)) { global.expRules.twoDayMode = !global.expRules.twoDayMode; save_settings(); }
-        if (ui_button(_ox1, _oy + _orh * 4, _ow, _obh, "Chaos Swaps (random tiles): " + (global.expRules.randomSwaps ? "ON" : "off"), fntMaru)) { global.expRules.randomSwaps = !global.expRules.randomSwaps; save_settings(); }
-        if (ui_button(_ox0, _oy + _orh * 5, _ow, _obh, "Ice Is A Floor (not a wall): " + (global.expRules.iceFloor ? "ON" : "off"), fntMaru)) { global.expRules.iceFloor = !global.expRules.iceFloor; save_settings(); }
-        if (ui_button(_ox1, _oy + _orh * 5, _ow, _obh, "Treasures Slide On Ice: " + (global.expRules.iceSlide ? "ON" : "off"), fntMaru)) { global.expRules.iceSlide = !global.expRules.iceSlide; save_settings(); }
-        if (ui_button(_ox0, _oy + _orh * 6, _ow, _obh, "Ice Pikmin Freeze Water (x3): " + (global.expRules.iceFreezeWater ? "ON" : "off"), fntMaru)) { global.expRules.iceFreezeWater = !global.expRules.iceFreezeWater; save_settings(); }
+        if (ui_row_visible(_oy + _orh * 3, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox1, ui_scroll_y(_oy + _orh * 3, menuOptionsScroll), _ow, _obh, "Explosions Damage Enemies: " + (global.expRules.explodeEnemies ? "ON" : "off"), fntMaru)) { global.expRules.explodeEnemies = !global.expRules.explodeEnemies; save_settings(); } }
+        if (ui_row_visible(_oy + _orh * 4, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox0, ui_scroll_y(_oy + _orh * 4, menuOptionsScroll), _ow, _obh, "Two-Day Maps (7-phase track): " + (global.expRules.twoDayMode ? "ON" : "off"), fntMaru)) { global.expRules.twoDayMode = !global.expRules.twoDayMode; save_settings(); } }
+        if (ui_row_visible(_oy + _orh * 4, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox1, ui_scroll_y(_oy + _orh * 4, menuOptionsScroll), _ow, _obh, "Chaos Swaps (random tiles): " + (global.expRules.randomSwaps ? "ON" : "off"), fntMaru)) { global.expRules.randomSwaps = !global.expRules.randomSwaps; save_settings(); } }
+        if (ui_row_visible(_oy + _orh * 5, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox0, ui_scroll_y(_oy + _orh * 5, menuOptionsScroll), _ow, _obh, "Ice Is A Floor (not a wall): " + (global.expRules.iceFloor ? "ON" : "off"), fntMaru)) { global.expRules.iceFloor = !global.expRules.iceFloor; save_settings(); } }
+        if (ui_row_visible(_oy + _orh * 5, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox1, ui_scroll_y(_oy + _orh * 5, menuOptionsScroll), _ow, _obh, "Treasures Slide On Ice: " + (global.expRules.iceSlide ? "ON" : "off"), fntMaru)) { global.expRules.iceSlide = !global.expRules.iceSlide; save_settings(); } }
+        if (ui_row_visible(_oy + _orh * 6, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox0, ui_scroll_y(_oy + _orh * 6, menuOptionsScroll), _ow, _obh, "Ice Pikmin Freeze Water (x3): " + (global.expRules.iceFreezeWater ? "ON" : "off"), fntMaru)) { global.expRules.iceFreezeWater = !global.expRules.iceFreezeWater; save_settings(); } }
 
         // --- Graphics ---
         var _gfxHeadY = _oy + _orh * 7 + 18;
-        draw_set_halign(fa_center);
-        draw_set_font(fntMaru);
-        draw_set_color(make_color_rgb(200, 210, 205));
-        draw_text_transformed(_guiW * 0.5, _gfxHeadY, "Graphics", 1.5 * UI_TS, 1.5 * UI_TS, 0);
-        draw_set_halign(fa_left);
+        if (ui_row_visible(_gfxHeadY, 24, menuOptionsScroll, _viewTop, _viewBot)) {
+            draw_set_halign(fa_center);
+            draw_set_font(fntMaru);
+            draw_set_color(make_color_rgb(200, 210, 205));
+            draw_text_transformed(_guiW * 0.5, ui_scroll_y(_gfxHeadY, menuOptionsScroll), "Graphics", 1.5 * UI_TS, 1.5 * UI_TS, 0);
+            draw_set_halign(fa_left);
+        }
         var _gfxY = _gfxHeadY + 30;
-        if (ui_button(_ox0, _gfxY, _ow, _obh, "Animations: " + (global.expRules.anims ? "ON" : "off"), fntMaru)) { global.expRules.anims = !global.expRules.anims; save_settings(); }
-        if (ui_button(_ox1, _gfxY, _ow, _obh, window_get_fullscreen() ? "Display: Fullscreen" : "Display: Windowed", fntMaru)) { window_set_fullscreen(!window_get_fullscreen()); save_settings(); }
+        if (ui_row_visible(_gfxY, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox0, ui_scroll_y(_gfxY, menuOptionsScroll), _ow, _obh, "Animations: " + (global.expRules.anims ? "ON" : "off"), fntMaru)) { global.expRules.anims = !global.expRules.anims; save_settings(); } }
+        if (ui_row_visible(_gfxY, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox1, ui_scroll_y(_gfxY, menuOptionsScroll), _ow, _obh, window_get_fullscreen() ? "Display: Fullscreen" : "Display: Windowed", fntMaru)) { window_set_fullscreen(!window_get_fullscreen()); save_settings(); } }
 
         // --- Interface ---
         var _ifHeadY = _gfxY + _obh + 18;
-        draw_set_halign(fa_center);
-        draw_set_font(fntMaru);
-        draw_set_color(make_color_rgb(200, 210, 205));
-        draw_text_transformed(_guiW * 0.5, _ifHeadY, "Interface", 1.5 * UI_TS, 1.5 * UI_TS, 0);
-        draw_set_halign(fa_left);
+        if (ui_row_visible(_ifHeadY, 24, menuOptionsScroll, _viewTop, _viewBot)) {
+            draw_set_halign(fa_center);
+            draw_set_font(fntMaru);
+            draw_set_color(make_color_rgb(200, 210, 205));
+            draw_text_transformed(_guiW * 0.5, ui_scroll_y(_ifHeadY, menuOptionsScroll), "Interface", 1.5 * UI_TS, 1.5 * UI_TS, 0);
+            draw_set_halign(fa_left);
+        }
         var _iy = _ifHeadY + 30;
-        if (ui_button(_ox0, _iy, _ow, _obh, "New-pick Default: " + (defaultSelectAll ? "ALL" : "NONE"), fntMaru)) { defaultSelectAll = !defaultSelectAll; save_settings(); }
+        if (ui_row_visible(_iy, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox0, ui_scroll_y(_iy, menuOptionsScroll), _ow, _obh, "New-pick Default: " + (defaultSelectAll ? "ALL" : "NONE"), fntMaru)) { defaultSelectAll = !defaultSelectAll; save_settings(); } }
         // which shared power-card set (ALL1/ALL2) is mixed into every board's treasure deck (or random)
         var _allLbl = (global.settings.allSet == 1) ? "ALL1" : ((global.settings.allSet == 2) ? "ALL2" : "Random");
-        if (ui_button(_ox1, _iy, _ow, _obh, "Power Card Set: " + _allLbl, fntMaru)) {
-            var _a = global.settings.allSet;
-            global.settings.allSet = (_a == 1) ? 2 : ((_a == 2) ? 0 : 1);   // ALL1 -> ALL2 -> Random -> ALL1
-            save_settings();
+        if (ui_row_visible(_iy, _obh, menuOptionsScroll, _viewTop, _viewBot)) {
+            if (ui_button(_ox1, ui_scroll_y(_iy, menuOptionsScroll), _ow, _obh, "Power Card Set: " + _allLbl, fntMaru)) {
+                var _a = global.settings.allSet;
+                global.settings.allSet = (_a == 1) ? 2 : ((_a == 2) ? 0 : 1);   // ALL1 -> ALL2 -> Random -> ALL1
+                save_settings();
+            }
         }
+        if (ui_row_visible(_iy + _obh + 6, _obh, menuOptionsScroll, _viewTop, _viewBot)) { if (ui_button(_ox0, ui_scroll_y(_iy + _obh + 6, menuOptionsScroll), _ow, _obh, "Dev/Debug Tools: " + (global.settings.devTools ? "ON" : "off"), fntMaru)) { global.settings.devTools = !global.settings.devTools; save_settings(); } }
 
         // --- Audio (Master / BGM / SFX sliders) ---
-        var _auHeadY = _iy + _obh + 20;
-        draw_audio_controls(_ox0, _auHeadY, (_ox1 + _ow) - _ox0);
+        var _auHeadY = _iy + (_obh + 6) + _obh + 20;
+        if (ui_row_visible(_auHeadY, 36 + 3 * 40 + 12, menuOptionsScroll, _viewTop, _viewBot)) draw_audio_controls(_ox0, ui_scroll_y(_auHeadY, menuOptionsScroll), (_ox1 + _ow) - _ox0);
+
+        var _noteY = _auHeadY + 36 + 3 * 40 + 12;
+        if (ui_row_visible(_noteY, 20, menuOptionsScroll, _viewTop, _viewBot)) {
+            draw_set_halign(fa_center);
+            draw_set_font(fntMaru);
+            draw_set_color(make_color_rgb(160, 170, 165));
+            draw_text_transformed(_guiW * 0.5, ui_scroll_y(_noteY, menuOptionsScroll), "Changes are saved automatically", 1.2 * UI_TS, 1.2 * UI_TS, 0);
+            draw_set_halign(fa_left);
+            draw_set_color(c_white);
+        }
+
+        // ---- scroll input + scrollbar ----
+        var _contentBot = _noteY + 20;                          // bottom edge of the last content row
+        var _viewH = _viewBot - _viewTop;
+        var _maxScroll = max(0, _contentBot - _viewBot);
+        var _mgxO = device_mouse_x_to_gui(0), _mgyO = device_mouse_y_to_gui(0);
+        var _overBody = (_mgxO >= _ox0 - 20 && _mgxO <= _ox1 + _ow + 20 && _mgyO >= _viewTop && _mgyO <= _viewBot);
+        if (_overBody) {
+            if (mouse_wheel_up())   menuOptionsScroll -= 60;
+            if (mouse_wheel_down()) menuOptionsScroll += 60;
+        }
+        menuOptionsScroll = clamp(menuOptionsScroll, 0, _maxScroll);
+
+        if (_maxScroll > 0) {
+            var _barX = _ox1 + _ow + 16, _barW = 10;
+            draw_set_alpha(0.4); draw_set_color(make_color_rgb(20, 24, 28));
+            draw_roundrect(_barX, _viewTop, _barX + _barW, _viewBot, false);
+            draw_set_alpha(1);
+            var _thumbH = max(30, _viewH * (_viewH / (_contentBot - _viewTop)));
+            var _thumbY = _viewTop + (menuOptionsScroll / _maxScroll) * (_viewH - _thumbH);
+            var _overThumb = (_mgxO >= _barX - 4 && _mgxO <= _barX + _barW + 4 && _mgyO >= _thumbY && _mgyO <= _thumbY + _thumbH);
+            if (!variable_global_exists("uiOptScrollDrag")) global.uiOptScrollDrag = false;
+            if (global.uiOptScrollDrag && !mouse_check_button(mb_left)) global.uiOptScrollDrag = false;
+            if (_overThumb && mouse_check_button_pressed(mb_left)) global.uiOptScrollDrag = true;
+            if (global.uiOptScrollDrag) {
+                menuOptionsScroll = clamp(round((_mgyO - _viewTop - _thumbH * 0.5) / max(1, _viewH - _thumbH) * _maxScroll), 0, _maxScroll);
+                global.uiMouseConsumed = true;
+            }
+            draw_set_color(_overThumb || global.uiOptScrollDrag ? make_color_rgb(150, 175, 210) : make_color_rgb(110, 130, 160));
+            draw_roundrect(_barX, _thumbY, _barX + _barW, _thumbY + _thumbH, false);
+            draw_set_color(c_white);
+        }
+        exit;
+    }
+
+    // ============================== DEBUG ==============================
+    // (menuScreen == "debug") - dev-only balance-data + quick-launch panel: trigger a tournament
+    // (sim_tournament_* in scrSim) on any board or the whole roster, see the last completed
+    // tournament's win-rate summary, and jump straight into any board/adventure-mission bypassing
+    // seat-select. Not gated behind anything - remove/lock this whole screen pre-ship if desired.
+    if (menuScreen == "debug") {
+        if (!global.settings.devTools) { menuScreen = "main"; exit; }   // toggled off elsewhere mid-screen - bail out
 
         draw_set_halign(fa_center);
         draw_set_font(fntMaru);
-        draw_set_color(make_color_rgb(160, 170, 165));
-        draw_text_transformed(_guiW * 0.5, _auHeadY + 36 + 3 * 40 + 12, "Changes are saved automatically", 1.2 * UI_TS, 1.2 * UI_TS, 0);
+        draw_set_color(make_color_rgb(255, 224, 120));
+        draw_text_transformed(_guiW * 0.5, 40, "DEBUG", 2.4 * UI_TS, 2.4 * UI_TS, 0);
+        draw_set_halign(fa_left);
+
+        if (ui_button(20, 16, 120, 30, "< Back")) menuScreen = "main";
+
+        var _boards = global.boardData.boards;
+        var _nB = array_length(_boards);
+
+        // board ids currently highlighted in the list (multi-select; click a row to toggle it).
+        // NOTE: use arr_has(_selIds, id) directly at call sites, not a closure - GML function
+        // literals here don't capture enclosing `var` locals (they resolve through instance scope),
+        // so a closure referencing _selIds throws "not set before reading it" the first time it runs.
+        var _selIds = menuDebugSelected;
+        var _selCount = array_length(_selIds);
+
+        // ---- left: balance-data panel ----
+        var _dbX = 20, _dbW = 360, _dbY = 90;
+        draw_set_color(make_color_rgb(200, 210, 205));
+        dtext(_dbX, _dbY, "Balance Data");
+        draw_set_color(c_white);
+        var _dby = _dbY + 30;
+
+        // Tournament: selected board(s) - greyed out until at least one board is highlighted
+        if (_selCount == 0) {
+            ui_button_disabled(_dbX, _dby, _dbW, 40, "Tournament: Selected Board(s)");
+        } else if (ui_button(_dbX, _dby, _dbW, 40, "Tournament: Selected Board(s) (" + string(_selCount) + ")", fntMaru)) {
+            if (_selCount == 1) sim_tournament_begin(_selIds[0], 60);
+            else sim_tournament_run_boards(_selIds, 30);
+        }
+        _dby += 48;
+
+        if (ui_button(_dbX, _dby, _dbW, 40, "Tournament: ALL Boards (30/pair)", fntMaru)) {
+            var _allIds = [];
+            for (var _bi2 = 0; _bi2 < _nB; _bi2++) array_push(_allIds, _boards[_bi2].id);
+            sim_tournament_run_boards(_allIds, 30);
+        }
+        _dby += 48;
+
+        // Play Selected Scenario - only meaningful for exactly one board (a live human-vs-human game)
+        if (_selCount != 1) {
+            ui_button_disabled(_dbX, _dby, _dbW, 40, "Play Selected Scenario");
+        } else if (ui_button(_dbX, _dby, _dbW, 40, "Play Selected Scenario", fntMaru)) {
+            start_game(_selIds[0], ["human", "human"]); exit;
+        }
+        _dby += 48;
+
+        // Probe Selected Map(s) - ONE verbose seeded game per selected board (sim_probe, scrSim.gml),
+        // full AI decision log to ai_debug.txt - unlike a tournament, which silences that logging
+        // entirely (sim_silence). v4-vs-v4 (the flagship brain) is the default probe pairing; a fast
+        // synchronous call (one game per board), so no progress overlay/pump needed like tournaments.
+        if (_selCount == 0) {
+            ui_button_disabled(_dbX, _dby, _dbW, 40, "Probe Selected Map(s)");
+        } else if (ui_button(_dbX, _dby, _dbW, 40, "Probe Selected Map(s) (" + string(_selCount) + ")", fntMaru)) {
+            for (var _pi = 0; _pi < _selCount; _pi++) sim_probe(_selIds[_pi], "v4", "v4");
+        }
+        _dby += 60;
+
+        // navigate to the dedicated Results screen (run list + report), rather than showing
+        // anything about results here - keeps this screen to just the 4 action buttons
+        if (ui_button(_dbX, _dby, _dbW, 40, "Results >", fntMaru)) {
+            menuScreen = "debugResults";
+            menuDebugBatches = sim_tourney_csv_parse();
+            menuDebugExpanded = [];
+            menuDebugOpenRun = undefined;
+            menuDebugRunsScroll = 0;
+        }
+
+        var _mgxD = device_mouse_x_to_gui(0), _mgyD = device_mouse_y_to_gui(0);
+
+        // ---- right: board list - click a row to highlight/unhighlight it (multi-select) ----
+        var _lx = _dbX + _dbW + 40, _lw = _guiW - _lx - 20, _lTop = 90, _entH2 = 40;
+        var _rows2 = max(1, floor((_guiH - 30 - _lTop) / _entH2));
+        var _maxTop2 = max(0, _nB - _rows2);
+        if (_mgxD >= _lx && _mgxD <= _lx + _lw && _mgyD >= _lTop && _mgyD <= _lTop + _rows2 * _entH2) {
+            if (mouse_wheel_up())   menuDebugScroll -= 1;
+            if (mouse_wheel_down()) menuDebugScroll += 1;
+        }
+        menuDebugScroll = clamp(menuDebugScroll, 0, _maxTop2);
+
+        draw_set_alpha(0.45); draw_set_color(make_color_rgb(18, 22, 26));
+        draw_rectangle(_lx, _lTop, _lx + _lw, _lTop + _rows2 * _entH2, false);
+        draw_set_alpha(1);
+        for (var _r2 = 0; _r2 < _rows2; _r2++) {
+            var _bi3 = menuDebugScroll + _r2;
+            if (_bi3 >= _nB) break;
+            var _by3 = _lTop + _r2 * _entH2;
+            var _bd3 = _boards[_bi3];
+            var _rowSel = arr_has(_selIds, _bd3.id);
+            // bottom edge EXCLUSIVE - inclusive on both edges let a pixel exactly on the border between
+            // two rows satisfy both checks, so one click toggled two rows at once
+            var _rowHov = (_mgxD >= _lx && _mgxD < _lx + _lw && _mgyD >= _by3 && _mgyD < _by3 + _entH2);
+            if (_rowSel) { draw_set_alpha(0.55); draw_set_color(make_color_rgb(74, 96, 132)); draw_rectangle(_lx, _by3, _lx + _lw, _by3 + _entH2, false); draw_set_alpha(1); }
+            else if (_rowHov) { draw_set_alpha(0.3); draw_set_color(make_color_rgb(60, 70, 80)); draw_rectangle(_lx, _by3, _lx + _lw, _by3 + _entH2, false); draw_set_alpha(1); }
+            if (_rowHov) global.uiMouseConsumed = true;
+            if (_rowHov && mouse_check_button_pressed(mb_left)) {
+                if (_rowSel) {
+                    for (var _ri = array_length(_selIds) - 1; _ri >= 0; _ri--) if (_selIds[_ri] == _bd3.id) { array_delete(_selIds, _ri, 1); break; }
+                } else array_push(_selIds, _bd3.id);
+            }
+            draw_set_color(c_white);
+            dtext(_lx + 8, _by3 + 20, _bd3.name + "  (" + _bd3.id + ")");
+        }
+        draw_set_color(c_white);
+        exit;
+    }
+
+    // ============================ DEBUG RESULTS =============================
+    // (menuScreen == "debugResults") - like a level-select screen: a scrolling list of parsed
+    // sim_tourney.csv runs on the left (buttons), the rest of the screen holds the report for
+    // whichever run is selected. Data comes straight off disk (sim_tourney_csv_parse /
+    // sim_tourney_run_aggregate, scrSim.gml) - never an in-session tournament struct - so it's
+    // always the source of truth and survives an engine restart.
+    if (menuScreen == "debugResults") {
+        if (!global.settings.devTools) { menuScreen = "main"; exit; }
+
+        draw_set_halign(fa_center);
+        draw_set_font(fntMaru);
+        draw_set_color(make_color_rgb(255, 224, 120));
+        draw_text_transformed(_guiW * 0.5, 40, "RESULTS", 2.4 * UI_TS, 2.4 * UI_TS, 0);
         draw_set_halign(fa_left);
         draw_set_color(c_white);
+
+        if (ui_button(20, 16, 120, 30, "< Back")) menuScreen = "debug";
+        if (ui_button(_guiW - 150, 60, 130, 30, "Refresh", fntMaru)) { menuDebugBatches = sim_tourney_csv_parse(); menuDebugExpanded = []; menuDebugOpenRun = undefined; }
+
+        var _mgxR = device_mouse_x_to_gui(0), _mgyR = device_mouse_y_to_gui(0);
+
+        // ---- left: batch/run TREE - one collapsible "folder" per batch id (newest first; a batch
+        // id is a "YYYYMMDD-HHMMSS" timestamp stamped by sim_new_batch_id at the moment the user
+        // triggered the tournament, or "Unknown" for rows logged before this column existed - see
+        // sim_tourney_csv_parse's doc comment). Clicking a folder toggles it open/closed; clicking a
+        // run inside an open folder selects it for the report on the right. Built fresh into a flat
+        // "visible rows" list every frame so scrolling/hit-testing stays a simple uniform-row loop
+        // regardless of how many folders happen to be expanded right now.
+        var _flat = [];
+        for (var _bi = array_length(menuDebugBatches) - 1; _bi >= 0; _bi--) {
+            var _bat = menuDebugBatches[_bi];
+            array_push(_flat, { kind: "batch", batch: _bat });
+            if (arr_has(menuDebugExpanded, _bat.id)) {
+                for (var _ri = 0; _ri < array_length(_bat.runs); _ri++) array_push(_flat, { kind: "run", run: _bat.runs[_ri] });
+            }
+        }
+
+        var _rlX = 20, _rlW = 340, _rlTop = 96, _rEntH = 44;
+        var _nFlat = array_length(_flat);
+        var _rRows = max(1, floor((_guiH - 20 - _rlTop) / _rEntH));
+        var _rMaxTop = max(0, _nFlat - _rRows);
+        if (_mgxR >= _rlX && _mgxR <= _rlX + _rlW && _mgyR >= _rlTop && _mgyR <= _rlTop + _rRows * _rEntH) {
+            if (mouse_wheel_up())   menuDebugRunsScroll -= 1;
+            if (mouse_wheel_down()) menuDebugRunsScroll += 1;
+        }
+        menuDebugRunsScroll = clamp(menuDebugRunsScroll, 0, _rMaxTop);
+
+        draw_set_alpha(0.35); draw_set_color(make_color_rgb(18, 22, 26));
+        draw_rectangle(_rlX, _rlTop, _rlX + _rlW, _rlTop + _rRows * _rEntH, false);
+        draw_set_alpha(1);
+        if (_nFlat == 0) {
+            draw_set_color(make_color_rgb(150, 150, 158));
+            dtext(_rlX + 8, _rlTop + 20, "(no runs logged yet)");
+            draw_set_color(c_white);
+        }
+        for (var _fd = 0; _fd < _rRows; _fd++) {
+            var _fi = menuDebugRunsScroll + _fd;
+            if (_fi >= _nFlat) break;
+            var _item = _flat[_fi];
+            var _rY = _rlTop + _fd * _rEntH;
+            var _rHov = (_mgxR >= _rlX && _mgxR < _rlX + _rlW && _mgyR >= _rY && _mgyR < _rY + _rEntH);   // bottom edge exclusive - see the debug board-list fix
+
+            if (_item.kind == "batch") {
+                var _bOpen = arr_has(menuDebugExpanded, _item.batch.id);
+                if (_rHov) { draw_set_alpha(0.3); draw_set_color(make_color_rgb(60, 70, 80)); draw_rectangle(_rlX, _rY, _rlX + _rlW, _rY + _rEntH, false); draw_set_alpha(1); global.uiMouseConsumed = true; }
+                if (_rHov && mouse_check_button_pressed(mb_left)) {
+                    if (_bOpen) { for (var _ei = array_length(menuDebugExpanded) - 1; _ei >= 0; _ei--) if (menuDebugExpanded[_ei] == _item.batch.id) { array_delete(menuDebugExpanded, _ei, 1); break; } }
+                    else array_push(menuDebugExpanded, _item.batch.id);
+                }
+                draw_set_color(make_color_rgb(230, 220, 180));
+                var _totalGames = 0;
+                for (var _ci = 0; _ci < array_length(_item.batch.runs); _ci++) _totalGames += array_length(_item.batch.runs[_ci].rows);
+                dtext(_rlX + 10, _rY + 12, (_bOpen ? "[-] " : "[+] ") + _item.batch.id);
+                draw_set_color(make_color_rgb(170, 175, 180));
+                dtext(_rlX + 10, _rY + 28, string(array_length(_item.batch.runs)) + " board(s), " + string(_totalGames) + " games");
+                draw_set_color(c_white);
+            } else {
+                var _rSel = (menuDebugOpenRun == _item.run);
+                if (_rSel) { draw_set_alpha(0.55); draw_set_color(make_color_rgb(74, 96, 132)); draw_rectangle(_rlX, _rY, _rlX + _rlW, _rY + _rEntH, false); draw_set_alpha(1); }
+                else if (_rHov) { draw_set_alpha(0.3); draw_set_color(make_color_rgb(50, 58, 66)); draw_rectangle(_rlX, _rY, _rlX + _rlW, _rY + _rEntH, false); draw_set_alpha(1); }
+                if (_rHov) global.uiMouseConsumed = true;
+                if (_rHov && mouse_check_button_pressed(mb_left)) menuDebugOpenRun = _item.run;
+                draw_set_color(c_white);
+                dtext(_rlX + 34, _rY + 12, string(_item.run.boardId));
+                var _rExpected = sim_tourney_run_expected(_item.run);
+                var _rIncomplete = (_rExpected != undefined) && (array_length(_item.run.rows) < _rExpected);
+                draw_set_color(_rIncomplete ? make_color_rgb(235, 170, 90) : make_color_rgb(180, 186, 190));
+                dtext(_rlX + 34, _rY + 28, string(array_length(_item.run.rows)) + (_rExpected != undefined ? ("/" + string(_rExpected)) : "") + " games" + (_rIncomplete ? "  (incomplete)" : ""));
+                draw_set_color(c_white);
+            }
+        }
+
+        // ---- right: the report for the selected run (win matrix + per-policy summary),
+        // aggregated fresh from its CSV rows every frame (sim_tourney_run_aggregate) - cheap for
+        // one run's rows, and means the table can never show stale numbers ----
+        var _tx0 = _rlX + _rlW + 40, _titleY = 96, _ty0 = 156;
+        if (menuDebugOpenRun == undefined) {
+            draw_set_color(make_color_rgb(160, 165, 170));
+            dtext(_tx0, _ty0, "Select a run on the left to view its report.");
+            draw_set_color(c_white);
+            exit;
+        }
+
+        var _agg = sim_tourney_run_aggregate(menuDebugOpenRun);
+        draw_set_color(make_color_rgb(255, 224, 120));
+        dtext(_tx0, _titleY, string(_agg.boardId) + "  -  " + string(_agg.gameCount) + " games");
+        draw_set_color(c_white);
+
+        // resume an interrupted run right where sim_tournament_resume figures out it left off -
+        // only shown/enabled when we can actually tell it's short of its target (perPair column
+        // present) and no tournament is already running
+        var _rrExpected = sim_tourney_run_expected(menuDebugOpenRun);
+        var _rrIncomplete = (_rrExpected != undefined) && (_agg.gameCount < _rrExpected);
+        var _rrBusy = variable_global_exists("simTourney") && global.simTourney != undefined;
+        if (_rrIncomplete) {
+            if (ui_button(_guiW - 260, _titleY - 4, 240, 34, _rrBusy ? "Tournament running..." : ("Resume (missing " + string(_rrExpected - _agg.gameCount) + ")"), fntMaru)) {
+                if (!_rrBusy) sim_tournament_resume(menuDebugOpenRun);
+            }
+        }
+
+        var _np = array_length(_agg.pols);
+        var _labelW = 130, _colW = 84, _rowH = 34;
+
+        // --- win matrix: COLUMN (top label) = P1 brain, ROW (side label) = P2 brain, cell = P1
+        // wins (as a colour: red = 0 wins, bright green = 0 losses / all wins for that pairing, so
+        // the balance reads at a glance without parsing numbers). P1-on-top/P2-on-side matches the
+        // convention from before this screen existed (2026-08-18 - was accidentally built the other
+        // way around: P1 as the row, P2 as the column). Underlying data (_agg.wins/pairPlayed) is
+        // still indexed [p1idx][p2idx] unchanged - only the on-screen axes are swapped, via looking
+        // up wins[_cw][_rw]/pairPlayed[_cw][_rw] instead of [_rw][_cw] below.
+        draw_set_color(make_color_rgb(200, 210, 205));
+        dtext(_tx0, _ty0 - 24, "WIN MATRIX (col = P1, cell = P1 wins vs row as P2)");
+        draw_set_color(c_white);
+        // pinned to the screen's right edge, NOT the matrix's own width - a small matrix (e.g. 3
+        // participants) left it stranded near the middle of the screen when it followed _colW*_np
+        if (ui_button(_guiW - 150, _ty0 - 32, 130, 26, menuDebugMatrixPct ? "Show: wins/played" : "Show: win %", fntMaru)) menuDebugMatrixPct = !menuDebugMatrixPct;
+        draw_set_halign(fa_center);
+        for (var _c = 0; _c < _np; _c++) dtext(_tx0 + _labelW + _colW * (_c + 0.5), _ty0 + 4, _agg.pols[_c]);   // top labels = P1
+        draw_set_halign(fa_left);
+        draw_set_valign(fa_middle);
+        for (var _rw = 0; _rw < _np; _rw++) {   // _rw now indexes P2 (the side label)
+            var _ry = _ty0 + 30 + _rowH * _rw;
+            draw_set_halign(fa_right);
+            dtext(_tx0 + _labelW - 10, _ry + _rowH * 0.5, _agg.pols[_rw]);
+            draw_set_halign(fa_center);
+            for (var _cw = 0; _cw < _np; _cw++) {   // _cw now indexes P1 (the top label)
+                var _cx = _tx0 + _labelW + _colW * _cw;
+                var _cWins = _agg.wins[_cw][_rw], _cPlayed = _agg.pairPlayed[_cw][_rw];
+                var _cellCol = (_cPlayed > 0) ? merge_color(make_color_rgb(196, 64, 64), make_color_rgb(70, 196, 100), _cWins / _cPlayed) : make_color_rgb(40, 42, 46);
+                draw_set_alpha(0.9); draw_set_color(_cellCol);
+                draw_rectangle(_cx + 2, _ry + 2, _cx + _colW - 2, _ry + _rowH - 2, false);
+                draw_set_alpha(1);
+                draw_set_color(c_white);
+                var _cellTxt = "-";
+                if (_cPlayed > 0) _cellTxt = menuDebugMatrixPct ? (string(round(_cWins / _cPlayed * 1000) / 10) + "%") : (string(_cWins) + "/" + string(_cPlayed));
+                dtext(_cx + _colW * 0.5, _ry + _rowH * 0.5, _cellTxt);
+            }
+            draw_set_halign(fa_left);
+        }
+        draw_set_valign(fa_top);
+
+        // --- per-policy summary: win rate as P1 (as a %), avg score across all seats, plan churn -
+        // alternating row backgrounds so a wide row of numbers stays readable across ---
+        var _sy0 = _ty0 + 30 + _rowH * _np + 30;
+        draw_set_color(make_color_rgb(200, 210, 205));
+        dtext(_tx0, _sy0 - 4, "OVERALL  (winRate = wins as P1 / games as P1; avgScore across all seats)");
+        draw_set_color(c_white);
+        var _scols = [_tx0, _tx0 + 140, _tx0 + 260, _tx0 + 380, _tx0 + 490, _tx0 + 600];
+        var _shead = ["Policy", "WinRate", "AvgScore", "Sw/g", "Rp/g", "Games"];
+        var _sRowH = 28, _sTableW = _scols[5] + 70 - _tx0;
+        for (var _sc = 0; _sc < 6; _sc++) dtext(_scols[_sc], _sy0 + 26, _shead[_sc]);
+        for (var _sp = 0; _sp < array_length(_agg.summary); _sp++) {
+            var _row = _agg.summary[_sp];
+            var _sry = _sy0 + 26 + _sRowH * (_sp + 1);
+            draw_set_alpha(0.4); draw_set_color((_sp % 2 == 0) ? make_color_rgb(30, 34, 40) : make_color_rgb(20, 22, 26));
+            draw_rectangle(_tx0 - 6, _sry, _tx0 - 6 + _sTableW, _sry + _sRowH, false);
+            draw_set_alpha(1); draw_set_color(c_white);
+            var _sryText = _sry + _sRowH * 0.5;
+            draw_set_valign(fa_middle);
+            dtext(_scols[0], _sryText, _row.label);
+            dtext(_scols[1], _sryText, string(round(_row.winRate * 1000) / 10) + "%");
+            dtext(_scols[2], _sryText, string(round(_row.avgScore * 10) / 10));
+            dtext(_scols[3], _sryText, string(round(_row.swPerGame * 100) / 100));
+            dtext(_scols[4], _sryText, string(round(_row.rpPerGame * 100) / 100));
+            dtext(_scols[5], _sryText, string(_row.played));
+            draw_set_valign(fa_top);
+        }
         exit;
     }
 
@@ -400,13 +860,16 @@ if (mode == "menu") {
 
         // ---- action bar ----
         var _cbarY = _guiH - 52;
-        if (ui_button(_guiW - 460, _cbarY, 200, 40, "Auto-pick weakest", fntMaru)) {
-            // auto: mark the lowest-stat matching copies until we've hit <need>
+        if (ui_button(_guiW - 460, _cbarY, 200, 40, "Auto-pick strongest", fntMaru)) {
+            // auto: mark the HIGHEST-stat matching copies until we've hit <need>. Culling is picking
+            // which enemies you'd rather never fight again, so it should strip the nastiest cards out
+            // and LEAVE the weak ones in the deck - sorting ascending (as this did) threw away the
+            // pushovers and kept the monsters, which is backwards.
             for (var _z = 0; _z < array_length(_cu.rows); _z++) _cu.rows[_z].rm = 0;
             var _flat2 = [];   // {row, s} one entry per available copy
             for (var _r2 = 0; _r2 < array_length(_cu.rows); _r2++)
                 repeat (_cu.rows[_r2].avail) array_push(_flat2, { row: _cu.rows[_r2], s: adventure_cull_stat(_cu.rows[_r2].id, _cu.rule) });
-            array_sort(_flat2, function(_a, _b) { return _a.s - _b.s; });
+            array_sort(_flat2, function(_a, _b) { return _b.s - _a.s; });   // descending: strongest first
             for (var _p = 0; _p < array_length(_flat2) && _p < _cu.need; _p++) _flat2[_p].row.rm += 1;
         }
         var _canGo = (_removed == _cu.need);
@@ -473,8 +936,10 @@ if (mode == "menu") {
                 if (_sc.action == "erase") {
                     _msg = "Erase ALL data in Log " + string(_sc.from + 1) + "?"; _yes = "Erase"; _sub = "This cannot be undone.";
                 } else if (_sc.action == "newadv") {
+                    // the existing save is NOT touched on disk here - adventure_campaign_reset is
+                    // in-memory only, and the fresh run only overwrites it if the player Saves
                     _msg = "Start a new " + global.adventureData.scenarios[_sc.scen].name + "?"; _yes = "New Adventure";
-                    _sub = "This erases its progress in Log " + string(_sc.from + 1) + ".";
+                    _sub = "Log " + string(_sc.from + 1) + "'s progress is kept until you save over it.";
                 } else {
                     _msg = "Overwrite Log " + string(_sc.to + 1) + " with Log " + string(_sc.from + 1) + "'s data?"; _yes = "Overwrite"; _sub = "This cannot be undone.";
                 }
@@ -1504,33 +1969,6 @@ if (chatFocused) {
     if (keyboard_check_pressed(vk_escape)) chatFocused = false;
 }
 
-// ---------- tutorial instruction banner (nine-sliced Pikmin text box, top-centre) ----------
-var _tStep = (tutorial != undefined) ? tutorial_step() : undefined;
-if (_tStep != undefined) {
-    var _isIntro = (_tStep.kind == "intro");   // intro = read + Continue; action = auto-advance
-    var _tbW = min(700, _guiW - 300);
-    var _tbX = (_guiW - _tbW) * 0.5;
-    var _tbY = 40;
-    // TUNING KNOBS for fitting the message inside the bubble art: frame insets, line spacing, scale,
-    // ink colour, and a min height so the nine-slice corners don't compress on short messages.
-    // bottom inset is larger than the top - the bubble's bottom frame/highlight is thicker (nine-slice 71 vs 61).
-    var _padX = 52, _padTop = 40, _padBot = 54, _sep = 26, _dsc = 1.45 * UI_TS;
-    draw_set_font(fntDialog);
-    draw_set_halign(fa_left); draw_set_valign(fa_top);
-    var _txtW = _tbW - _padX * 2;
-    var _txtH = string_height_ext(_tStep.text, _sep / _dsc, _txtW / _dsc) * _dsc;   // on-screen wrapped height
-    var _tbH  = max(120, _padTop + _txtH + (_isIntro ? 44 : 0) + _padBot);
-    draw_sprite_stretched(sprTextBox, 0, _tbX, _tbY, _tbW, _tbH);   // nine-slice: corners fixed, middle stretches
-    draw_set_color(c_white);   // white text - the bubble is mostly transparent
-    draw_text_ext_transformed(_tbX + _padX, _tbY + _padTop, _tStep.text, _sep / _dsc, _txtW / _dsc, _dsc, _dsc, 0);
-    draw_set_color(c_white);
-    if (_isIntro && ui_button(_tbX + _tbW - _padX - 130, _tbY + _padTop + _txtH + 8, 130, 30, "Continue", fntDialog)) {
-        tutorial_advance();   // steps within a scene, then scene-to-scene, then ends the tutorial
-        if (tutorial == undefined) { return_to_menu(); exit; }   // Continue on the very last text box -> back to the menu
-    }
-    ui_block_rect(_tbX, _tbY, _tbW, _tbH);
-    draw_set_font(fntMaru);   // restore the body UI font - fntDialog would otherwise leak into later buttons/text
-}
 
 // (treasure on-bank power toasts are drawn later, AFTER the hand, so the hand sits BEHIND them)
 
@@ -2632,6 +3070,104 @@ if (mouse_check_button_pressed(mb_middle) && !global.uiMouseConsumed && !_locked
             selSrc = undefined;
         }
     }
+}
+
+// ---------- DEV: force an adventure board's outcome ----------
+// Skips playing the map so the end-of-mission sequences can be iterated on (flash -> pop graph ->
+// deck build -> log -> hub). Both buttons drive the NORMAL detection in Step_0 rather than jumping
+// to the banner themselves, so what you see is the real path, not a shortcut past it.
+// Bottom-RIGHT corner, stacked; gated on devTools (Options > Interface) + being in an adventure run.
+if (global.settings.devTools && advRun != undefined && advBanner == "" && advResults == ""
+    && game != undefined && game.phase != "gameover") {
+    var _dvW = 168, _dvX = _guiW - _dvW - 14;
+    // CLEAR: empty the board so Step_0's clear condition ("no treasures, nothing departing, nothing
+    // moving") fires on its own. Removes the piles rather than banking them, so the results screen
+    // honestly shows the score WITHOUT credit for them - fine for checking text, but don't read the
+    // pop graph or day economy off a skipped board.
+    if (ui_button(_dvX, _guiH - 84, _dvW, 30, "DEV: Clear Board", fntMaru)) {
+        game.treasures = [];
+        game.departing = [];
+    }
+    // FAIL: jump to the last day and end it. Resolving the limit the SAME way game_advance_day does
+    // (adventure's shared dayLimit wins, else the board's day-track days, else the global rule) so
+    // this can't drift out of sync with it; advancing from there rolls dayNumber past the limit and
+    // sets phase "gameover", which Step_0 reads as the run FAIL once the board settles.
+    if (ui_button(_dvX, _guiH - 48, _dvW, 30, "DEV: Fail (out of days)", fntMaru)) {
+        var _dvLimit = variable_struct_exists(game, "dayLimit") ? game.dayLimit
+                     : (variable_struct_exists(game, "dayTrackDef") ? game.dayTrackDef.days : global.rules.days);
+        game.dayNumber = _dvLimit;
+        game.dayTrack  = game.dayTrackLength;
+        game_advance_day(game);
+    }
+}
+
+// ---------- tutorial instruction banner (nine-sliced Pikmin text box) ----------
+// DRAWN LAST ON PURPOSE (after the hand, the toasts and the rest of the HUD) so the bubble sits on
+// top of everything - the intro-step layout deliberately overlaps the hand, and anything drawn after
+// this would punch through it. Only the day-transition full-screen flash below is allowed to cover
+// it. If you add new HUD drawing, put it ABOVE this block, not below.
+// Drawn via draw_nineslice_scaled at a reduced _nsScale (like the treasure-power TOASTS) rather than
+// a full-size stretch: sprTextBox's nine-slice CORNERS are big (61/71px), so at full scale the frame
+// itself sets a chunky floor on how small the bubble can get. Scaling the whole nine-slice down
+// shrinks the corners too, letting the bubble hug its text; its HEIGHT tracks the wrapped line count.
+// Text streams in letter-by-letter (tutorial.revealChars, advanced in tutorial_tick, Create_0) with
+// a talk blip every third character (game_sfx) - "the ship sending a message".
+var _tStep = (tutorial != undefined) ? tutorial_step() : undefined;
+if (_tStep != undefined) {
+    var _isIntro = (_tStep.kind == "intro");   // intro = read + Continue; action = auto-advance
+    // TUNING KNOBS: frame insets, line spacing, TEXT scale (leave at 1.45 - see above), nine-slice
+    // draw scale, and a min height so the corners don't compress on a one-line message. Insets are
+    // the original values scaled by ~_nsScale, since the frame they clear is now that much smaller.
+    var _padX = 32, _padTop = 25, _padBot = 34, _sep = 30, _dsc = 1.7 * UI_TS, _nsScale = 0.62;
+    var _cfSize = 40, _cfGap = 12;   // confirm-disc diameter + its gap from the text column
+    // TWO HOMES, chosen by whether this step carries a Continue disc:
+    //  - INTRO (has the disc): wide + centred at the BOTTOM of the screen, deliberately sitting OVER
+    //    the hand. The player is only reading and acknowledging here, so covering the cards is free.
+    //  - ACTION (no disc): the message parks at the TOP, squeezed between the left phase-control
+    //    column (the Roll button occupies x 12..232) and the right log/chat panel (_logX), so the
+    //    board and both HUD columns stay clickable and play continues unimpeded.
+    var _tbW, _tbX;
+    if (_isIntro) {
+        _tbW = min(980, _guiW - 220);
+        _tbX = (_guiW - _tbW) * 0.5;
+    } else {
+        var _tbLeft = 244;                                  // clear of the left phase-control column
+        _tbW = max(320, (_logX - 12) - _tbLeft);            // ...and stop short of the log/chat panel
+        _tbX = _tbLeft;
+    }
+    draw_set_font(fntDialog);
+    draw_set_halign(fa_left); draw_set_valign(fa_top);
+    // the disc sits to the RIGHT of the text, so it costs WIDTH, not height - the bubble's height
+    // tracks the wrapped text alone (it only floors at the disc's own size, which can bite on a
+    // very short one-line intro where the disc is genuinely taller than the text)
+    var _txtW = _tbW - _padX * 2 - (_isIntro ? _cfSize + _cfGap : 0);
+    var _txtH = string_height_ext(_tStep.text, _sep / _dsc, _txtW / _dsc) * _dsc;   // full-text height, so the box doesn't resize mid-stream
+    var _tbContentH = _isIntro ? max(_txtH, _cfSize) : _txtH;   // NB: not _contentH - the log panel already owns that name in this event
+    var _tbH  = max(72, _padTop + _tbContentH + _padBot);   // min = ~_nsScale * the sprite's 108px nine-slice floor
+    // Y: intro sits flush to the bottom (over the hand); action pins to the top. X/width were
+    // already chosen per-mode above.
+    var _tbY = _isIntro ? (_guiH - _tbH - 12) : 40;
+    draw_nineslice_scaled(sprTextBox, _tbX, _tbY, _tbW, _tbH, _nsScale, c_white, 1);
+    draw_set_color(c_white);   // white text - the bubble is mostly transparent
+    var _tShown = string_copy(_tStep.text, 1, floor(tutorial.revealChars));
+    draw_text_ext_transformed(_tbX + _padX, _tbY + _padTop, _tShown, _sep / _dsc, _txtW / _dsc, _dsc, _dsc, 0);
+    draw_set_color(c_white);
+    // wordless green confirm disc (hover lightens, hold darkens, fires on release) instead of a
+    // labelled "Continue" - the message is the content, the button just acknowledges it.
+    // Bottom-right of the content block: right of the text column, bottom-aligned with the text.
+    // DOUBLE DUTY (same contract as the adventure log screen): while the text is still streaming the
+    // disc dumps the rest instantly; only once fully revealed does it actually advance. Nobody
+    // should have to sit through the crawl to re-read something they've already got.
+    if (_isIntro && ui_icon_button(sprButtonConfirm, _tbX + _tbW - _padX - _cfSize, _tbY + _padTop + _tbContentH - _cfSize, _cfSize, "tutContinue")) {
+        if (tutorial.revealChars < string_length(_tStep.text)) {
+            tutorial.revealChars = string_length(_tStep.text);   // skip to the end of this message
+        } else {
+            tutorial_advance();   // steps within a scene, then scene-to-scene, then ends the tutorial
+            if (tutorial == undefined) { return_to_menu(); exit; }   // Continue on the very last text box -> back to the menu
+        }
+    }
+    ui_block_rect(_tbX, _tbY, _tbW, _tbH);
+    draw_set_font(fntMaru);   // restore the body UI font - fntDialog would otherwise leak into later buttons/text
 }
 
 // ---------- day-transition cinematic overlay: dark flash + "DAY'S OVER!" ----------

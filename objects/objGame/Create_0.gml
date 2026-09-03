@@ -66,11 +66,19 @@ draw_audio_controls = function(_x, _y, _w) {
 };
 
 mode = "menu";          // "menu" | "playing"
-menuScreen = "main";    // when mode=="menu": "main" (title) | "board" (board select) | "options" | "online" | "adventure"
+menuScreen = "main";    // when mode=="menu": "main" (title) | "board" (board select) | "options" | "online" | "adventure" | "debug" | "debugResults"
 prevMenuScreen = "main"; // for menu open/close SFX (change-detected in Step)
 prevPaused = false;      // for pause open/close SFX
 menuBoardIdx = 0;       // board-select: index of the previewed board in global.boardData.boards
 menuListScroll = 0;     // board-select: top row index of the scrolling board list
+menuDebugScroll = 0;    // debug screen: top row index of the scrolling board-jump list
+menuDebugSelected = [];  // debug screen: board ids currently highlighted in the jump list (multi-select)
+menuDebugBatches = [];   // debugResults screen: parsed sim_tourney.csv batch folders (sim_tourney_csv_parse), reloaded on entry/Refresh
+menuDebugExpanded = [];  // debugResults screen: batch ids currently expanded (open folders) in the run-list tree
+menuDebugRunsScroll = 0; // debugResults screen: top row index of the scrolling batch/run tree
+menuDebugOpenRun = undefined; // debugResults screen: the selected run STRUCT (not an index - runs live inside batch folders) whose report is shown; undefined = none selected
+menuDebugMatrixPct = false; // debugResults screen: win-matrix cells show "wins/played" (off) or a raw win% (on)
+menuOptionsScroll = 0;  // options screen: vertical pixel offset of the scrolling options body
 menuAdvIdx = 0;         // chapter-select: index of the previewed adventure board (flat across scenarios)
 menuAdvScroll = 0;      // chapter-select: top row index of the scrolling chapter/board list
 menuNetName = "Player"; // online lobby: local player name field
@@ -468,7 +476,7 @@ start_game = function(_boardId, _ctl = undefined, _scenario = undefined, _keepTu
     // clear any ADVENTURE run/banner state - a normal (or batch/CPU) game must never inherit a stale
     // run, or its gameover would show the adventure "OUT OF DAYS" banner. adventure_launch_board
     // restores advRun right after this call.
-    advRun = undefined; advBanner = ""; advBannerHold = 0; advResults = ""; advCull = undefined;
+    advRun = undefined; advBanner = ""; advBannerHold = 0; advResults = ""; advLore = undefined; advOutro = undefined; advCull = undefined;
     selSrc = undefined; pelletMenuIdx = -1; posyMenuIdx = -1; pendingCard = undefined; freeBuild = "";
     dayCine = undefined; prevDayNumber = 1;
     fxList = [];
@@ -514,6 +522,19 @@ advRun = undefined;
 advBanner = "";       // "" | "cleared" | "complete" | "failed" (the brief flash)
 advBannerHold = 0;
 advResults = "";      // "" | "cleared" | "complete" | "failed" - the interactive results screen (pop graph) after the flash
+// between-mission LOG screen, shown after the results/pop-graph screen when dialog_text has an entry
+// for this transition (scrDialog). undefined = not showing. { id, text, revealChars, nextAct, toHub }:
+//   nextAct = what the results screen would have done, deferred until the log is dismissed
+//             ("cull" | "next" | "menu"). NOT named `then` - that's a legacy GML keyword and
+//             Feather rejects it as a struct member (it parses as `if ... then`).
+//   toHub   = false for a standalone log (the campaign preamble) that runs nextAct directly
+advLore = undefined;
+// between-mission HUB, shown AFTER the log text: Save / Play Next Map / Return to Menu.
+// undefined = not showing. { nextAct, saved } - nextAct is the deferred results-screen action.
+// (NOT named `then`: that's a legacy GML keyword and Feather rejects it as a struct member.)
+// ALWAYS reached, including when a beat has no lore written (the log screen is what's optional,
+// not this) - otherwise Save and Return-to-Menu would be unavailable on any mission without text.
+advOutro = undefined;
 resultsSeat = 0;      // which seat the population graph is showing (versus toggle; solo = 0)
 advSlot = 0;          // which of the 3 logs is selected in the menu
 advSaveConfirm = undefined; // save-management modal: undefined | {action:"erase"|"copyPick"|"copy", from, to?}
@@ -550,7 +571,9 @@ draw_results_graph = function(_gx, _gy, _gw, _gh) {
 advCull = undefined;
 
 // launch a specific mission of a campaign in the CURRENT log, from its saved day checkpoint.
-adventure_play_mission = function(_scen, _board) {
+// _deferLaunch: set the run up but DON'T start the board - the caller wants to show something first
+// (the campaign preamble) and will call adventure_launch_board itself when it's dismissed.
+adventure_play_mission = function(_scen, _board, _deferLaunch = false) {
     if (!adventure_mission_unlocked(advSlot, _scen, _board)) return;
     var _cp = adventure_mission_checkpoint(advSlot, _scen, _board);   // {daysLeft, daysUsed}
     var _scenData = global.adventureData.scenarios[_scen];
@@ -564,8 +587,11 @@ adventure_play_mission = function(_scen, _board) {
     var _camp = _slot.campaigns[_scen];
     for (var _b = _board + 1; _b < array_length(_camp); _b++)
         if (variable_struct_exists(_camp[_b], "popHistory")) variable_struct_remove(_camp[_b], "popHistory");
-    adventure_saves_save();
+    // NOT persisted here - run progress only reaches disk when the player presses Save on the
+    // between-mission hub (see adventure_saves_save's call sites). This mutates the IN-MEMORY
+    // global.advSaves only; abandoning the run reloads it from disk and these changes vanish.
     advBanner = ""; advBannerHold = 0;
+    if (_deferLaunch) return;
     adventure_launch_board();
 };
 
@@ -573,6 +599,16 @@ adventure_play_mission = function(_scen, _board) {
 // with base stats (full day budget, starting deck). Only touches that one campaign.
 adventure_new = function(_scen) {
     adventure_campaign_reset(advSlot, _scen);
+    // CAMPAIGN PREAMBLE: the scenario's opening transmission, shown BEFORE the first mission rather
+    // than after it (id "adv<N>_preamble", N 1-based like adv<N>_complete). Set the run up but hold
+    // the launch, show the log, and let its Continue drop straight into mission 0 - no between-mission
+    // hub, since there's nothing to save or return from yet. No text written => straight into the map.
+    var _preId = "adv" + string(_scen + 1) + "_preamble";
+    if (dialog_text(_preId) != "") {
+        advRun = undefined;                        // so the check below can't pass on a STALE run if
+        adventure_play_mission(_scen, 0, true);    // play_mission bails (locked mission)
+        if (advRun != undefined) { adventure_show_lore_then(_preId, "next"); return; }
+    }
     adventure_play_mission(_scen, 0);
 };
 
@@ -583,6 +619,80 @@ adventure_continue = function() {
     var _board = (_slot.curBoard >= 0) ? _slot.curBoard : 0;
     if (!adventure_mission_unlocked(advSlot, _scen, _board)) { _scen = 0; _board = 0; }
     adventure_play_mission(_scen, _board);
+};
+
+// --- between-mission LOG (scrDialog) ---
+// Build the dialog id for the transition the results screen is currently showing.
+// The id is derived from the BOARD'S OWN id (adventure.json: "adv1_1".."adv3_7", 1-based on BOTH
+// halves) rather than from the internal 0-based scen/board indices - so a dialog id reads exactly
+// like the map it belongs to ("adv1_1_cleared" IS board adv1_1) with no mental offset when writing
+// text. Do NOT "simplify" this back to advRun.scen/advRun.board: those are 0-based, and an id built
+// from them would collide visually with a DIFFERENT real board's id.
+// NOTE advRun.board has ALREADY been advanced by adventure_on_clear() by the time the results screen
+// is up, so the mission just PLAYED is board-1 on a clear.
+adventure_dialog_id = function(_outcome) {
+    if (advRun == undefined) return "";
+    if (_outcome == "complete") return "adv" + string(advRun.scen + 1) + "_complete";
+    var _idx = (_outcome == "failed") ? advRun.board : (advRun.board - 1);
+    _idx = clamp(_idx, 0, array_length(advRun.boards) - 1);
+    return advRun.boards[_idx].id + ((_outcome == "failed") ? "_failed" : "_cleared");
+};
+
+// Perform whatever the results screen was going to do next. Split out so the log screen can defer it.
+adventure_after_results = function(_then) {
+    if (_then == "cull")      { mode = "menu"; menuScreen = "advCull"; }
+    else if (_then == "next") { adventure_launch_board(); }
+    else {
+        // leaving the run: drop any in-memory progress the player chose not to Save (see the same
+        // reload in return_to_menu for why memory can't be left holding unsaved state)
+        adventure_saves_load();
+        advRun = undefined; mode = "menu"; menuScreen = "adventure";
+    }
+};
+
+// Open the between-mission HUB (Save / Play Next Map / Return to Menu). Always reached - it's the
+// log TEXT that's optional, not this.
+adventure_show_outro = function(_then) {
+    advLore = undefined;
+    advOutro = { nextAct: _then, saved: false };
+    mode = "menu"; menuScreen = "advOutro";
+};
+
+// Results/deck-build dismissed: show the between-mission LOG first if this transition has text
+// written for it, then the hub. With no text written, skip straight to the hub (NOT past it - the
+// hub is where Save and Return-to-Menu live, so it must be reachable on every mission).
+adventure_show_lore_or = function(_outcome, _then) {
+    var _id  = adventure_dialog_id(_outcome);
+    var _txt = (_id == "") ? "" : dialog_text(_id);
+    if (_txt == "") { adventure_show_outro(_then); return; }   // nothing written for this beat - straight to the hub
+    advLore = { id: _id, text: _txt, revealChars: 0, nextAct: _then, toHub: true };
+    mode = "menu"; menuScreen = "advLore";
+};
+
+// Show a STANDALONE log screen whose Continue runs _then directly, with no between-mission hub after
+// it. For beats that aren't the end of a mission - currently the campaign preamble, where there's
+// nothing to Save and nowhere to return from yet. Falls through to _then when no text is written.
+adventure_show_lore_then = function(_id, _then) {
+    var _txt = (_id == "") ? "" : dialog_text(_id);
+    if (_txt == "") { adventure_after_results(_then); return; }
+    advLore = { id: _id, text: _txt, revealChars: 0, nextAct: _then, toHub: false };
+    mode = "menu"; menuScreen = "advLore";
+};
+
+// per-frame: stream the log text in (called from Step_0 ABOVE its mode!="playing" exit - this screen
+// runs with mode=="menu", so a tick placed below that exit would never run). A blip every 3rd
+// character, sfxText (computer log) rather than the tutorial's sfxTalk voice.
+adventure_lore_tick = function() {
+    if (advLore == undefined) return;
+    var _len = string_length(advLore.text);
+    if (advLore.revealChars >= _len) return;
+    var _before = floor(advLore.revealChars);
+    advLore.revealChars = min(_len, advLore.revealChars + 0.8);
+    var _after = floor(advLore.revealChars);
+    for (var _ci = _before + 1; _ci <= _after; _ci++) {
+        var _ch = string_char_at(advLore.text, _ci);
+        if ((_ci mod 3) == 0 && _ch != " " && _ch != "\n") sfx("sfxText");
+    }
 };
 
 // (re)launch the run's current mission with the remaining day budget.
@@ -614,8 +724,7 @@ adventure_on_clear = function() {
     var _camp = global.advSaves[advRun.slot].campaigns[advRun.scen];
     array_resize(_camp, advRun.board);                // keep missions 0..board-1; drop re-derived future
     if (advRun.board >= array_length(advRun.boards)) {
-        global.advSaves[advRun.slot].done[advRun.scen] = true;   // whole campaign beaten
-        adventure_saves_save();
+        global.advSaves[advRun.slot].done[advRun.scen] = true;   // whole campaign beaten (in memory; Save persists it)
         return "complete";
     }
     // evolve the deck for the next map. If that map has a cull rule, hand off to the interactive
@@ -633,7 +742,7 @@ adventure_cull_commit = function(_deck) {
     _camp[advRun.board] = { daysLeft: advRun.daysLeft, daysUsed: advRun.daysUsed, enemyDeck: _deck };
     var _slot = global.advSaves[advRun.slot];
     _slot.curScen = advRun.scen; _slot.curBoard = advRun.board;
-    adventure_saves_save();
+    // in-memory only - the hub's Save button is the sole path to disk (see adventure_play_mission)
     advCull = undefined;
 };
 
@@ -686,7 +795,9 @@ adventure_cull_confirm = function() {
     for (var _a = 0; _a < array_length(_c.addFlat); _a++) array_push(_final, _c.addFlat[_a]);
     adventure_cull_commit(_final);
     advBanner = ""; advBannerHold = 0;
-    adventure_launch_board();
+    // deck is built - now the between-mission LOG, which carries the Save/Continue buttons.
+    // (adventure_show_lore_or launches the next board directly when there's no text for this beat.)
+    adventure_show_lore_or("cleared", "next");
 };
 
 // Adopt a full game state received from the peer (the mirror side). boardDef travels in the state,
@@ -717,7 +828,7 @@ start_tutorial = function(_startScene = 0) {
     compactBoard = true;   // clean lesson board (stays set through completion until return_to_menu)
     var _scenes = tutorial_scenes();
     _startScene = clamp(_startScene, 0, array_length(_scenes) - 1);   // jump straight to a scene (testing / replay)
-    tutorial = { scenes: _scenes, si: _startScene, cur: 0, checkpoint: undefined };
+    tutorial = { scenes: _scenes, si: _startScene, cur: 0, checkpoint: undefined, revealChars: 0 };
     tutorial_load_scene(tutorial.scenes[_startScene]);
 };
 
@@ -795,6 +906,7 @@ tutorial_roll_shown = function() {
 // the fail-and-retry steps). Called whenever tutorial.cur/si lands on a new step.
 tutorial_enter_step = function() {
     var _s = tutorial_step();
+    tutorial.revealChars = 0;   // restart the letter-by-letter streaming for the new step's text
     if (_s == undefined) return;
     if (variable_struct_exists(_s, "checkpoint") && _s.checkpoint) tutorial.checkpoint = variable_clone(game);
     // mirror the instruction into the log so players can read past messages back
@@ -832,8 +944,32 @@ tutorial_restore_checkpoint = function() {
 // failIf resets to its checkpoint when the attempt is judged a failure.
 tutorial_tick = function() {
     var _s = tutorial_step();
-    if (_s == undefined || _s.kind != "action") return;
-    if (_s.done(game)) { tutorial_advance(); return; }
+    if (_s == undefined) return;
+
+    // "the ship sending messages": stream the instruction text in letter by letter, playing a
+    // talk blip every couple of newly-revealed characters (every SINGLE character would spam
+    // sfxTalk calls - game_sfx dedups by exact name, and a random 1-of-10 pick mostly dodges that
+    // dedup, so throttling here is what actually keeps it from sounding like a wall of noise).
+    // TUNING KNOB: chars/frame - 0.8 is roughly a brisk ~48 chars/sec at 60fps.
+    if (variable_struct_exists(_s, "text") && _s.text != "") {
+        var _fullLen = string_length(_s.text);
+        if (tutorial.revealChars < _fullLen) {
+            var _before = floor(tutorial.revealChars);
+            tutorial.revealChars = min(_fullLen, tutorial.revealChars + 0.8);
+            var _after = floor(tutorial.revealChars);
+            for (var _ci = _before + 1; _ci <= _after; _ci++) {
+                if ((_ci mod 7) == 0 && string_char_at(_s.text, _ci) != " ") game_sfx(game, "sfxTalk" + string(irandom_range(1, 10)));
+            }
+        }
+    }
+
+    if (_s.kind != "action") return;
+    // NOTE the variable_struct_exists guards: without one, Feather can't tell `_s` is a struct and
+    // resolves `_s.done(...)` as a call to a GLOBAL script named `done` - reporting GM1021 "the
+    // function or script 'done' does not exist". The guard both fixes that and makes an action step
+    // that's missing its predicate a no-op instead of a hard crash. (failIf already did this, which
+    // is why only `done` was ever flagged.) Every action step currently defines `done`.
+    if (variable_struct_exists(_s, "done") && _s.done(game)) { tutorial_advance(); return; }
     if (variable_struct_exists(_s, "failIf") && _s.failIf(game, tutorial.checkpoint)) tutorial_restore_checkpoint();
 };
 
@@ -999,6 +1135,13 @@ return_to_menu = function() {
     advRun = undefined; advBanner = ""; advBannerHold = 0;   // leaving any adventure run
     advCull = undefined;   // abandon any pending between-mission deck cull
     advResults = "";
+    advLore = undefined;
+    advOutro = undefined;
+    // DISCARD UNSAVED RUN PROGRESS. Mission clears mutate global.advSaves in memory but never write
+    // to disk (only the hub's Save button does), so leaving a run has to re-read the file - otherwise
+    // the abandoned progress would linger in memory, show up in the menu as though it were saved, and
+    // get flushed for real by the next unrelated adventure_saves_save (Erase / Copy / New Adventure).
+    adventure_saves_load();
     compactBoard = false;
     if (tutorialSavedExpRules != undefined) { global.expRules = tutorialSavedExpRules; tutorialSavedExpRules = undefined; } // restore the player's ruleset after a tutorial
     if (batchRemaining > 0) { batchRemaining = 0; global.expRules.anims = batchSavedAnims; } // cancel a running batch

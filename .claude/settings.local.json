@@ -107,7 +107,12 @@
       "Bash(python tools/extract_boards.py)",
       "Bash(python -c \"import json; d=json.load\\(open\\('datafiles/data/enemies.json'\\)\\); print\\([e['id'] for e in d['enemies'] if 'bulblax' in e['id'].lower\\(\\) or 'sover' in e['id'].lower\\(\\)]\\)\")",
       "Bash(cd /c/Users/polyc/GameMakerProjects/DandoriBattle *)",
-      "Bash(awk '/function ai4_enumerate|function ai4_lane_removals|function ai4_lane_moves/{f=1} f&&/^}/{f=0} f' scripts/scrAI4/scrAI4.gml)"
+      "Bash(awk '/function ai4_enumerate|function ai4_lane_removals|function ai4_lane_moves/{f=1} f&&/^}/{f=0} f' scripts/scrAI4/scrAI4.gml)",
+      "Bash(node -e ' *)",
+      "Bash(powershell -Command \"Get-ChildItem sim_tourney.csv,sim_bench.txt -ErrorAction SilentlyContinue | Select-Object Name, Length\")",
+      "Bash(cd \"C:\\\\Users\\\\polyc\\\\GameMakerProjects\\\\DandoriBattle\" && find / -iname \"sim_tourney.csv\" 2>/dev/null | head -5 *)",
+      "Bash(powershell -NoProfile -Command 'Get-ChildItem -Path '\\\\''C:\\\\Users\\\\polyc\\\\AppData\\\\Local'\\\\'' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '\\\\''Dandori|GameMaker|YoYo'\\\\'' } | Select-Object FullName')",
+      "Bash(powershell -NoProfile -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\polyc\\\\AppData\\\\Local\\\\DandoriBattle' -Filter 'sim_tourney.csv' -Recurse -ErrorAction SilentlyContinue | Select-Object FullName, Length, LastWriteTime\")"
     ]
   }
 }

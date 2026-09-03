@@ -386,40 +386,116 @@ function sim_policy_by_id(_id) {
 /// unattended. Pass a list of board ids; the first starts now, the rest chain as
 /// each finishes (see the completion hook in sim_tournament_tick). Progress bar +
 /// Esc-cancel work throughout; Esc cancels the CURRENT board and stops the batch.
+/// Compact, comma/space-free timestamp for a batch id ("YYYYMMDD-HHMMSS") - used to group every
+/// tournament triggered by one user click (or one direct sim_tournament_begin call) together in the
+/// debug Results screen. Must stay space-free: the CSV line reader (sim_tourney_csv_parse) reads a
+/// whole line via file_text_read_string, which stops at the first whitespace.
+function sim_new_batch_id() {
+    var _dt = date_current_datetime();
+    return string(date_get_year(_dt)) + zpad2(date_get_month(_dt)) + zpad2(date_get_day(_dt))
+        + "-" + zpad2(date_get_hour(_dt)) + zpad2(date_get_minute(_dt)) + zpad2(date_get_second(_dt));
+}
+function zpad2(_n) { return (_n < 10 ? "0" : "") + string(_n); }
+
 function sim_tournament_run_boards(_boardList, _perPair = 100) {
     if (variable_global_exists("simTourney") && global.simTourney != undefined) return; // already running
     global.simBoardQueue = [];
     for (var _i = 1; _i < array_length(_boardList); _i++) array_push(global.simBoardQueue, _boardList[_i]);
     sim_report("");
     sim_report(">>> BATCH RUN: " + string(array_length(_boardList)) + " boards @ " + string(_perPair) + "/pairing: " + string(_boardList));
-    sim_tournament_begin(_boardList[0], _perPair);
+    sim_tournament_begin(_boardList[0], _perPair, 20260717, sim_new_batch_id());
 }
 
-function sim_tournament_begin(_boardId, _perPair = 60, _seed = 20260717) {
+/// _resumeAt (optional): { a, b, k, done } - picks up mid-matrix instead of starting from (0,0,0).
+/// Used by sim_tournament_resume to continue an interrupted run without redoing already-logged games.
+function sim_tournament_begin(_boardId, _perPair = 60, _seed = 20260717, _batchId = undefined, _resumeAt = undefined) {
     if (variable_global_exists("simTourney") && global.simTourney != undefined) return; // already running
+    if (_batchId == undefined) _batchId = sim_new_batch_id();   // a lone tournament is its own 1-board batch
     var _pols = sim_policies();
     var _n = array_length(_pols);
 
     sim_report("");
-    sim_report("######## TOURNAMENT  board " + string(_boardId) + "  "
-        + date_datetime_string(date_current_datetime()) + " ########");
+    sim_report("######## TOURNAMENT  board " + string(_boardId) + "  batch " + _batchId + "  "
+        + date_datetime_string(date_current_datetime()) + " ########"
+        + ((_resumeAt != undefined) ? ("  (RESUMING at " + string(_resumeAt.done) + " games already logged)") : ""));
     sim_report("policies " + string(_n) + ", " + string(_perPair) + " games/pairing, "
         + string(_n * _n * _perPair) + " games total, paired seeds from " + string(_seed));
 
     var _f = file_text_open_append("sim_tourney.csv");
-    file_text_write_string(_f, "board,seed,p1pol,p2pol,p1score,p2score,winner,p1switch,p2switch,p1replan,p2replan");
+    file_text_write_string(_f, "board,seed,p1pol,p2pol,p1score,p2score,winner,p1switch,p2switch,p1replan,p2replan,batch,perPair");
     file_text_writeln(_f);
     file_text_close(_f);
 
     var _wins = array_create(_n), _pts = array_create(_n);
     for (var _i = 0; _i < _n; _i++) { _wins[_i] = array_create(_n, 0); _pts[_i] = 0; }
     global.simTourney = {
-        boardId: _boardId, pols: _pols, n: _n, perPair: _perPair, seed: _seed,
-        a: 0, b: 0, k: 0, done: 0, total: _n * _n * _perPair,
+        boardId: _boardId, pols: _pols, n: _n, perPair: _perPair, seed: _seed, batchId: _batchId,
+        a: (_resumeAt != undefined) ? _resumeAt.a : 0,
+        b: (_resumeAt != undefined) ? _resumeAt.b : 0,
+        k: (_resumeAt != undefined) ? _resumeAt.k : 0,
+        done: (_resumeAt != undefined) ? _resumeAt.done : 0,
+        total: _n * _n * _perPair,
         wins: _wins, pts: _pts, played: array_create(_n, 0),
         sw: array_create(_n, 0), rp: array_create(_n, 0),
         stalls: 0, t0: get_timer(),
     };
+}
+
+/// Index of the policy in _pols (a sim_policies() roster) whose brain label matches _label, or -1.
+/// Used to map a CSV row's p1pol/p2pol string back to a position in the CURRENT roster, so a resume
+/// lines up with the same (a,b) indices the original run used - relies on sim_policies() returning
+/// entries in the same order it did when the run was originally started (true as long as the active
+/// policy list in code hasn't changed since).
+function sim_tourney_pol_index_by_label(_pols, _label) {
+    for (var _i = 0; _i < array_length(_pols); _i++) if (sim_brain_label(_pols[_i]) == _label) return _i;
+    return -1;
+}
+
+/// First (a,b) pairing (in the same a->b nested order the tournament walks) that doesn't yet have
+/// _perPair games logged, plus how many of that pairing's games already exist (= the k to resume at).
+/// undefined if every pairing already has _perPair games (nothing to resume).
+function sim_tourney_resume_point(_pairPlayed, _n, _perPair) {
+    for (var _a = 0; _a < _n; _a++) {
+        var _prow = _pairPlayed[_a];
+        for (var _b = 0; _b < _n; _b++) if (_prow[_b] < _perPair) return { a: _a, b: _b, k: _prow[_b] };
+    }
+    return undefined;
+}
+
+/// Expected total game count for a parsed run, or undefined if the run predates the `perPair` CSV
+/// column (can't tell what it was aiming for). Uses the CURRENT active policy roster (sim_policies)
+/// on the assumption it hasn't changed since the run - true for "was this run finished" checks done
+/// shortly after the fact, which is the only time this matters.
+function sim_tourney_run_expected(_run) {
+    if (_run.perPair == undefined) return undefined;
+    var _n = array_length(sim_policies());
+    return _n * _n * _run.perPair;
+}
+
+/// Resume an interrupted run exactly where it left off: reconstructs which (P1,P2) pairings already
+/// have a full _perPair games logged from the run's own rows, finds the first pairing that doesn't,
+/// and starts a fresh sim_tournament_begin there under the SAME batch id (so the completed games land
+/// in the same folder). No-ops if the run predates the perPair column, the roster has changed so rows
+/// can't be mapped back to policy indices, or the run already has every pairing complete.
+function sim_tournament_resume(_run) {
+    if (variable_global_exists("simTourney") && global.simTourney != undefined) return; // already running
+    if (_run.perPair == undefined) return;   // logged before this column existed - can't tell the target
+    var _pols = sim_policies();
+    var _n = array_length(_pols);
+    var _pairPlayed = array_create(_n);
+    for (var _a = 0; _a < _n; _a++) _pairPlayed[_a] = array_create(_n, 0);
+    var _totalPlayed = 0;
+    for (var _i = 0; _i < array_length(_run.rows); _i++) {
+        var _r = _run.rows[_i];
+        var _ai = sim_tourney_pol_index_by_label(_pols, _r.p1pol);
+        var _bi = sim_tourney_pol_index_by_label(_pols, _r.p2pol);
+        if (_ai == -1 || _bi == -1) continue;   // roster changed since this run - can't place this row
+        var _prow = _pairPlayed[_ai]; _prow[_bi] += 1;
+        _totalPlayed += 1;
+    }
+    var _pt = sim_tourney_resume_point(_pairPlayed, _n, _run.perPair);
+    if (_pt == undefined) return;   // every pairing already complete - nothing to resume
+    sim_tournament_begin(_run.boardId, _run.perPair, 20260717, _run.batchId, { a: _pt.a, b: _pt.b, k: _pt.k, done: _totalPlayed });
 }
 
 /// Run ONE tournament game (called once per frame by Step_0 while active).
@@ -454,7 +530,7 @@ function sim_tournament_tick() {
         + sim_brain_label(_pols[_st.a]) + "," + sim_brain_label(_pols[_st.b])
         + "," + string(_r.p0) + "," + string(_r.p1) + "," + string(_r.winner)
         + "," + string(_c0.switches) + "," + string(_c1.switches)
-        + "," + string(_c0.replans) + "," + string(_c1.replans));
+        + "," + string(_c0.replans) + "," + string(_c1.replans) + "," + string(_st.batchId) + "," + string(_st.perPair));
     file_text_writeln(_f);
     file_text_close(_f);
 
@@ -470,14 +546,15 @@ function sim_tournament_tick() {
             if (_st.a >= _st.n) {
                 sim_tournament_report(_st);
                 var _pp = _st.perPair;
+                var _batchIdNext = _st.batchId;   // capture before the struct is dropped
                 global.simTourney = undefined;
-                // BATCH: if more boards are queued, roll straight into the next one
-                // so a multi-board run finishes unattended (no per-map restart)
+                // BATCH: if more boards are queued, roll straight into the next one, carrying the SAME
+                // batch id forward so the whole chain groups together in the Results screen
                 if (variable_global_exists("simBoardQueue") && array_length(global.simBoardQueue) > 0) {
                     var _next = global.simBoardQueue[0];
                     array_delete(global.simBoardQueue, 0, 1);
                     sim_report(">>> BATCH: starting next board '" + _next + "'  (" + string(array_length(global.simBoardQueue)) + " left after)");
-                    sim_tournament_begin(_next, _pp);
+                    sim_tournament_begin(_next, _pp, 20260717, _batchIdNext);
                 }
             }
         }
@@ -545,6 +622,208 @@ function string_format_width(_s, _w) {
     var _o = string(_s);
     while (string_length(_o) < _w) _o += " ";
     return _o;
+}
+
+// ---------- debug-screen result readouts (read sim_tourney.csv fresh off disk - no in-session
+// ---------- struct is trusted, so the list survives a restarted engine and shows every run ever
+// ---------- logged, not just the one that just finished) --------------------------------------
+
+/// Does _str look like a plain real number (digits, one optional leading sign, one optional '.')?
+/// Used to validate a CSV field BEFORE calling real() on it - real() throws hard on anything that
+/// isn't parseable, and a torn/truncated write (e.g. the app was killed mid-row during one of this
+/// session's earlier hangs) can leave a row with a garbage fragment in a numeric column. Scans a
+/// single short field string - cheap regardless of how big the file is.
+function sim_looks_numeric(_str) {
+    var _n = string_length(_str);
+    if (_n == 0) return false;
+    for (var _i = 1; _i <= _n; _i++) {
+        var _ch = string_char_at(_str, _i);
+        if (!((_ch >= "0" && _ch <= "9") || _ch == "-" || _ch == "+" || _ch == ".")) return false;
+    }
+    return true;
+}
+
+/// Manual comma split - sim_tourney.csv fields never contain commas or spaces, so this is all we need
+/// (avoids relying on string_split, which isn't used anywhere else in this codebase).
+function csv_split(_line) {
+    var _out = [];
+    var _len = string_length(_line);
+    var _start = 1;   // 1-based index of the next unread character
+    var _guard = _len + 2;   // hard cap: can never be more delimiters than characters
+    // NOTE: scans with string_pos_ext(needle, haystack, startpos) instead of repeatedly
+    // string_copy-ing the shrinking TAIL of the string into a new local each iteration - the
+    // earlier version did that, and re-copying an ever-smaller-but-still-large remainder every
+    // iteration is O(n^2) on a long line/file, which is almost certainly what made the app "freeze"
+    // once sim_tourney.csv grew large (many thousand rows) rather than a true infinite loop.
+    while (_guard > 0) {
+        _guard -= 1;
+        var _p = string_pos_ext(",", _line, _start);
+        if (_p == 0) { array_push(_out, string_copy(_line, _start, _len - _start + 1)); break; }
+        array_push(_out, string_copy(_line, _start, _p - _start));
+        _start = _p + 1;
+    }
+    return _out;
+}
+
+/// Index of _val in _arr, or -1. (arr_has, scrGameData.gml, only returns bool.)
+function arr_index_of(_arr, _val) {
+    for (var _i = 0; _i < array_length(_arr); _i++) if (_arr[_i] == _val) return _i;
+    return -1;
+}
+
+/// Parse sim_tourney.csv into a list of RUNS. A "run" = one contiguous block starting at a repeated
+/// header line ("board,seed,..."), written by exactly one sim_tournament_begin call - i.e. one
+/// board's full n x n policy matrix. Clicking "Tournament: ALL/Selected Boards" with 2+ boards
+/// chains several sim_tournament_begin calls back to back (sim_tournament_tick's queue hook), so
+/// that produces several SEPARATE runs in the file (one per board), not one merged run - the file
+/// is naturally organized per individual map tournament, never per user click/session.
+/// Find (or create) the batch folder with this id in _batches and append _run to it. Batches appear
+/// in _batches in first-encountered order (roughly chronological, since real batch ids sort that way
+/// and the file is append-only).
+function sim_tourney_batch_attach(_batches, _batchId, _run) {
+    for (var _i = 0; _i < array_length(_batches); _i++) {
+        if (_batches[_i].id == _batchId) { array_push(_batches[_i].runs, _run); return; }
+    }
+    array_push(_batches, { id: _batchId, runs: [_run] });
+}
+
+/// Parse sim_tourney.csv into a list of BATCH FOLDERS: [{id, runs:[{boardId, rows}]}]. A "run" is one
+/// contiguous header block = one board's full policy matrix (see the doc comment this replaced); a
+/// "batch" groups every run that shares a batch id, i.e. everything triggered by one user click (a
+/// multi-board "Tournament: ALL/Selected Boards" run shares one id across all its boards - the id is
+/// threaded through sim_tournament_run_boards -> sim_tournament_begin -> the queue-continuation call).
+/// BACKWARDS COMPATIBILITY: rows logged before the batch column existed have only 11 fields (no
+/// trailing batch id) - those runs are grouped into a folder literally titled "Unknown".
+/// Extract byte range [_start, _start+_len) of buffer _buf as a GML string, via a scratch buffer.
+/// A flat O(_len) byte copy regardless of _buf's total size. Deliberately NOT done by slicing a big
+/// GML string (string_copy/string_pos_ext): GML strings are UTF-8, and character-position lookups
+/// on them are not guaranteed O(1) on this runtime - repeatedly scanning further into one huge
+/// string (as an earlier version of this parser did, loading the whole multi-MB sim_tourney.csv as
+/// ONE string and walking it) degrades to effectively O(n^2) even though the high-level algorithm
+/// looks linear, which is what actually caused the "app completely stops responding" hang - not a
+/// true infinite loop. Buffers are raw memory with genuine O(1) random access, so scanning the
+/// BUFFER (below) and only ever converting one short LINE to a string at a time avoids this.
+function buf_extract_string(_buf, _start, _len) {
+    if (_len <= 0) return "";
+    var _tmp = buffer_create(_len, buffer_fixed, 1);
+    buffer_copy(_buf, _start, _len, _tmp, 0);
+    var _str = buffer_read(_tmp, buffer_text);
+    buffer_delete(_tmp);
+    return _str;
+}
+
+/// Split a loaded file buffer into lines on \n (stripping a trailing \r), scanning byte-by-byte with
+/// buffer_peek (O(1) random access into raw memory - see buf_extract_string's doc comment for why
+/// that distinction from GML string scanning matters on a large file). Does NOT close/delete _buf.
+function sim_tourney_buffer_split_lines(_buf) {
+    var _lines = [];
+    var _size = buffer_get_size(_buf);
+    var _lineStart = 0;
+    for (var _i = 0; _i < _size; _i++) {
+        if (buffer_peek(_buf, _i, buffer_u8) != 10) continue;   // '\n'
+        var _len = _i - _lineStart;
+        if (_len > 0 && buffer_peek(_buf, _i - 1, buffer_u8) == 13) _len -= 1;   // strip trailing '\r'
+        array_push(_lines, buf_extract_string(_buf, _lineStart, _len));
+        _lineStart = _i + 1;
+    }
+    if (_lineStart < _size) array_push(_lines, buf_extract_string(_buf, _lineStart, _size - _lineStart));
+    return _lines;
+}
+
+function sim_tourney_csv_parse() {
+    var _batches = [];
+    if (!file_exists("sim_tourney.csv")) return _batches;
+    var _buf = buffer_load("sim_tourney.csv");
+    if (_buf < 0) return _batches;
+    var _lines = sim_tourney_buffer_split_lines(_buf);
+    buffer_delete(_buf);
+
+    var _cur = undefined;
+    var _curAttached = false;   // has _cur been pushed into its batch folder yet? (we only learn the
+                                 // batch id once the first data row arrives, since the header carries none)
+    for (var _li = 0; _li < array_length(_lines); _li++) {
+        var _line = _lines[_li];
+        if (_line == "") continue;
+        var _fields = csv_split(_line);
+        if (array_length(_fields) < 1) continue;
+        if (_fields[0] == "board") { _cur = { boardId: undefined, perPair: undefined, rows: [] }; _curAttached = false; continue; }
+        if (_cur == undefined || array_length(_fields) < 11) continue;   // stray line before any header
+        // guard every numeric column BEFORE calling real() - a torn/truncated write (app killed
+        // mid-row during an earlier hang/crash) can leave garbage in what should be a number, and
+        // real() throws hard on that; skip just this one corrupt row rather than crash the whole
+        // Results screen over it
+        if (!sim_looks_numeric(_fields[4]) || !sim_looks_numeric(_fields[5]) || !sim_looks_numeric(_fields[6])
+            || !sim_looks_numeric(_fields[7]) || !sim_looks_numeric(_fields[8]) || !sim_looks_numeric(_fields[9]) || !sim_looks_numeric(_fields[10])) continue;
+        var _row = {
+            board: _fields[0], seed: _fields[1], p1pol: _fields[2], p2pol: _fields[3],
+            p1score: real(_fields[4]), p2score: real(_fields[5]), winner: real(_fields[6]),
+            p1switch: real(_fields[7]), p2switch: real(_fields[8]), p1replan: real(_fields[9]), p2replan: real(_fields[10]),
+        };
+        _cur.boardId = _row.board;
+        if (array_length(_fields) >= 13 && _fields[12] != "" && sim_looks_numeric(_fields[12])) _cur.perPair = real(_fields[12]);   // undefined for pre-column/corrupt rows
+        array_push(_cur.rows, _row);
+        if (!_curAttached) {
+            var _batchId = (array_length(_fields) >= 12 && _fields[11] != "") ? _fields[11] : "Unknown";
+            sim_tourney_batch_attach(_batches, _batchId, _cur);
+            _curAttached = true;
+        }
+    }
+    return _batches;
+}
+
+/// Turn one parsed run's rows into a display-ready summary: per-policy win rate (as P1) / avg score /
+/// plan-churn, plus the P1-vs-P2 win matrix - the same numbers sim_tournament_report prints to the
+/// console, just computed from the logged CSV rows instead of the live tournament struct.
+function sim_tourney_run_aggregate(_run) {
+    var _rows = _run.rows;
+    var _n = array_length(_rows);
+    var _pols = [];
+    for (var _i = 0; _i < _n; _i++) {
+        var _r = _rows[_i];
+        if (arr_index_of(_pols, _r.p1pol) == -1) array_push(_pols, _r.p1pol);
+        if (arr_index_of(_pols, _r.p2pol) == -1) array_push(_pols, _r.p2pol);
+    }
+    var _np = array_length(_pols);
+    var _wins = array_create(_np);
+    var _pairPlayed = array_create(_np);   // pairPlayed[a][b] = games where a was P1 vs b as P2 (for the win-matrix heatmap's fraction - NOT assumed to be a constant perPair, a cancelled run can be uneven)
+    var _played = array_create(_np, 0);
+    var _playedAsP1 = array_create(_np, 0);
+    var _pts = array_create(_np, 0);
+    var _sw = array_create(_np, 0);
+    var _rp = array_create(_np, 0);
+    for (var _a = 0; _a < _np; _a++) { _wins[_a] = array_create(_np, 0); _pairPlayed[_a] = array_create(_np, 0); }
+
+    for (var _i2 = 0; _i2 < _n; _i2++) {
+        var _r2 = _rows[_i2];
+        var _ai = arr_index_of(_pols, _r2.p1pol);
+        var _bi = arr_index_of(_pols, _r2.p2pol);
+        // a draw (winner == -1, see game_finalize_gameover / scrGame.gml:2516) counts as half a win for
+        // P1 - this feeds both the matrix cell and the OVERALL win-rate %, which sums this same matrix
+        if (_r2.winner == 0) { var _wr = _wins[_ai]; _wr[_bi] += 1; }
+        else if (_r2.winner == -1) { var _wr = _wins[_ai]; _wr[_bi] += 0.5; }
+        var _ppr = _pairPlayed[_ai]; _ppr[_bi] += 1;
+        _played[_ai] += 1; _played[_bi] += 1;
+        _playedAsP1[_ai] += 1;
+        _pts[_ai] += _r2.p1score; _pts[_bi] += _r2.p2score;
+        _sw[_ai] += _r2.p1switch; _sw[_bi] += _r2.p2switch;
+        _rp[_ai] += _r2.p1replan; _rp[_bi] += _r2.p2replan;
+    }
+
+    var _summary = [];
+    for (var _p = 0; _p < _np; _p++) {
+        var _w = 0;
+        var _wrowS = _wins[_p];
+        for (var _b = 0; _b < _np; _b++) _w += _wrowS[_b];
+        array_push(_summary, {
+            label: _pols[_p],
+            winRate: _w / max(1, _playedAsP1[_p]),
+            avgScore: _pts[_p] / max(1, _played[_p]),
+            swPerGame: _sw[_p] / max(1, _played[_p]),
+            rpPerGame: _rp[_p] / max(1, _played[_p]),
+            played: _played[_p],
+        });
+    }
+    return { boardId: _run.boardId, pols: _pols, wins: _wins, pairPlayed: _pairPlayed, summary: _summary, gameCount: _n };
 }
 
 // ---------- scenario tests (fast, deterministic - verify a decision node's
@@ -2841,7 +3120,7 @@ function sim_test_immunity_model() {
 /// fine. Ice pikmin exempt. Rule OFF = ice is a wall (old behaviour). Toggles the expRule (save+restore).
 function sim_test_ice_floor() {
     sim_report("");
-    sim_report("=== SCENARIO TEST: ice floor (accessible, no forward exit) ===");
+    sim_report("=== SCENARIO TEST: ice floor (accessible; no SAME-MOVE forward exit) ===");
     var _all = true;
     var _was = global.expRules.iceFloor;
     var _ice = function(_g, _i) { game_space_set_type(_g.board.lanes[0].spaces[_i], "ice"); };
@@ -2851,23 +3130,31 @@ function sim_test_ice_floor() {
     _all &= sim_expect(game_dest_legal(_g, 0, "red", 0, 1) ? 1 : 0, 1, "ice ON: a non-ice pikmin CAN stand on ice (idx1)");
     _all &= sim_expect(game_dest_legal(_g, 0, "red", 0, 2) ? 1 : 0, 0, "ice ON: a non-ice pikmin CAN'T exit ice forward onto non-ice (idx2)");
     _all &= sim_expect(game_dest_legal(_g, 0, "ice", 0, 2) ? 1 : 0, 1, "ice ON: an ICE pikmin crosses ice freely (idx2)");
-    _all &= sim_expect(game_can_reach_home(_g, 0, "red", 0, 1) ? 1 : 0, 1, "ice ON: a non-ice pikmin STANDING on ice CAN step home off its entry side");
-    // RETREAT is NEVER ice-gated, even crossing an ice run: a lane can only be entered from its own home
-    // edge, so heading home is always "the way you came" (this is a deliberate simplification - see memory).
+    _all &= sim_expect(game_can_reach_home(_g, 0, "red", 0, 1, false, true) ? 1 : 0, 1, "ice ON: a pikmin that STARTED the turn on ice can walk home off it");
+    _all &= sim_expect(game_can_reach_home(_g, 0, "red", 0, 1, false, false) ? 1 : 0, 0, "ice ON: one that only reached that ice this move can NOT continue home off it");
+    // RETREAT obeys the same single rule as everything else: you may cross ONTO ice, but not step off
+    // it in the same move - so a token walking home through a frozen run stops ON the ice and finishes
+    // next turn. (There is no directional exemption; "must stop on it for a turn to pass it".)
     var _gc = sim_blank("familiargrotto"); _ice(_gc, 2);
     global.expRules.iceFloor = true;
-    _all &= sim_expect(game_can_reach_home(_gc, 0, "red", 0, 3) ? 1 : 0, 1, "ice ON: retreat toward home is UNRESTRICTED even crossing an ice run");
+    _all &= sim_expect(game_can_reach_home(_gc, 0, "red", 0, 3) ? 1 : 0, 0, "ice ON: retreat can't cross an ice run in one move - it stops on the ice");
+    _all &= sim_expect(game_can_reach_home(_gc, 0, "winged", 0, 3) ? 1 : 0, 1, "ice ON: WINGED retreats straight over the ice run (flies_over_hazards)");
     // a RUN of ice = one big ice space: reach within it, not past its far edge
     var _g2 = sim_blank("familiargrotto"); _ice(_g2, 1); _ice(_g2, 2);
     global.expRules.iceFloor = true;
     _all &= sim_expect(game_dest_legal(_g2, 0, "red", 0, 2) ? 1 : 0, 1, "ice ON: non-ice moves ice->ice within the frozen run (idx2)");
     _all &= sim_expect(game_dest_legal(_g2, 0, "red", 0, 3) ? 1 : 0, 0, "ice ON: still can't exit the far edge of the ice run (idx3)");
-    // REGRESSION (2026-08-14 bug: a rock reached centre over an all-ice lane): a token ALREADY STANDING on
-    // ice (placed there on a prior turn, not entering it THIS move) must still be blocked from pushing
-    // further toward centre - game_direct_reachable is the path a field token's "push deeper" order takes.
-    _all &= sim_expect(game_direct_reachable(_g2, 0, "red", 0, 2, 3) ? 1 : 0, 0, "ice ON: a token ALREADY on ice (idx2) can't be pushed further to non-ice (idx3)");
-    _all &= sim_expect(game_direct_reachable(_g2, 0, "red", 0, 2, 1) ? 1 : 0, 1, "ice ON: that same token CAN shuffle homeward within the ice run (idx2->idx1)");
-    _all &= sim_expect(game_direct_reachable(_g2, 0, "red", 0, 0, 3) ? 1 : 0, 0, "ice ON: direct_reachable also blocks a fresh crossing straight through the run (idx0->idx3)");
+    // RULE REVISION 2026-08-20 (user): a token that STARTED THE TURN on ice leaves in EITHER direction
+    // for free - it's only the same-move "walk on and straight off the far end" that's forbidden. The
+    // _startedOnIce flag (game_direct_reachable's last arg) is what game_order_move derives per token
+    // from movedThisTurn; false = the strict same-move case.
+    _all &= sim_expect(game_direct_reachable(_g2, 0, "red", 0, 2, 3, 0, true) ? 1 : 0, 1, "ice ON: a token that STARTED the turn on ice (idx2) CAN step off forward to non-ice (idx3)");
+    _all &= sim_expect(game_direct_reachable(_g2, 0, "red", 0, 2, 3, 0, false) ? 1 : 0, 0, "ice ON: a token that only reached that ice THIS move can NOT continue off it (idx2->idx3)");
+    _all &= sim_expect(game_direct_reachable(_g2, 0, "red", 0, 2, 1, 0, false) ? 1 : 0, 1, "ice ON: shuffling homeward within the ice run is always fine (idx2->idx1)");
+    _all &= sim_expect(game_direct_reachable(_g2, 0, "red", 0, 0, 3, 0, false) ? 1 : 0, 0, "ice ON: a fresh crossing straight through the run is still blocked (idx0->idx3)");
+    // WINGED ignores GROUND hazards outright (flies_over_hazards), so ice is not terrain to it at all -
+    // it was wrongly caught by the forward-exit rule until 2026-08-20.
+    _all &= sim_expect(game_dest_legal(_g2, 0, "winged", 0, 3) ? 1 : 0, 1, "ice ON: WINGED crosses the whole ice run and exits forward (idx3)");
     // rule OFF: ice is a WALL again - non-ice can't even step on it
     global.expRules.iceFloor = false;
     _all &= sim_expect(game_dest_legal(_g, 0, "red", 0, 1) ? 1 : 0, 0, "ice OFF: ice is a wall - non-ice can't enter (idx1)");

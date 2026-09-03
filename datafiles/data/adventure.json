@@ -273,6 +273,11 @@
        "name": "Ionium Jet"
       },
       {
+       "id": "ioniumjet",
+       "weight": 14,
+       "name": "Ionium Jet"
+      },
+      {
        "id": "mainengine",
        "weight": 20,
        "name": "Main Engine"

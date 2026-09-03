@@ -1,5 +1,25 @@
 frameTick += 1;
 
+// tournament pump: while a run is active, tick one game and hold the live game (AI, cinematics,
+// input) - the sim uses its own game structs throughout, entirely independent of `game`/`mode`.
+// MUST sit above the `mode != "playing"` exit further down: tournaments triggered from the debug
+// menu screens run with mode=="menu" the whole time (no start_game call), so if this pump lived
+// below that exit (where it used to be - it was only ever reached during actual gameplay, which is
+// how the F4/F-key shortcuts were meant to be used) it would NEVER tick from a menu screen - the
+// progress overlay would just sit at 0 forever, looking exactly like a hang. (Found 2026-08-17: the
+// debug screen's "Tournament: Selected/ALL Boards" buttons exposed this - they're the first thing
+// to ever trigger a tournament from the menu rather than mid-game.)
+if (variable_global_exists("simTourney") && global.simTourney != undefined) {
+    if (keyboard_check_pressed(vk_escape)) { sim_tournament_cancel(); exit; }
+    sim_tournament_tick();
+    exit;
+}
+
+// between-mission adventure LOG: advance its letter-by-letter reveal. MUST sit above the
+// `mode != "playing"` exit below - that screen runs with mode=="menu", so a tick placed after it
+// would never run (same trap the tournament pump above hit).
+adventure_lore_tick();
+
 music_sync();   // start/stop/switch the map's day track (silent in menus + when the map has no music)
 
 // menu / pause SFX on state change: entering any sub-screen (or opening pause) = open, returning to
@@ -126,7 +146,7 @@ if (game.phase == "gather" && ctl[game.activePlayer] == "human" && !tutorial_rol
 // --- toggles --- (letter/space/tab keys are suppressed while typing in the chat box)
 if (!chatFocused && keyboard_check_pressed(vk_space)) autoOrbit = !autoOrbit;
 if (keyboard_check_pressed(vk_f11)) window_set_fullscreen(!window_get_fullscreen());
-if (!chatFocused && keyboard_check_pressed(vk_tab))   showDebug = !showDebug;
+if (!chatFocused && global.settings.devTools && keyboard_check_pressed(vk_tab))   showDebug = !showDebug;
 if (!chatFocused && keyboard_check_pressed(ord("V")))  showCollection = !showCollection;
 if (keyboard_check_pressed(vk_f1)) { // cycle P2's controller mid-game
     ctl[1] = (ctl[1] == "human") ? "v1" : ((ctl[1] == "v1") ? "v2" : ((ctl[1] == "v2") ? "v3" : ((ctl[1] == "v3") ? "v3b" : ((ctl[1] == "v3b") ? "v4" : "human"))));
@@ -170,13 +190,6 @@ if (keyboard_check_pressed(vk_f9)) { sim_run_scenarios(); }
 //   F5 = cascade2(v3b,P1) vs cascade(v3,P2), RANDOM seed (the real question: v3b vs cascade)
 if (keyboard_check_pressed(vk_f7)) sim_probe(boardDef.id, "v4", "base", 20260717);
 if (keyboard_check_pressed(vk_f5)) sim_probe(boardDef.id, "v4", "cascade", 20260717 + irandom(99));
-// tournament pump: while a run is active, tick one game and hold the live game
-// (AI, cinematics, input) - the sim uses its own game structs throughout
-if (variable_global_exists("simTourney") && global.simTourney != undefined) {
-    if (keyboard_check_pressed(vk_escape)) { sim_tournament_cancel(); exit; }
-    sim_tournament_tick();
-    exit;
-}
 // F6: lane audit on THIS board (scrSim) - v2's lane evaluator vs tournament ground
 // truth over the same 60 seeded worlds. Static, ~a second, no games played.
 if (keyboard_check_pressed(vk_f6)) { sim_lane_audit(boardDef.id, 60); }
@@ -220,7 +233,9 @@ if (advRun != undefined && mode == "playing" && advBanner == "" && advResults ==
         advBanner = "failed"; advBannerHold = 0;                 // out of days before clearing
         // save this play's population history onto the failed mission so the menu can still graph it
         var _failCp = adventure_mission_checkpoint(advRun.slot, advRun.scen, advRun.board);
-        if (_failCp != undefined && variable_struct_exists(game, "popHistory")) { _failCp.popHistory = game.popHistory; adventure_saves_save(); }
+        // in-memory only (so the results screen can still graph it); the between-mission hub's Save
+        // button is the only thing that writes run progress to disk
+        if (_failCp != undefined && variable_struct_exists(game, "popHistory")) _failCp.popHistory = game.popHistory;
         sfx("sfxWhistle"); music_stop();                         // end-of-board whistle + cut the track
     } else if (game.phase != "gameover"
                && array_length(game.treasures) == 0 && array_length(game.departing) == 0

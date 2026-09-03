@@ -790,6 +790,18 @@ for (var _p = 0; _p < 2; _p++) {
         // normal walking resumes.
         var _blown = variable_struct_exists(_tok, "blown") && _tok.blown;
         if (_blown) _mySpd = max(_mySpd, BLOWN_SLIDE);
+        // WALK VIA HOME: game_order_move stamps `routeVia` (a list of lane indices) on a token whose
+        // order actually routes through home - which is how a field->field move legally works. Steer
+        // to each lane's home-edge point in turn before heading for the real target, so the group is
+        // SEEN walking back down its lane and out along the new one instead of cutting the corner.
+        // A same-lane order leaves one waypoint = walk down, turn around, walk back up.
+        // Consumed (mutated) here as each point is reached; an empty/absent list = straight walk.
+        if (variable_struct_exists(_tok, "routeVia") && array_length(_tok.routeVia) > 0) {
+            var _wpX = board_space_xy(board, _tok.routeVia[0], 0)[0];   // lane column; x ignores the space index
+            var _wpY = board_home_y(board, _p);
+            if (point_distance(_tok.vx, _tok.vy, _wpX, _wpY) <= _mySpd + 0.5) array_delete(_tok.routeVia, 0, 1);
+            else { _tx = _wpX; _ty = _wpY; }
+        }
         var _travel = point_distance(_tok.vx, _tok.vy, _tx, _ty);
         // while clinging to a foe, FREEZE the ground position (vx/vy) so any deaths this beat
         // don't quietly re-slot the survivors mid-air - they should still be spread the OLD way

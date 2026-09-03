@@ -672,17 +672,21 @@ function game_dest_legal(_g, _p, _typeId, _lane, _idx, _waterOk = false) {
     var _s = (_p == 0) ? 0 : _laneLen - 1;
     var _prevDist = abs(((_p == 0) ? -1 : _laneLen) - _peak); // HOME sits beyond the outermost space
     // ICE FLOOR rule for a NON-ice pikmin: it may stand anywhere on a run of ice, but it can't step OFF
-    // the ice TOWARD CENTRE onto a non-ice tile - it entered the ice from the HOME side, so it can only
-    // leave that way (retreat) or onto more ice. Directional (toward-centre = _toward); applies whether
-    // it's crossing into the ice this move OR already standing on it.
-    var _iceRule = global.expRules.iceFloor && !arr_has(_typeDef.immunities, "ice");
+    // the ice TOWARD CENTRE onto a non-ice tile in the SAME move - so a deploy from home stops on the
+    // last ice tile of the run. (A token that STARTED THE TURN on ice is free to walk off either way;
+    // that's handled in game_direct_reachable, which is the function that walks from a field position -
+    // this one always walks from HOME, where the origin is never ice.)
+    // WINGED is exempt like ice-immunity is: flies_over_hazards means it ignores GROUND hazards
+    // entirely, so ice is not terrain to it (missing this made winged pikmin stick to the ice).
+    var _iceRule = global.expRules.iceFloor && !arr_has(_typeDef.immunities, "ice")
+                   && !arr_has(_typeDef.traits, "flies_over_hazards");
     var _prevIce = false;       // HOME (beyond the edge) is not ice
     while (_s != _idx) {
         var _toward = abs(_s - _peak) < _prevDist;
         var _space = _g.board.lanes[_lane].spaces[_s];
         if (_space.enemy != undefined) return false;                 // fight it, or stop short of it
         if (game_treasure_at(_g, _lane, _s) != undefined) return false;
-        if (_iceRule && _prevIce && _toward && !game_space_is_ice(_space)) return false;   // no forward exit off the ice
+        if (_iceRule && _prevIce && !game_space_is_ice(_space)) return false;   // can't step OFF the ice this move (either direction)
         if (!game_type_can_enter(_typeDef, _space, _toward, false, _waterOk, game_no_imm(_g))) return false; // wall / non-immune hazard
         _prevIce = game_space_is_ice(_space);
         _prevDist = abs(_s - _peak);
@@ -690,7 +694,7 @@ function game_dest_legal(_g, _p, _typeId, _lane, _idx, _waterOk = false) {
         if (_s < 0 || _s >= _laneLen) return false;
     }
     var _towardDest = abs(_idx - _peak) < _prevDist;
-    if (_iceRule && _prevIce && _towardDest && !game_space_is_ice(_g.board.lanes[_lane].spaces[_idx])) return false;
+    if (_iceRule && _prevIce && !game_space_is_ice(_g.board.lanes[_lane].spaces[_idx])) return false;
     return game_type_can_enter(_typeDef, _g.board.lanes[_lane].spaces[_idx], _towardDest, true, _waterOk, game_no_imm(_g));
 }
 
@@ -734,32 +738,43 @@ function game_lifeguard_ok(_g, _p, _dst, _counts) {
 /// crossed inward can't be recrossed, etc. Enemies/piles between it and home block
 /// the retreat just as they'd block a deploy. A token that can't reach home is
 /// trapped and may only attach to a card it can still walk to (see game_move_legal).
-function game_can_reach_home(_g, _p, _typeId, _lane, _srcIdx, _waterOk = false) {
+function game_can_reach_home(_g, _p, _typeId, _lane, _srcIdx, _waterOk = false, _startedOnIce = false) {
     var _typeDef = pikmin_type_get(_typeId);
     var _peak = _g.board.peakRow;
     var _dir = (_p == 0) ? -1 : 1;               // toward this player's home edge
     var _homeEdge = (_p == 0) ? 0 : array_length(_g.board.lanes[_lane].spaces) - 1;
     var _s = _srcIdx;
     var _prevDist = abs(_srcIdx - _peak);
-    // ICE FLOOR: retreating toward HOME needs no ice check at all - a lane can only ever be entered from
-    // its own home edge, so heading home is always "the way you came" and never blocked by the rule
-    // (only the toward-centre exit off ice is restricted; see game_dest_legal / game_direct_reachable).
+    // ICE FLOOR applies to the walk home exactly as it does anywhere else: you may cross onto ice,
+    // but you can't step back OFF it in the same move - so a token coming home through a frozen run
+    // stops on the ice and finishes the trip next turn. (A token that STARTED the turn on ice is
+    // free to leave, which is what makes that second leg work.)
+    var _iceRule = global.expRules.iceFloor && !arr_has(_typeDef.immunities, "ice")
+                   && !arr_has(_typeDef.traits, "flies_over_hazards") && !_startedOnIce;
+    var _prevIce = !_startedOnIce && game_space_is_ice(_g.board.lanes[_lane].spaces[_srcIdx]);
     while (_s != _homeEdge) {
         _s += _dir;
         var _toward = abs(_s - _peak) < _prevDist;   // this step heads toward the centre / uphill?
         var _space = _g.board.lanes[_lane].spaces[_s];
         if (_space.enemy != undefined) return false;
         if (game_treasure_at(_g, _lane, _s) != undefined) return false;
+        if (_iceRule && _prevIce && !game_space_is_ice(_space)) return false;   // can't step off the ice this move
         if (!game_type_can_enter(_typeDef, _space, _toward, false, _waterOk, game_no_imm(_g))) return false;
+        _prevIce = game_space_is_ice(_space);
         _prevDist = abs(_s - _peak);
     }
+    // leaving the lane's home edge INTO home is itself a step off the ice, if that edge is frozen
+    if (_iceRule && _prevIce) return false;
     return true;
 }
 
 /// Can a field token walk straight along its lane from src to dst (no home trip)?
 /// Used for the "attach to a card behind/ahead of you" exception: intermediate
 /// spaces must be standable and unblocked, and the destination enterable/attackable.
-function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx, _srcSide = 0) {
+/// _startedOnIce: this token began the TURN on its current ice tile, so the ice-floor forward-exit
+/// restriction doesn't apply to it (see the rule note inside). Callers that can't tell per token
+/// leave it false = strict; game_order_move works it out from movedThisTurn and enforces per token.
+function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx, _srcSide = 0, _startedOnIce = false) {
     if (_srcIdx == _dstIdx) return true;
     var _typeDef = pikmin_type_get(_typeId);
     // MID-TILE WALL: when the caller knows which half of the src blocker this token
@@ -771,17 +786,20 @@ function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx, _srcSid
     var _dir = (_dstIdx > _srcIdx) ? 1 : -1;
     var _s = _srcIdx;
     var _prevDist = abs(_srcIdx - _peak);
-    // ICE FLOOR: same directional rule as game_dest_legal - can't step off ice TOWARD CENTRE onto non-ice
-    // (this function can walk either direction, so gate on the per-step _toward flag, not an assumed
-    // direction). Retreat-direction steps off ice are never blocked.
-    var _iceRule = global.expRules.iceFloor && !arr_has(_typeDef.immunities, "ice");
-    var _prevIce = game_space_is_ice(_g.board.lanes[_lane].spaces[_srcIdx]);   // the tile it's standing on
+    // ICE FLOOR (rule as of 2026-08-20): you may WALK ONTO ice freely but not past the end of an ice
+    // run in the same move; however a token that STARTED THE TURN standing on ice leaves in either
+    // direction for free. So the restriction is switched off entirely for _startedOnIce, and
+    // otherwise applies per-step on the toward-centre flag (this function can walk either way).
+    // Retreat-direction steps off ice are never blocked. Winged is exempt (see game_dest_legal).
+    var _iceRule = global.expRules.iceFloor && !arr_has(_typeDef.immunities, "ice")
+                   && !arr_has(_typeDef.traits, "flies_over_hazards") && !_startedOnIce;
+    var _prevIce = !_startedOnIce && game_space_is_ice(_g.board.lanes[_lane].spaces[_srcIdx]);   // the tile it's standing on
     while (_s != _dstIdx) {
         _s += _dir;
         var _toward = abs(_s - _peak) < _prevDist;
         var _space = _g.board.lanes[_lane].spaces[_s];
         var _isDest = (_s == _dstIdx);
-        if (_iceRule && _prevIce && _toward && !game_space_is_ice(_space)) return false;   // no forward exit off the ice
+        if (_iceRule && _prevIce && !game_space_is_ice(_space)) return false;   // can't step OFF the ice this move (either direction)
         if (!_isDest) {
             if (_space.enemy != undefined) return false;
             if (game_treasure_at(_g, _lane, _s) != undefined) return false;
@@ -799,26 +817,29 @@ function game_direct_reachable(_g, _p, _typeId, _lane, _srcIdx, _dstIdx, _srcSid
 /// deploy path from home. From home: the usual deploy check. From the field: it
 /// must be able to retreat home AND deploy, OR (if trapped) walk directly to a card
 /// on its own lane. Moving TO home requires being able to reach home at all.
-function game_move_legal(_g, _p, _typeId, _src, _dst, _waterOk = false, _srcSide = 0) {
+/// _startedOnIce: this token began the TURN on ice, so the ice-floor "can't step off it in the same
+/// move" restriction doesn't apply to it - it already spent its turn on the ice. Feeds BOTH the
+/// in-lane direct route and the walk-home route (a token on ice retreating home needs it too).
+function game_move_legal(_g, _p, _typeId, _src, _dst, _waterOk = false, _srcSide = 0, _startedOnIce = false) {
     if (_dst.kind == "home") {
         if (_src.kind == "home") return true;
         // a token pinned to the far (centre) half of a blocker can't retreat across it
         if (_srcSide != 0 && game_tile_blocks_pass(_g, pikmin_type_get(_typeId), _src.lane, _src.idx)
             && ((_p == 0) ? -1 : 1) != _srcSide) return false;
-        return game_can_reach_home(_g, _p, _typeId, _src.lane, _src.idx, _waterOk);
+        return game_can_reach_home(_g, _p, _typeId, _src.lane, _src.idx, _waterOk, _startedOnIce);
     }
     if (_src.kind == "home") {
         return game_dest_legal(_g, _p, _typeId, _dst.lane, _dst.idx, _waterOk);
     }
     // field -> space
-    if (game_can_reach_home(_g, _p, _typeId, _src.lane, _src.idx, _waterOk)
+    if (game_can_reach_home(_g, _p, _typeId, _src.lane, _src.idx, _waterOk, _startedOnIce)
         && game_dest_legal(_g, _p, _typeId, _dst.lane, _dst.idx, _waterOk)) return true;
     // trapped, but may still walk to any space it can reach along this lane - a card
     // to attach to, OR an empty space to reposition onto (game_direct_reachable already
     // proves the destination is standable and nothing blocks the path). _srcSide (when
     // the caller tracks it) keeps a latched token on its own half of a blocker.
     if (_src.lane == _dst.lane
-        && game_direct_reachable(_g, _p, _typeId, _src.lane, _src.idx, _dst.idx, _srcSide)) return true;
+        && game_direct_reachable(_g, _p, _typeId, _src.lane, _src.idx, _dst.idx, _srcSide, _startedOnIce)) return true;
     return false;
 }
 
@@ -994,6 +1015,41 @@ function game_orders_done(_g) {
     game_pop_snapshot(_g, "Orders");
 }
 
+/// The furthest space along _dst's lane this type can legally be ordered to when _dst itself is out
+/// of reach: step back from _dst toward wherever the group is coming from and return the first legal
+/// index, or -1 if even the first step is impossible. Lets a blocked order become "they marched as
+/// far as they could and stopped at the blockage" instead of silently doing nothing.
+/// Returns an index on _dst's lane - or, when _dst is HOME, an index on the SOURCE lane (a walk home
+/// can now legitimately stall partway, e.g. stopping on ice, so "home" needs a partial form too).
+/// -1 = no partial move is possible at all.
+function game_partial_dest_idx(_g, _p, _typeId, _src, _dst, _waterOk = false, _startedOnIce = false) {
+    var _lane, _targetIdx, _fromIdx;
+    var _homeEdgeOutside = (_p == 0) ? -1 : undefined;   // "one step outside the lane" on the home side
+    if (_dst.kind == "home") {
+        if (_src.kind != "space") return -1;             // home -> home, nothing to do
+        _lane = _src.lane;
+        // walking off the home edge: aim one step OUTSIDE the lane, so the walk-back lands on the
+        // home-edge space first and works inward from there
+        _targetIdx = (_p == 0) ? -1 : array_length(_g.board.lanes[_lane].spaces);
+        _fromIdx = _src.idx;
+    } else {
+        _lane = _dst.lane;
+        var _len = array_length(_g.board.lanes[_lane].spaces);
+        _targetIdx = _dst.idx;
+        // where they're walking FROM along this lane: their own index when already in it, otherwise
+        // they route in through this lane's home edge (one step OUTSIDE the lane, hence -1 / _len)
+        _fromIdx = (_src.kind == "space" && _src.lane == _lane) ? _src.idx : ((_p == 0) ? -1 : _len);
+    }
+    var _step = sign(_fromIdx - _targetIdx);   // walking back toward the origin
+    if (_step == 0) return -1;                 // already standing on the destination
+    var _i = _targetIdx + _step;
+    while (_i != _fromIdx) {
+        if (game_move_legal(_g, _p, _typeId, _src, { kind: "space", lane: _lane, idx: _i }, _waterOk, 0, _startedOnIce)) return _i;
+        _i += _step;
+    }
+    return -1;
+}
+
 /// Reassign tokens (per-colour counts struct) from _src to _dst. Illegal colours
 /// stay put and are logged. Returns true if anything moved.
 function game_order_move(_g, _src, _dst, _counts) {
@@ -1009,19 +1065,48 @@ function game_order_move(_g, _src, _dst, _counts) {
     var _ahTypes = 0;
     for (var _c = 0; _c < array_length(_colors); _c++) if (_counts[$ _colors[_c]] > 0) _ahTypes += 1;
     var _ahExtra = max(0, 5 - _ahTypes);
+    // ICE FLOOR: leaving an ice run in either direction is only free for a token that STARTED THE
+    // TURN on the ice. Without the movedThisTurn qualifier a player could deploy home->ice and then
+    // immediately move that same stack off the far end in the SAME orders phase, which defeats the
+    // rule entirely. The group gate below is permissive (true if ANY token here qualifies) and the
+    // per-token loop re-checks strictly, so a mixed stack can't drag along the ones that just arrived.
+    var _srcIce = (_src.kind == "space") && game_space_is_ice(_g.board.lanes[_src.lane].spaces[_src.idx]);
+    var _groupIceFree = false;
+    if (_srcIce) {
+        var _allToks = _g.players[_p].tokens;
+        for (var _q = 0; _q < array_length(_allToks); _q++) {
+            var _qt = _allToks[_q];
+            if (game_loc_eq(_qt.loc, _src) && !(variable_struct_exists(_qt, "movedThisTurn") && _qt.movedThisTurn)) { _groupIceFree = true; break; }
+        }
+    }
     for (var _c = 0; _c < array_length(_colors); _c++) {
         var _typeId = _colors[_c];
         var _want = _counts[$ _typeId];
         if (_want <= 0) continue;
-        if (!game_move_legal(_g, _p, _typeId, _src, _dst, _waterOk)) {
-            var _tName = string_upper(string_char_at(_typeId, 1)) + string_delete(_typeId, 1, 1);
-            var _trapped = (_src.kind == "space") && !game_can_reach_home(_g, _p, _typeId, _src.lane, _src.idx, _waterOk);
-            game_log(_g, _tName + " pikmin " + (_trapped ? "are trapped and can't get there." : "can't reach that space."));
-            continue;
+        // PARTIAL ORDERS: if the exact destination is out of reach, send them as FAR ALONG that lane
+        // as they legally can instead of refusing the order outright - "they set off and got stuck"
+        // reads far better than nothing visibly happening, and it shows WHERE the blockage is.
+        // _useDst is that (possibly shortened) destination and is what the rest of this type's block
+        // commits to. NOTE: for a move originating in a DIFFERENT lane the walk-back is measured from
+        // the destination lane's home edge, since that's the route - the pikmin will appear at the
+        // far-legal space without visibly travelling there (no route simulation yet; known, to fix).
+        var _useDst = _dst;
+        if (!game_move_legal(_g, _p, _typeId, _src, _dst, _waterOk, 0, _groupIceFree)) {
+            var _partIdx = game_partial_dest_idx(_g, _p, _typeId, _src, _dst, _waterOk, _groupIceFree);
+            if (_partIdx >= 0) {
+                // a partial walk HOME stalls on the SOURCE lane (e.g. stopped on the ice); any other
+                // partial lands on the destination lane
+                _useDst = { kind: "space", lane: (_dst.kind == "home") ? _src.lane : _dst.lane, idx: _partIdx };
+            } else {
+                var _tName = string_upper(string_char_at(_typeId, 1)) + string_delete(_typeId, 1, 1);
+                var _trapped = (_src.kind == "space") && !game_can_reach_home(_g, _p, _typeId, _src.lane, _src.idx, _waterOk, _groupIceFree);
+                game_log(_g, _tName + " pikmin " + (_trapped ? "are trapped and can't get there." : "can't reach that space."));
+                continue;
+            }
         }
         // (poison exposure is NOT marked here - it's judged from the committed net
         // route at orders lock-in, so re-planning mid-orders doesn't count)
-        var _exited = game_path_exited_spaces(_g, _p, _src, _dst);
+        var _exited = game_path_exited_spaces(_g, _p, _src, _useDst);
         var _mineRefs = [];
         for (var _e = 0; _e < array_length(_exited); _e++) {
             var _mn = game_mine_at(_g, _exited[_e].lane, _exited[_e].idx);
@@ -1029,6 +1114,29 @@ function game_order_move(_g, _src, _dst, _counts) {
         }
         var _tokens = _g.players[_p].tokens;
         var _typeDef = pikmin_type_get(_typeId);
+        // WALK ROUTE (presentation only): CHANGING LANES is never a diagonal hop - the rules send the
+        // group back down its lane to HOME and out along the new one (that's why game_move_legal's
+        // primary test is can_reach_home AND dest_legal). Each lane involved gets a waypoint at its
+        // BASE (the home strip) and the renderer walks the resulting L: down the lane, sideways along
+        // the base row, up the new lane. Sideways travel only ever happens on that row, so pikmin
+        // never appear to stand in the gap between two lanes' cells.
+        // WITHIN one lane there's nothing to show - travel is already a straight line up or down it,
+        // so a same-lane order keeps NO waypoints; detouring to the base and back would just be a
+        // long loop that reads no differently at the end of it.
+        // The DIRECT in-lane fallback (a trapped token shuffling along its own lane, or one leaving
+        // ice it started on) likewise gets an empty route.
+        var _viaHome = (_src.kind == "space" && _useDst.kind == "space")
+                       && game_can_reach_home(_g, _p, _typeId, _src.lane, _src.idx, _waterOk, _groupIceFree)
+                       && game_dest_legal(_g, _p, _typeId, _useDst.lane, _useDst.idx, _waterOk);
+        var _routeVia = [];
+        if (_src.kind == "home" && _useDst.kind == "space") {
+            array_push(_routeVia, _useDst.lane);            // form up at the lane's base, then head up it
+        } else if (_src.kind == "space" && _useDst.kind == "home") {
+            array_push(_routeVia, _src.lane);               // back down to your lane's base, then into the crowd
+        } else if (_viaHome && _useDst.lane != _src.lane) {
+            array_push(_routeVia, _src.lane);               // down to your base...
+            array_push(_routeVia, _useDst.lane);            // ...across the strip, then up the new lane
+        }
         var _srcBlocks = (_src.kind == "space") && game_tile_blocks_pass(_g, _typeDef, _src.lane, _src.idx, _waterOk);
         var _homeDir = (_p == 0) ? -1 : 1;   // step direction toward this player's home edge
         var _moved = 0;
@@ -1038,6 +1146,10 @@ function game_order_move(_g, _src, _dst, _counts) {
             if (_tok.typeId != _typeId || !game_loc_eq(_tok.loc, _src)) continue;
             if (variable_struct_exists(_tok, "stunned") && _tok.stunned > 0) continue; // tossed by a snitchbug
             if (token_is_frozen(_tok)) continue;                                       // iced solid
+            // ICE FLOOR per-token: a token that only stepped onto this ice THIS turn doesn't get the
+            // leave-in-any-direction freedom, so re-test it strictly (see _groupIceFree above).
+            if (_srcIce && (variable_struct_exists(_tok, "movedThisTurn") && _tok.movedThisTurn)
+                && !game_move_legal(_g, _p, _typeId, _src, _useDst, _waterOk, 0, false)) continue;
             // MID-TILE WALL: a token latched on a blocking card sits on the half it
             // approached from; it may exit only toward that half. Crossing to the far
             // side (e.g. past the card it's stuck against) is illegal while the card lives.
@@ -1045,26 +1157,29 @@ function game_order_move(_g, _src, _dst, _counts) {
                 // a move HOME or to ANOTHER LANE routes through the home edge, so it exits toward
                 // home; only a straight in-lane move exits along the lane. (Comparing idx across
                 // different lanes is meaningless - that let a back-side token escape to a forward space.)
-                var _exitDir = (_dst.kind == "home" || _dst.lane != _src.lane) ? _homeDir : sign(_dst.idx - _src.idx);
+                var _exitDir = (_useDst.kind == "home" || _useDst.lane != _src.lane) ? _homeDir : sign(_useDst.idx - _src.idx);
                 // A TREASURE is CARRIED, not an impassable wall: it only blocks going DEEPER (past it,
                 // toward centre). Retreating toward home is always allowed - the pikmin haul it home or
                 // drop it and leave. A wall/enemy uses the latched half (a token trapped BEHIND it can't
                 // cross back).
                 var _blocked;
-                if (game_treasure_at(_g, _src.lane, _src.idx) != undefined) _blocked = (_exitDir != _homeDir && _dst.kind == "space");
+                if (game_treasure_at(_g, _src.lane, _src.idx) != undefined) _blocked = (_exitDir != _homeDir && _useDst.kind == "space");
                 else _blocked = (_exitDir != game_token_side(_tok, _p));
                 if (_blocked) { _wallBlocked += 1; continue; }
             }
-            _tok.loc = (_dst.kind == "home") ? { kind: "home" } : { kind: "space", lane: _dst.lane, idx: _dst.idx };
+            _tok.loc = (_useDst.kind == "home") ? { kind: "home" } : { kind: "space", lane: _useDst.lane, idx: _useDst.idx };
+            // fresh copy per token - the renderer consumes (mutates) this as it hits each waypoint
+            _tok.routeVia = [];
+            for (var _rv = 0; _rv < array_length(_routeVia); _rv++) array_push(_tok.routeVia, _routeVia[_rv]);
             _tok.movedThisTurn = true;
             // record which half of a destination card this token now clings to (else clear).
             // A straight IN-LANE move approaches from where it stood (_src.idx); a HOME deploy OR a
             // LANE CHANGE routes through home, so it approaches the card from the HOME edge - use that,
             // not the old lane's idx (which put a cross-lane attacker on the wrong/back half).
-            if (_dst.kind == "space" && game_space_has_card(_g, _dst.lane, _dst.idx)) {
-                var _sameLane = (_src.kind == "space" && _src.lane == _dst.lane);
-                var _fromIdx = _sameLane ? _src.idx : ((_p == 0) ? -1 : array_length(_g.board.lanes[_dst.lane].spaces));
-                _tok.side = sign(_fromIdx - _dst.idx);
+            if (_useDst.kind == "space" && game_space_has_card(_g, _useDst.lane, _useDst.idx)) {
+                var _sameLane = (_src.kind == "space" && _src.lane == _useDst.lane);
+                var _fromIdx = _sameLane ? _src.idx : ((_p == 0) ? -1 : array_length(_g.board.lanes[_useDst.lane].spaces));
+                _tok.side = sign(_fromIdx - _useDst.idx);
             } else {
                 _tok.side = 0;
             }
@@ -1080,15 +1195,15 @@ function game_order_move(_g, _src, _dst, _counts) {
             _movedAny = true;
             game_trace(_g, "MOVE " + string(_moved) + " " + _typeId + ": "
                 + ((_src.kind == "home") ? "home" : "L" + string(_src.lane + 1) + "i" + string(_src.idx)) + " -> "
-                + ((_dst.kind == "home") ? "home" : "L" + string(_dst.lane + 1) + "i" + string(_dst.idx)));
+                + ((_useDst.kind == "home") ? "home" : "L" + string(_useDst.lane + 1) + "i" + string(_useDst.idx)));
             // pikmin REACT to being ordered to a space: a few random "ah"s (capped + offset +
             // wobbled like combat sfx), pitched by type - winged a touch higher, purple lower.
-            if (_dst.kind == "space") {
+            if (_useDst.kind == "space") {
                 var _ahP = (_typeId == "winged") ? 1.12 : ((_typeId == "purple") ? 0.88 : ((_typeId == "white") ? 0.94 : 1.0));
-                game_sfx(_g, "ah" + string(irandom_range(1, 13)), 5, _dst.lane, _dst.idx, _ahP); // guaranteed one for this type
+                game_sfx(_g, "ah" + string(irandom_range(1, 13)), 5, _useDst.lane, _useDst.idx, _ahP); // guaranteed one for this type
                 var _ahMore = min(_moved - 1, _ahExtra);   // extras from the shared budget (total capped ~5)
                 _ahExtra -= _ahMore;
-                repeat (_ahMore) game_sfx(_g, "ah" + string(irandom_range(1, 13)), 5, _dst.lane, _dst.idx, _ahP);
+                repeat (_ahMore) game_sfx(_g, "ah" + string(irandom_range(1, 13)), 5, _useDst.lane, _useDst.idx, _ahP);
             }
         }
     }
@@ -1142,6 +1257,11 @@ function game_order_discard(_g, _src, _counts) {
                 // disappears at the Onion (so the tally drops on arrival, not at click time).
                 _tok.loc = { kind: "onion" };
                 _tok.onionShrink = 0;
+                // walking to the Onion is a retreat HOME (that's exactly what game_can_reach_home
+                // gates above), so route it like one: down its own lane to the base first, then along
+                // to the Onion - never a diagonal cut across the board. (From home there's nothing to
+                // walk down, so no waypoint.) See the routeVia note in game_order_move.
+                _tok.routeVia = (_src.kind == "space") ? [_src.lane] : [];
                 _n += 1;
                 _i += 1;
             } else if (_match) {

@@ -97,8 +97,10 @@ function data_load_all() {
     // advCleared = adventure-campaign unlock frontier (how many scenarios beaten; 0 = only the first open)
     // masterVol/bgmVol/sfxVol = 0..1 volume sliders (applied via apply_audio_settings). Default 0.8
     // so a first launch isn't ear-splitting; 1.0 reproduces the pre-slider balance.
+    // devTools = show dev/debug-only surfaces (Tab lane/space overlay, the "Debug" + "Adv Test" main-menu
+    // buttons) - default OFF so a normal player never sees them; toggled in Options > Interface.
     global.settings = { ctl: ["human", "hard"], defaultSelectAll: false, fullscreen: false, allSet: 1, advCleared: 0,
-                        masterVol: 0.8, bgmVol: 0.8, sfxVol: 0.8 };
+                        masterVol: 0.8, bgmVol: 0.8, sfxVol: 0.8, devTools: false };
     settings_load();
 
     // procedural "random" board as the last entry of the board list (regenerated on demand
@@ -274,7 +276,12 @@ function adventure_slot_copy(_fromIdx, _toIdx) {
 
 /// NEW ADVENTURE: reset ONE campaign (scenario) inside a log back to its base start - a single
 /// fresh mission-0 checkpoint (full day budget + starting deck), cleared 'done'. Leaves the log's
-/// OTHER campaigns untouched. Persists.
+/// OTHER campaigns untouched.
+/// IN-MEMORY ONLY - deliberately does NOT persist. Starting a new run must not destroy the existing
+/// save on disk until the player actually saves over it (the between-mission hub's Save button is
+/// the only writer of run progress). Abandoning the fresh run reloads the file and the old save is
+/// still intact. Contrast adventure_slot_reset / adventure_slot_copy below, which DO persist: those
+/// are explicit "erase this" / "overwrite that" actions where writing immediately IS the intent.
 function adventure_campaign_reset(_slotIdx, _scenIdx) {
     if (!variable_global_exists("advSaves") || _slotIdx < 0 || _slotIdx >= array_length(global.advSaves)) return;
     var _scens = global.adventureData.scenarios;
@@ -283,7 +290,6 @@ function adventure_campaign_reset(_slotIdx, _scenIdx) {
     var _slot = global.advSaves[_slotIdx];
     _slot.campaigns[_scenIdx] = [ { daysLeft: _cfg.start, daysUsed: 0, enemyDeck: adventure_deck_expand(_scens[_scenIdx].boards[0]) } ];
     if (_scenIdx < array_length(_slot.done)) _slot.done[_scenIdx] = false;
-    adventure_saves_save();
 }
 
 /// Has this campaign been TOUCHED in this log (so "New Adventure" would destroy progress)? True if a
@@ -339,7 +345,7 @@ function adventure_cull_match(_id, _rule) {
     return adventure_cull_stat(_id, _rule) <= _rule.thr;
 }
 
-/// Carry deck -> next checkpoint deck: apply the board's cull (AUTO = lowest-stat matching first),
+/// Carry deck -> next checkpoint deck: apply the board's cull (AUTO = HIGHEST-stat matching first),
 /// then mix in the board's additions. Returns a NEW flat id array. The interactive menu overrides
 /// WHICH matching cards are cut; this auto path seeds/back-fills and drives play-from-here.
 function adventure_deck_advance(_deckIds, _advBoard) {
@@ -347,11 +353,14 @@ function adventure_deck_advance(_deckIds, _advBoard) {
     for (var _c = 0; _c < array_length(_deckIds); _c++) array_push(_deck, _deckIds[_c]);
     var _rule = variable_struct_exists(_advBoard, "cullBefore") ? _advBoard.cullBefore : undefined;
     if (_rule != undefined) {
-        var _match = [];   // {idx, s} for every matching card, sorted by stat ascending
+        // {idx, s} for every eligible card, sorted by stat DESCENDING. Culling means dropping the
+        // enemies you'd rather not face again, so the auto pick takes the STRONGEST of the eligible
+        // pool and leaves the pushovers in the deck (this used to take the weakest - backwards).
+        var _match = [];
         for (var _i = 0; _i < array_length(_deck); _i++)
             if (adventure_cull_match(_deck[_i], _rule)) array_push(_match, { idx: _i, s: adventure_cull_stat(_deck[_i], _rule) });
-        array_sort(_match, function(_a, _b) { return _a.s - _b.s; });
-        var _rm = [];      // absolute indices to delete (the lowest-stat <remove> matches)
+        array_sort(_match, function(_a, _b) { return _b.s - _a.s; });
+        var _rm = [];      // absolute indices to delete (the highest-stat <remove> matches)
         for (var _m = 0; _m < array_length(_match) && _m < _rule.remove; _m++) array_push(_rm, _match[_m].idx);
         array_sort(_rm, function(_a, _b) { return _b - _a; });   // descending: delete high-to-low so indices don't shift
         for (var _d = 0; _d < array_length(_rm); _d++) array_delete(_deck, _rm[_d], 1);
@@ -409,6 +418,7 @@ function settings_load() {
     _s.fullscreen       = ini_read_real("game", "fullscreen", _s.fullscreen ? 1 : 0) != 0;
     _s.allSet           = ini_read_real("game", "allSet", _s.allSet);
     _s.advCleared       = ini_read_real("game", "advCleared", _s.advCleared);
+    _s.devTools         = ini_read_real("game", "devTools", _s.devTools ? 1 : 0) != 0;
     _s.masterVol        = clamp(ini_read_real("audio", "master", _s.masterVol), 0, 1);
     _s.bgmVol           = clamp(ini_read_real("audio", "bgm",    _s.bgmVol),    0, 1);
     _s.sfxVol           = clamp(ini_read_real("audio", "sfx",    _s.sfxVol),    0, 1);
@@ -441,6 +451,7 @@ function settings_save() {
     ini_write_real("game", "fullscreen", _s.fullscreen ? 1 : 0);
     ini_write_real("game", "allSet", _s.allSet);
     ini_write_real("game", "advCleared", _s.advCleared);
+    ini_write_real("game", "devTools", _s.devTools ? 1 : 0);
     ini_write_real("audio", "master", _s.masterVol);
     ini_write_real("audio", "bgm",    _s.bgmVol);
     ini_write_real("audio", "sfx",    _s.sfxVol);
